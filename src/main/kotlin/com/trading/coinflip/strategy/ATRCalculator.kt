@@ -52,7 +52,8 @@ class ATRCalculator {
         for (i in period until candles.size) {
             // ATR = ((period - 1) * prevATR + currentTR) / period
             // Or using EMA formula: ATR = prevATR + multiplier * (currentTR - prevATR)
-            atr = atr + multiplier * (trueRanges[i] - atr)
+            atr = (atr + multiplier * (trueRanges[i] - atr))
+                .setScale(8, RoundingMode.HALF_UP)
             result[i].atr = atr
         }
 

@@ -88,7 +88,7 @@ data class Position(
     val initialStopLoss: BigDecimal,
     var trailingStop: BigDecimal,
     var highestFavorablePrice: BigDecimal,
-    val status: PositionStatus,
+    var status: PositionStatus,
     var exitTime: Instant? = null,
     var exitPrice: BigDecimal? = null,
     var exitReason: String? = null

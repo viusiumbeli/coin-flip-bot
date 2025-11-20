@@ -67,6 +67,7 @@ class BacktestEngine(
             // Close positions and update balance
             for (position in positionsToClose) {
                 openPositions.remove(position)
+                position.status = PositionStatus.CLOSED
 
                 val trade = position.toTrade(++tradeIdCounter)
                 closedTrades.add(trade)
@@ -121,6 +122,7 @@ class BacktestEngine(
             position.exitPrice = lastCandle.close
             position.exitTime = lastCandle.openTime
             position.exitReason = "End of backtest period"
+            position.status = PositionStatus.CLOSED
 
             val trade = position.toTrade(++tradeIdCounter)
             closedTrades.add(trade)

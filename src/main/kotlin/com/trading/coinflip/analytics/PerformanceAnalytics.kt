@@ -3,12 +3,15 @@ package com.trading.coinflip.analytics
 import com.trading.coinflip.model.BacktestConfig
 import com.trading.coinflip.model.BacktestResult
 import com.trading.coinflip.model.Trade
+import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Duration
 import java.time.Instant
 import kotlin.math.sqrt
+
+private val log = KotlinLogging.logger {}
 
 @Component
 class PerformanceAnalytics {
@@ -38,12 +41,22 @@ class PerformanceAnalytics {
         val winningTrades = trades.filter { it.profitLoss > BigDecimal.ZERO }
         val losingTrades = trades.filter { it.profitLoss < BigDecimal.ZERO }
 
+        // Debug: log some sample trades to understand the issue
+        if (trades.isNotEmpty()) {
+            log.info { "Debug: Total trades: ${trades.size}, Winning: ${winningTrades.size}, Losing: ${losingTrades.size}" }
+            log.info { "Debug: First 5 trades P/L: ${trades.take(5).map { it.profitLoss }}" }
+            log.info { "Debug: Sample winning trades: ${winningTrades.take(3).map { "P/L: ${it.profitLoss}, Entry: ${it.entryPrice}, Exit: ${it.exitPrice}, Size: ${it.positionSize}" }}" }
+            log.info { "Debug: Sample losing trades: ${losingTrades.take(3).map { "P/L: ${it.profitLoss}, Entry: ${it.entryPrice}, Exit: ${it.exitPrice}, Size: ${it.positionSize}" }}" }
+        }
+
         val winRate = if (trades.isNotEmpty()) {
-            (BigDecimal(winningTrades.size) / BigDecimal(trades.size) * BigDecimal(100))
+            (BigDecimal(winningTrades.size) * BigDecimal(100) / BigDecimal(trades.size))
                 .setScale(2, RoundingMode.HALF_UP)
         } else {
             BigDecimal.ZERO
         }
+
+        log.info { "Debug: Win rate calculation: ${winningTrades.size} * 100 / ${trades.size} = $winRate" }
 
         val totalWins = winningTrades.sumOf { it.profitLoss }
         val totalLosses = losingTrades.sumOf { it.profitLoss }.abs()

@@ -40,4 +40,10 @@ interface CandleRepository : JpaRepository<Candle, Long> {
 
     @Query("SELECT MAX(c.openTime) FROM Candle c WHERE c.symbol = :symbol AND c.timeframe = :timeframe")
     fun findLatestCandleTime(symbol: String, timeframe: Timeframe): Instant?
+
+    @Query("SELECT COUNT(c) FROM Candle c WHERE c.symbol = :symbol AND c.timeframe = :timeframe AND c.atr IS NULL")
+    fun countCandlesWithoutATR(symbol: String, timeframe: Timeframe): Long
+
+    @Query("SELECT c FROM Candle c WHERE c.symbol = :symbol AND c.timeframe = :timeframe AND c.atr IS NULL ORDER BY c.openTime ASC")
+    fun findCandlesWithoutATR(symbol: String, timeframe: Timeframe): List<Candle>
 }
