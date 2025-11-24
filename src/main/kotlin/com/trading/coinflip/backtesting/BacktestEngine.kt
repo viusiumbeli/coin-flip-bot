@@ -106,21 +106,28 @@ class BacktestEngine(
                 candle.atr != null &&
                 accountBalance > BigDecimal.ZERO
             ) {
-                // Random entry frequency: try to enter on ~10% of candles
-                if (kotlin.random.Random.nextDouble() < 0.1) {
-                    val balanceBeforeOpen = accountBalance
-                    val newPosition = strategy.createPosition(
-                        candle = candle,
-                        candles = backtestCandles,
-                        candleIndex = i,
-                        accountBalance = accountBalance,
-                        riskPercent = config.riskPerTrade,
-                        atrMultiplier = config.atrMultiplier,
-                        balanceBeforeOpen = balanceBeforeOpen
-                    )
+                // Calculate capital already allocated to open positions
+                val allocatedCapital = openPositions.sumOf { it.positionSize * it.entryPrice }
+                val availableBalance = accountBalance - allocatedCapital
 
-                    if (newPosition != null) {
-                        openPositions.add(newPosition)
+                // Only try to open if we have available capital
+                if (availableBalance > BigDecimal.ZERO) {
+                    // Random entry frequency: try to enter on ~10% of candles
+                    if (kotlin.random.Random.nextDouble() < 0.1) {
+                        val balanceBeforeOpen = accountBalance
+                        val newPosition = strategy.createPosition(
+                            candle = candle,
+                            candles = backtestCandles,
+                            candleIndex = i,
+                            accountBalance = availableBalance, // Use available balance for position sizing
+                            riskPercent = config.riskPerTrade,
+                            atrMultiplier = config.atrMultiplier,
+                            balanceBeforeOpen = balanceBeforeOpen
+                        )
+
+                        if (newPosition != null) {
+                            openPositions.add(newPosition)
+                        }
                     }
                 }
             }
