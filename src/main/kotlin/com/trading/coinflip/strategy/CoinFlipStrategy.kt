@@ -77,8 +77,20 @@ class CoinFlipStrategy(
             PositionSide.SHORT -> entryPrice + (atr * atrMultiplier)
         }
 
-        // Calculate position size
-        val positionSize = calculatePositionSize(
+        // Check minimum balance requirement before calculating position size
+        val riskAmount = accountBalance * riskPercent.divide(BigDecimal(100), 8, RoundingMode.HALF_UP)
+        val minRiskAmount = BigDecimal("0.01") // Minimum $0.01 risk to open position
+
+        if (riskAmount < minRiskAmount) {
+            log.warn {
+                "Insufficient balance to open position. " +
+                "Available: $accountBalance, Risk amount: $riskAmount, Minimum required: $minRiskAmount"
+            }
+            return null
+        }
+
+        // Calculate position size based on risk
+        var positionSize = calculatePositionSize(
             accountBalance = accountBalance,
             riskPercent = riskPercent,
             entryPrice = entryPrice,
@@ -90,9 +102,34 @@ class CoinFlipStrategy(
             return null
         }
 
+        // For LONG positions, ensure we don't exceed available balance
+        if (side == PositionSide.LONG) {
+            val positionValue = positionSize * entryPrice
+            if (positionValue > accountBalance) {
+                // Cap position size to what we can afford
+                positionSize = accountBalance.divide(entryPrice, 8, RoundingMode.DOWN)
+                log.warn {
+                    "Position size capped to $positionSize due to insufficient balance. " +
+                    "Required: $positionValue, Available: $accountBalance"
+                }
+
+                // After capping, check if position size is still valid
+                if (positionSize <= BigDecimal.ZERO) {
+                    log.warn { "Position size is zero or negative after capping. Cannot open position." }
+                    return null
+                }
+            }
+        }
+
         // Calculate balance after opening position (allocating capital)
+        // For LONG: lock up full position value (buying the asset)
+        // For SHORT: lock up margin requirement (risk amount as collateral)
         val positionValue = positionSize * entryPrice
-        val balanceAfterOpen = balanceBeforeOpen - positionValue
+        val allocatedCapital = when (side) {
+            PositionSide.LONG -> positionValue // Full position value for LONG
+            PositionSide.SHORT -> riskAmount // For SHORT, only allocate the risk amount as margin
+        }
+        val balanceAfterOpen = balanceBeforeOpen - allocatedCapital
 
         val position = Position(
             id = ++positionIdCounter,
@@ -107,7 +144,8 @@ class CoinFlipStrategy(
             highestFavorablePrice = entryPrice,
             status = PositionStatus.OPEN,
             balanceBeforeOpen = balanceBeforeOpen,
-            balanceAfterOpen = balanceAfterOpen
+            balanceAfterOpen = balanceAfterOpen,
+            allocatedCapital = allocatedCapital
         )
 
         log.info {

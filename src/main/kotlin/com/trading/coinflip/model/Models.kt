@@ -95,6 +95,7 @@ data class Position(
     var status: PositionStatus,
     val balanceBeforeOpen: BigDecimal,
     val balanceAfterOpen: BigDecimal,
+    val allocatedCapital: BigDecimal, // Capital locked up for this position
     var exitTime: Instant? = null,
     var exitPrice: BigDecimal? = null,
     var exitReason: String? = null
@@ -141,7 +142,12 @@ data class Position(
             PositionSide.SHORT -> (entryPrice - exitPrice!!) * positionSize
         }
 
-        val pnlPercent = (pnl / (entryPrice * positionSize)) * BigDecimal(100)
+        val positionValue = entryPrice * positionSize
+        val pnlPercent = if (positionValue > BigDecimal.ZERO) {
+            (pnl / positionValue) * BigDecimal(100)
+        } else {
+            BigDecimal.ZERO
+        }
 
         return Trade(
             id = tradeId,

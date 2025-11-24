@@ -107,14 +107,13 @@ class BacktestEngine(
                 accountBalance > BigDecimal.ZERO
             ) {
                 // Calculate capital already allocated to open positions
-                val allocatedCapital = openPositions.sumOf { it.positionSize * it.entryPrice }
+                val allocatedCapital = openPositions.sumOf { it.allocatedCapital }
                 val availableBalance = accountBalance - allocatedCapital
 
                 // Only try to open if we have available capital
                 if (availableBalance > BigDecimal.ZERO) {
                     // Random entry frequency: try to enter on ~10% of candles
                     if (kotlin.random.Random.nextDouble() < 0.1) {
-                        val balanceBeforeOpen = accountBalance
                         val newPosition = strategy.createPosition(
                             candle = candle,
                             candles = backtestCandles,
@@ -122,7 +121,7 @@ class BacktestEngine(
                             accountBalance = availableBalance, // Use available balance for position sizing
                             riskPercent = config.riskPerTrade,
                             atrMultiplier = config.atrMultiplier,
-                            balanceBeforeOpen = balanceBeforeOpen
+                            balanceBeforeOpen = availableBalance // Use available balance for reporting
                         )
 
                         if (newPosition != null) {
