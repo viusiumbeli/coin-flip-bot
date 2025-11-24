@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coin Flip Trading Bot - Backtest System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 150px;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(245, 87, 108, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            word-break: break-word;
+            cursor: help;
+        }
+
+        .metric-value.positive {
+            color: #10b981;
+        }
+
+        .metric-value.negative {
+            color: #ef4444;
+        }
+
+        .trades-section {
+            margin-top: 30px;
+        }
+
+        .trades-table {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: #f5f7fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        .trade-profit {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .trade-loss {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .error {
+            background: #fee;
+            border: 2px solid #fcc;
+            color: #c33;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .config-info {
+            background: #f0f9ff;
+            padding: 15px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #0369a1;
+            margin-bottom: 20px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Van Tharp Coin-Flip Trading Bot</h1>
+            <p class="subtitle">Backtest System - Web Interface</p>
+        </div>
+
+        <div class="card">
+            <h2 style="margin-bottom: 20px;">Run Backtest</h2>
+
+            <div class="config-info" id="configInfo" style="display: none;">
+                Loading configuration...
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="symbol">Symbol</label>
+                    <select id="symbol">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="timeframe">Timeframe</label>
+                    <select id="timeframe">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="startDate">Start Date (Optional)</label>
+                    <input type="datetime-local" id="startDate">
+                </div>
+
+                <div class="form-group">
+                    <label for="endDate">End Date (Optional)</label>
+                    <input type="datetime-local" id="endDate">
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" onclick="runBacktest()" id="runBtn">Run Backtest</button>
+                <button class="btn-secondary" onclick="runAllBacktests()" id="runAllBtn">Run All Backtests</button>
+            </div>
+        </div>
+
+        <div id="loading" class="card loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Running backtest... This may take a few moments.</p>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="results" class="results">
+            <!-- Results will be inserted here -->
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/backtest';
+
+        // Load configuration on page load
+        async function loadConfig() {
+            try {
+                const [configRes, symbolsRes] = await Promise.all([
+                    fetch(`${API_BASE}/config`),
+                    fetch(`${API_BASE}/symbols`)
+                ]);
+
+                const config = await configRes.json();
+                const symbols = await symbolsRes.json();
+
+                // Populate symbols dropdown
+                const symbolSelect = document.getElementById('symbol');
+                symbolSelect.innerHTML = symbols.symbols.map(s =>
+                    `<option value="${s}">${s}</option>`
+                ).join('');
+
+                // Populate timeframes dropdown
+                const timeframeSelect = document.getElementById('timeframe');
+                timeframeSelect.innerHTML = symbols.timeframes.map(t =>
+                    `<option value="${t}">${t}</option>`
+                ).join('');
+
+                // Show config info
+                const configInfo = document.getElementById('configInfo');
+                configInfo.style.display = 'block';
+                configInfo.innerHTML = `
+                    <strong>Configuration:</strong>
+                    Initial Capital: $${config.initialCapital.toLocaleString()} |
+                    Risk per Trade: ${config.riskPerTrade}% |
+                    ATR Period: ${config.atrPeriod} |
+                    ATR Multiplier: ${config.atrMultiplier} |
+                    Max Positions: ${config.maxConcurrentPositions}
+                `;
+            } catch (error) {
+                showError('Failed to load configuration: ' + error.message);
+            }
+        }
+
+        async function runBacktest() {
+            const symbol = document.getElementById('symbol').value;
+            const timeframe = document.getElementById('timeframe').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!symbol || !timeframe) {
+                showError('Please select a symbol and timeframe');
+                return;
+            }
+
+            showLoading(true);
+            hideError();
+            hideResults();
+
+            try {
+                const response = await fetch(`${API_BASE}/run`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        symbol,
+                        timeframe,
+                        startDate: startDate ? new Date(startDate).toISOString() : null,
+                        endDate: endDate ? new Date(endDate).toISOString() : null
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+
+                const result = await response.json();
+                displayResults([result]);
+            } catch (error) {
+                showError('Failed to run backtest: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function runAllBacktests() {
+            showLoading(true);
+            hideError();
+            hideResults();
+
+            try {
+                const response = await fetch(`${API_BASE}/run-all`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+
+                const results = await response.json();
+                displayResults(results);
+            } catch (error) {
+                showError('Failed to run backtests: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function formatLargeNumber(num) {
+            const absNum = Math.abs(num);
+            if (absNum >= 1e9) {
+                return (num / 1e9).toFixed(2) + 'B';
+            } else if (absNum >= 1e6) {
+                return (num / 1e6).toFixed(2) + 'M';
+            } else if (absNum >= 1e3) {
+                return (num / 1e3).toFixed(2) + 'K';
+            }
+            return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+
+            results.forEach(result => {
+                const resultCard = createResultCard(result);
+                resultsDiv.appendChild(resultCard);
+            });
+
+            resultsDiv.classList.add('show');
+        }
+
+        function createResultCard(result) {
+            const card = document.createElement('div');
+            card.className = 'card';
+
+            const isProfit = result.totalReturnPercent >= 0;
+
+            card.innerHTML = `
+                <h2 style="margin-bottom: 20px; color: ${isProfit ? '#10b981' : '#ef4444'};">
+                    ${result.symbol} - ${result.timeframe}
+                    <span style="float: right; font-size: 18px;">
+                        ${result.totalReturnPercent.toFixed(2)}% Return
+                    </span>
+                </h2>
+
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Initial Capital</div>
+                        <div class="metric-value" title="$${result.initialCapital.toLocaleString()}">$${formatLargeNumber(result.initialCapital)}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Final Capital</div>
+                        <div class="metric-value ${isProfit ? 'positive' : 'negative'}" title="$${result.finalCapital.toLocaleString()}">
+                            $${formatLargeNumber(result.finalCapital)}
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Total Return</div>
+                        <div class="metric-value ${isProfit ? 'positive' : 'negative'}" title="$${result.totalReturn.toLocaleString()}">
+                            $${formatLargeNumber(result.totalReturn)}
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Max Drawdown</div>
+                        <div class="metric-value negative">${result.maxDrawdownPercent.toFixed(2)}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Win Rate</div>
+                        <div class="metric-value">${result.winRate.toFixed(2)}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Profit Factor</div>
+                        <div class="metric-value">${result.profitFactor.toFixed(2)}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Sharpe Ratio</div>
+                        <div class="metric-value">${result.sharpeRatio.toFixed(2)}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Total Trades</div>
+                        <div class="metric-value">${result.totalTrades}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Winning Trades</div>
+                        <div class="metric-value positive">${result.winningTrades}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Losing Trades</div>
+                        <div class="metric-value negative">${result.losingTrades}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Average Win</div>
+                        <div class="metric-value positive" title="$${result.averageWin.toFixed(2)}">$${formatLargeNumber(result.averageWin)}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Average Loss</div>
+                        <div class="metric-value negative" title="$${result.averageLoss.toFixed(2)}">$${formatLargeNumber(result.averageLoss)}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Largest Win</div>
+                        <div class="metric-value positive" title="$${result.largestWin.toFixed(2)}">$${formatLargeNumber(result.largestWin)}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Largest Loss</div>
+                        <div class="metric-value negative" title="$${result.largestLoss.toFixed(2)}">$${formatLargeNumber(result.largestLoss)}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Buy & Hold Return</div>
+                        <div class="metric-value" title="$${result.buyAndHoldReturn.toLocaleString()}">
+                            ${result.buyAndHoldReturnPercent.toFixed(2)}% ($${formatLargeNumber(result.buyAndHoldReturn)})
+                        </div>
+                    </div>
+                </div>
+
+                <div class="trades-section">
+                    <h3 style="margin-bottom: 15px;">Trade History (${result.trades.length} trades)</h3>
+                    <div class="trades-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Side</th>
+                                    <th>Entry Time</th>
+                                    <th>Entry Price</th>
+                                    <th>Exit Time</th>
+                                    <th>Exit Price</th>
+                                    <th>Size</th>
+                                    <th>P&L</th>
+                                    <th>P&L %</th>
+                                    <th>Exit Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${result.trades.map(trade => `
+                                    <tr>
+                                        <td>${trade.id}</td>
+                                        <td>${trade.side}</td>
+                                        <td>${new Date(trade.entryTime).toLocaleString()}</td>
+                                        <td>$${trade.entryPrice.toFixed(2)}</td>
+                                        <td>${new Date(trade.exitTime).toLocaleString()}</td>
+                                        <td>$${trade.exitPrice.toFixed(2)}</td>
+                                        <td>${trade.positionSize.toFixed(4)}</td>
+                                        <td class="${trade.profitLoss >= 0 ? 'trade-profit' : 'trade-loss'}">
+                                            $${trade.profitLoss.toFixed(2)}
+                                        </td>
+                                        <td class="${trade.profitLossPercent >= 0 ? 'trade-profit' : 'trade-loss'}">
+                                            ${trade.profitLossPercent.toFixed(2)}%
+                                        </td>
+                                        <td>${trade.exitReason}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            return card;
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            document.getElementById('runBtn').disabled = show;
+            document.getElementById('runAllBtn').disabled = show;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+
+        function hideResults() {
+            document.getElementById('results').classList.remove('show');
+        }
+
+        // Load config on page load
+        loadConfig();
+    </script>
+</body>
+</html>
