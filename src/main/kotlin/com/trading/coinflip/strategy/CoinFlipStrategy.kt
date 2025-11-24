@@ -102,33 +102,26 @@ class CoinFlipStrategy(
             return null
         }
 
-        // For LONG positions, ensure we don't exceed available balance
-        if (side == PositionSide.LONG) {
-            val positionValue = positionSize * entryPrice
-            if (positionValue > accountBalance) {
-                // Cap position size to what we can afford
-                positionSize = accountBalance.divide(entryPrice, 8, RoundingMode.DOWN)
-                log.warn {
-                    "Position size capped to $positionSize due to insufficient balance. " +
-                    "Required: $positionValue, Available: $accountBalance"
-                }
+        // For both LONG and SHORT positions, ensure we don't exceed available balance
+        val positionValue = positionSize * entryPrice
+        if (positionValue > accountBalance) {
+            // Cap position size to what we can afford
+            positionSize = accountBalance.divide(entryPrice, 8, RoundingMode.DOWN)
+            log.warn {
+                "Position size capped to $positionSize due to insufficient balance. " +
+                "Required: $positionValue, Available: $accountBalance"
+            }
 
-                // After capping, check if position size is still valid
-                if (positionSize <= BigDecimal.ZERO) {
-                    log.warn { "Position size is zero or negative after capping. Cannot open position." }
-                    return null
-                }
+            // After capping, check if position size is still valid
+            if (positionSize <= BigDecimal.ZERO) {
+                log.warn { "Position size is zero or negative after capping. Cannot open position." }
+                return null
             }
         }
 
         // Calculate balance after opening position (allocating capital)
-        // For LONG: lock up full position value (buying the asset)
-        // For SHORT: lock up margin requirement (risk amount as collateral)
-        val positionValue = positionSize * entryPrice
-        val allocatedCapital = when (side) {
-            PositionSide.LONG -> positionValue // Full position value for LONG
-            PositionSide.SHORT -> riskAmount // For SHORT, only allocate the risk amount as margin
-        }
+        // For both LONG and SHORT: lock up full position value
+        val allocatedCapital = positionSize * entryPrice
         val balanceAfterOpen = balanceBeforeOpen - allocatedCapital
 
         val position = Position(
