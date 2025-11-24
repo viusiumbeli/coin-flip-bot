@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 95%;
             margin: 0 auto;
         }
 
@@ -191,6 +191,10 @@
         .trades-table {
             width: 100%;
             overflow-x: auto;
+            overflow-y: auto;
+            max-height: 600px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
         }
 
         table {
@@ -200,15 +204,21 @@
         }
 
         th, td {
-            padding: 12px;
+            padding: 12px 8px;
             text-align: left;
             border-bottom: 1px solid #e0e0e0;
+            white-space: nowrap;
+            font-size: 13px;
         }
 
         th {
             background: #f5f7fa;
             font-weight: 600;
             color: #333;
+            font-size: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         tr:hover {
@@ -532,11 +542,15 @@
                                     <th>Side</th>
                                     <th>Entry Time</th>
                                     <th>Entry Price</th>
+                                    <th>Balance Before Open</th>
+                                    <th>Size</th>
+                                    <th>Balance After Open</th>
                                     <th>Exit Time</th>
                                     <th>Exit Price</th>
-                                    <th>Size</th>
+                                    <th>Balance Before Close</th>
                                     <th>P&L</th>
                                     <th>P&L %</th>
+                                    <th>Balance After Close</th>
                                     <th>Exit Reason</th>
                                 </tr>
                             </thead>
@@ -547,15 +561,19 @@
                                         <td>${trade.side}</td>
                                         <td>${new Date(trade.entryTime).toLocaleString()}</td>
                                         <td>$${trade.entryPrice.toFixed(2)}</td>
+                                        <td title="$${trade.balanceBeforeOpen.toFixed(2)}">$${formatLargeNumber(trade.balanceBeforeOpen)}</td>
+                                        <td>${trade.positionSize.toFixed(4)}</td>
+                                        <td title="$${trade.balanceAfterOpen.toFixed(2)}">$${formatLargeNumber(trade.balanceAfterOpen)}</td>
                                         <td>${new Date(trade.exitTime).toLocaleString()}</td>
                                         <td>$${trade.exitPrice.toFixed(2)}</td>
-                                        <td>${trade.positionSize.toFixed(4)}</td>
+                                        <td title="$${trade.balanceBeforeClose.toFixed(2)}">$${formatLargeNumber(trade.balanceBeforeClose)}</td>
                                         <td class="${trade.profitLoss >= 0 ? 'trade-profit' : 'trade-loss'}">
                                             $${trade.profitLoss.toFixed(2)}
                                         </td>
                                         <td class="${trade.profitLossPercent >= 0 ? 'trade-profit' : 'trade-loss'}">
                                             ${trade.profitLossPercent.toFixed(2)}%
                                         </td>
+                                        <td title="$${trade.balanceAfterClose.toFixed(2)}">$${formatLargeNumber(trade.balanceAfterClose)}</td>
                                         <td>${trade.exitReason}</td>
                                     </tr>
                                 `).join('')}
