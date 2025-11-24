@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coin Flip Trading Bot - Live Simulation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 95%;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .nav-link {
+            display: inline-block;
+            margin-top: 10px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 120px;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(245, 158, 11, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .progress-bar {
+            background: #e0e0e0;
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .candle-info {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .candle-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .candle-item {
+            text-align: center;
+        }
+
+        .candle-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .candle-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            word-break: break-word;
+        }
+
+        .metric-value.positive {
+            color: #10b981;
+        }
+
+        .metric-value.negative {
+            color: #ef4444;
+        }
+
+        .trades-table {
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 400px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+            white-space: nowrap;
+            font-size: 13px;
+        }
+
+        th {
+            background: #f5f7fa;
+            font-weight: 600;
+            color: #333;
+            font-size: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        .trade-profit {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .trade-loss {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .error {
+            background: #fee;
+            border: 2px solid #fcc;
+            color: #c33;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .config-info {
+            background: #f0f9ff;
+            padding: 15px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #0369a1;
+            margin-bottom: 20px;
+        }
+
+        #simulationContent {
+            display: none;
+        }
+
+        #simulationContent.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Van Tharp Coin-Flip Trading Bot</h1>
+            <p class="subtitle">Live Candle-by-Candle Simulation</p>
+            <a href="index.html" class="nav-link">← Back to Backtest System</a>
+        </div>
+
+        <div class="card">
+            <h2 style="margin-bottom: 20px;">Initialize Simulation</h2>
+
+            <div class="config-info" id="configInfo" style="display: none;">
+                Loading configuration...
+            </div>
+
+            <div class="grid-3">
+                <div class="form-group">
+                    <label for="symbol">Symbol</label>
+                    <select id="symbol">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="timeframe">Timeframe</label>
+                    <select id="timeframe">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="startDate">Start Date (Optional)</label>
+                    <input type="datetime-local" id="startDate">
+                </div>
+
+                <div class="form-group">
+                    <label for="endDate">End Date (Optional)</label>
+                    <input type="datetime-local" id="endDate">
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" onclick="initializeSimulation()" id="initBtn">Initialize</button>
+            </div>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="simulationContent">
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">Navigation</h2>
+                <div style="margin-bottom: 15px;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressBar">0 / 0</div>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button class="btn-secondary" onclick="previousCandle()" id="prevBtn">← Previous</button>
+                    <button class="btn-success" onclick="nextCandle()" id="nextBtn">Next →</button>
+                    <button class="btn-warning" onclick="resetSimulation()" id="resetBtn">Reset</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">Current Candle</h2>
+                <div class="candle-info">
+                    <div class="candle-grid">
+                        <div class="candle-item">
+                            <div class="candle-label">Time</div>
+                            <div class="candle-value" id="candleTime">-</div>
+                        </div>
+                        <div class="candle-item">
+                            <div class="candle-label">Open</div>
+                            <div class="candle-value" id="candleOpen">-</div>
+                        </div>
+                        <div class="candle-item">
+                            <div class="candle-label">High</div>
+                            <div class="candle-value" id="candleHigh">-</div>
+                        </div>
+                        <div class="candle-item">
+                            <div class="candle-label">Low</div>
+                            <div class="candle-value" id="candleLow">-</div>
+                        </div>
+                        <div class="candle-item">
+                            <div class="candle-label">Close</div>
+                            <div class="candle-value" id="candleClose">-</div>
+                        </div>
+                        <div class="candle-item">
+                            <div class="candle-label">ATR</div>
+                            <div class="candle-value" id="candleATR">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">Account Metrics</h2>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Account Balance</div>
+                        <div class="metric-value" id="balance">$0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Peak Balance</div>
+                        <div class="metric-value" id="peakBalance">$0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Drawdown</div>
+                        <div class="metric-value negative" id="drawdown">$0 (0%)</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Available Capital</div>
+                        <div class="metric-value" id="availableCapital">$0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Allocated Capital</div>
+                        <div class="metric-value" id="allocatedCapital">$0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Open Positions</div>
+                        <div class="metric-value" id="openPositionsCount">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Total Trades</div>
+                        <div class="metric-value" id="totalTrades">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Win Rate</div>
+                        <div class="metric-value" id="winRate">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">Open Positions (<span id="openPositionsTitle">0</span>)</h2>
+                <div class="trades-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Side</th>
+                                <th>Entry Time</th>
+                                <th>Entry Price</th>
+                                <th>Current Price</th>
+                                <th>Size</th>
+                                <th>Trailing Stop</th>
+                                <th>Unrealized P&L</th>
+                                <th>Unrealized P&L %</th>
+                                <th>Allocated Capital</th>
+                            </tr>
+                        </thead>
+                        <tbody id="openPositionsBody">
+                            <tr>
+                                <td colspan="10" style="text-align: center; color: #999;">No open positions</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">Closed Trades (<span id="closedTradesTitle">0</span>)</h2>
+                <div class="trades-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Side</th>
+                                <th>Entry Time</th>
+                                <th>Entry Price</th>
+                                <th>Exit Time</th>
+                                <th>Exit Price</th>
+                                <th>Size</th>
+                                <th>P&L</th>
+                                <th>P&L %</th>
+                                <th>Exit Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody id="closedTradesBody">
+                            <tr>
+                                <td colspan="10" style="text-align: center; color: #999;">No closed trades yet</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/simulation';
+        let currentState = null;
+
+        // Load available symbols, timeframes, and config
+        async function loadOptions() {
+            try {
+                const [symbolsRes, configRes] = await Promise.all([
+                    fetch('/api/backtest/symbols'),
+                    fetch('/api/backtest/config')
+                ]);
+
+                const symbolsData = await symbolsRes.json();
+                const config = await configRes.json();
+
+                const symbolSelect = document.getElementById('symbol');
+                symbolSelect.innerHTML = symbolsData.symbols.map(s =>
+                    `<option value="${s}">${s}</option>`
+                ).join('');
+
+                const timeframeSelect = document.getElementById('timeframe');
+                timeframeSelect.innerHTML = symbolsData.timeframes.map(t =>
+                    `<option value="${t}">${t}</option>`
+                ).join('');
+
+                // Show config info
+                const configInfo = document.getElementById('configInfo');
+                configInfo.style.display = 'block';
+                configInfo.innerHTML = `
+                    <strong>Configuration:</strong>
+                    Initial Capital: $${config.initialCapital.toLocaleString()} |
+                    Risk per Trade: ${config.riskPerTrade}% |
+                    ATR Period: ${config.atrPeriod} |
+                    ATR Multiplier: ${config.atrMultiplier} |
+                    Max Positions: ${config.maxConcurrentPositions}
+                `;
+            } catch (error) {
+                showError('Failed to load options: ' + error.message);
+            }
+        }
+
+        async function initializeSimulation() {
+            const symbol = document.getElementById('symbol').value;
+            const timeframe = document.getElementById('timeframe').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!symbol || !timeframe) {
+                showError('Please select a symbol and timeframe');
+                return;
+            }
+
+            hideError();
+            document.getElementById('initBtn').disabled = true;
+
+            try {
+                const requestBody = {
+                    symbol,
+                    timeframe
+                };
+
+                // Add dates if provided
+                if (startDate) {
+                    requestBody.startDate = new Date(startDate).toISOString();
+                }
+                if (endDate) {
+                    requestBody.endDate = new Date(endDate).toISOString();
+                }
+
+                const response = await fetch(`${API_BASE}/init`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+
+                currentState = await response.json();
+                updateUI(currentState);
+                document.getElementById('simulationContent').classList.add('show');
+            } catch (error) {
+                showError('Failed to initialize simulation: ' + error.message);
+            } finally {
+                document.getElementById('initBtn').disabled = false;
+            }
+        }
+
+        async function nextCandle() {
+            try {
+                const response = await fetch(`${API_BASE}/next`, { method: 'POST' });
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || `Server returned ${response.status}`);
+                }
+                currentState = await response.json();
+                updateUI(currentState);
+            } catch (error) {
+                showError('Failed to advance: ' + error.message);
+            }
+        }
+
+        async function previousCandle() {
+            try {
+                const response = await fetch(`${API_BASE}/previous`, { method: 'POST' });
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || `Server returned ${response.status}`);
+                }
+                currentState = await response.json();
+                updateUI(currentState);
+            } catch (error) {
+                showError('Failed to go back: ' + error.message);
+            }
+        }
+
+        async function resetSimulation() {
+            try {
+                const response = await fetch(`${API_BASE}/reset`, { method: 'POST' });
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+                currentState = await response.json();
+                updateUI(currentState);
+            } catch (error) {
+                showError('Failed to reset: ' + error.message);
+            }
+        }
+
+        function formatNumber(num) {
+            return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatDateTime(timestamp) {
+            return new Date(timestamp).toLocaleString();
+        }
+
+        function updateUI(state) {
+            hideError();
+
+            // Update progress bar
+            const progress = state.totalCandles > 0
+                ? ((state.currentCandleIndex + 1) / state.totalCandles * 100)
+                : 0;
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = progress + '%';
+            progressBar.textContent = `${state.currentCandleIndex + 1} / ${state.totalCandles}`;
+
+            // Update navigation buttons
+            document.getElementById('prevBtn').disabled = state.currentCandleIndex <= 0;
+            document.getElementById('nextBtn').disabled = state.currentCandleIndex >= state.totalCandles - 1;
+
+            // Update current candle
+            if (state.currentCandle) {
+                document.getElementById('candleTime').textContent = formatDateTime(state.currentCandle.openTime);
+                document.getElementById('candleOpen').textContent = '$' + formatNumber(state.currentCandle.open);
+                document.getElementById('candleHigh').textContent = '$' + formatNumber(state.currentCandle.high);
+                document.getElementById('candleLow').textContent = '$' + formatNumber(state.currentCandle.low);
+                document.getElementById('candleClose').textContent = '$' + formatNumber(state.currentCandle.close);
+                document.getElementById('candleATR').textContent = state.currentCandle.atr
+                    ? '$' + formatNumber(state.currentCandle.atr)
+                    : 'N/A';
+            }
+
+            // Update metrics
+            const metrics = state.metrics;
+            document.getElementById('balance').textContent = '$' + formatNumber(metrics.accountBalance);
+            document.getElementById('peakBalance').textContent = '$' + formatNumber(metrics.peakBalance);
+            document.getElementById('drawdown').textContent =
+                `$${formatNumber(metrics.drawdown)} (${formatNumber(metrics.drawdownPercent)}%)`;
+            document.getElementById('availableCapital').textContent = '$' + formatNumber(metrics.availableCapital);
+            document.getElementById('allocatedCapital').textContent = '$' + formatNumber(metrics.allocatedCapital);
+            document.getElementById('openPositionsCount').textContent = metrics.openPositions;
+            document.getElementById('totalTrades').textContent = metrics.totalTrades;
+            document.getElementById('winRate').textContent = formatNumber(metrics.winRate) + '%';
+
+            // Update open positions
+            document.getElementById('openPositionsTitle').textContent = state.openPositions.length;
+            const openPositionsBody = document.getElementById('openPositionsBody');
+            if (state.openPositions.length === 0) {
+                openPositionsBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" style="text-align: center; color: #999;">No open positions</td>
+                    </tr>
+                `;
+            } else {
+                openPositionsBody.innerHTML = state.openPositions.map(pos => `
+                    <tr>
+                        <td>${pos.id}</td>
+                        <td>${pos.side}</td>
+                        <td>${formatDateTime(pos.entryTime)}</td>
+                        <td>$${formatNumber(pos.entryPrice)}</td>
+                        <td>$${formatNumber(pos.currentPrice)}</td>
+                        <td>${pos.positionSize.toFixed(4)}</td>
+                        <td>$${formatNumber(pos.trailingStop)}</td>
+                        <td class="${pos.unrealizedPnL >= 0 ? 'trade-profit' : 'trade-loss'}">
+                            $${formatNumber(pos.unrealizedPnL)}
+                        </td>
+                        <td class="${pos.unrealizedPnLPercent >= 0 ? 'trade-profit' : 'trade-loss'}">
+                            ${formatNumber(pos.unrealizedPnLPercent)}%
+                        </td>
+                        <td>$${formatNumber(pos.allocatedCapital)}</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Update closed trades
+            document.getElementById('closedTradesTitle').textContent = state.closedTrades.length;
+            const closedTradesBody = document.getElementById('closedTradesBody');
+            if (state.closedTrades.length === 0) {
+                closedTradesBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" style="text-align: center; color: #999;">No closed trades yet</td>
+                    </tr>
+                `;
+            } else {
+                closedTradesBody.innerHTML = state.closedTrades.map(trade => `
+                    <tr>
+                        <td>${trade.id}</td>
+                        <td>${trade.side}</td>
+                        <td>${formatDateTime(trade.entryTime)}</td>
+                        <td>$${formatNumber(trade.entryPrice)}</td>
+                        <td>${formatDateTime(trade.exitTime)}</td>
+                        <td>$${formatNumber(trade.exitPrice)}</td>
+                        <td>${trade.positionSize.toFixed(4)}</td>
+                        <td class="${trade.profitLoss >= 0 ? 'trade-profit' : 'trade-loss'}">
+                            $${formatNumber(trade.profitLoss)}
+                        </td>
+                        <td class="${trade.profitLossPercent >= 0 ? 'trade-profit' : 'trade-loss'}">
+                            ${formatNumber(trade.profitLossPercent)}%
+                        </td>
+                        <td>${trade.exitReason}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+
+        // Load options on page load
+        loadOptions();
+    </script>
+</body>
+</html>
