@@ -666,6 +666,18 @@
                         <h4>Equity Curves (All Runs)</h4>
                         <canvas id="equityCurveChart"></canvas>
                     </div>
+                    <div class="chart-container">
+                        <h4>Expectancy Per Run ($/trade)</h4>
+                        <canvas id="expectancyPerRunChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h4>Expectancy Distribution</h4>
+                        <canvas id="expectancyDistChart"></canvas>
+                    </div>
+                    <div class="chart-container" style="grid-column: 1 / -1; height: 400px;">
+                        <h4>Cumulative Expectancy (All Runs)</h4>
+                        <canvas id="cumulativeExpectancyChart"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -1259,12 +1271,18 @@
         let returnDistChart = null;
         let winLossChart = null;
         let equityCurveChart = null;
+        let expectancyPerRunChart = null;
+        let expectancyDistChart = null;
+        let cumulativeExpectancyChart = null;
         let isRenderingCharts = false;
 
         function destroyCharts() {
             if (returnDistChart) { returnDistChart.destroy(); returnDistChart = null; }
             if (winLossChart) { winLossChart.destroy(); winLossChart = null; }
             if (equityCurveChart) { equityCurveChart.destroy(); equityCurveChart = null; }
+            if (expectancyPerRunChart) { expectancyPerRunChart.destroy(); expectancyPerRunChart = null; }
+            if (expectancyDistChart) { expectancyDistChart.destroy(); expectancyDistChart = null; }
+            if (cumulativeExpectancyChart) { cumulativeExpectancyChart.destroy(); cumulativeExpectancyChart = null; }
         }
 
         async function renderCharts(experiment) {
@@ -1275,6 +1293,9 @@
                 renderReturnDistribution(experiment.runs);
                 renderWinLossPie(experiment);
                 await renderEquityCurves(experiment.runs);
+                await renderExpectancyPerRun(experiment.runs);
+                await renderExpectancyDistribution(experiment.runs);
+                await renderCumulativeExpectancy(experiment.runs);
             } finally {
                 isRenderingCharts = false;
             }
@@ -1416,6 +1437,216 @@
                         },
                         y: {
                             title: { display: true, text: 'Balance ($)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function renderExpectancyPerRun(runs) {
+            // Fetch run details to get totalReturn in $ for accurate expectancy
+            const expectancies = [];
+
+            for (let i = 0; i < runs.length; i++) {
+                const run = runs[i];
+                try {
+                    const response = await fetch(`${API_BASE}/experiments/runs/${run.id}`);
+                    if (response.ok) {
+                        const runDetail = await response.json();
+                        const expectancy = runDetail.totalTrades > 0
+                            ? parseFloat(runDetail.totalReturn) / runDetail.totalTrades
+                            : 0;
+                        expectancies.push({ runNumber: run.runNumber, expectancy });
+                    }
+                } catch (e) {
+                    console.error(`Failed to load run ${run.id}:`, e);
+                }
+            }
+
+            if (expectancies.length === 0) return;
+
+            const ctx = document.getElementById('expectancyPerRunChart').getContext('2d');
+            expectancyPerRunChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: expectancies.map(e => `Run ${e.runNumber}`),
+                    datasets: [{
+                        label: 'Expectancy ($/trade)',
+                        data: expectancies.map(e => e.expectancy),
+                        backgroundColor: expectancies.map(e =>
+                            e.expectancy >= 0 ? 'rgba(16, 185, 129, 0.7)' : 'rgba(239, 68, 68, 0.7)'
+                        ),
+                        borderColor: expectancies.map(e =>
+                            e.expectancy >= 0 ? 'rgba(16, 185, 129, 1)' : 'rgba(239, 68, 68, 1)'
+                        ),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            title: { display: true, text: 'Expectancy ($/trade)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function renderExpectancyDistribution(runs) {
+            // Fetch run details for expectancy values
+            const expectancies = [];
+
+            for (let i = 0; i < runs.length; i++) {
+                const run = runs[i];
+                try {
+                    const response = await fetch(`${API_BASE}/experiments/runs/${run.id}`);
+                    if (response.ok) {
+                        const runDetail = await response.json();
+                        const expectancy = runDetail.totalTrades > 0
+                            ? parseFloat(runDetail.totalReturn) / runDetail.totalTrades
+                            : 0;
+                        expectancies.push(expectancy);
+                    }
+                } catch (e) {
+                    console.error(`Failed to load run ${run.id}:`, e);
+                }
+            }
+
+            if (expectancies.length === 0) return;
+
+            // Create histogram buckets
+            const min = Math.min(...expectancies);
+            const max = Math.max(...expectancies);
+            const range = max - min;
+            const bucketCount = Math.min(10, expectancies.length);
+            const bucketSize = range / bucketCount || 1;
+
+            const buckets = [];
+            for (let i = 0; i < bucketCount; i++) {
+                const bucketMin = min + (i * bucketSize);
+                const bucketMax = min + ((i + 1) * bucketSize);
+                const count = expectancies.filter(e =>
+                    i === bucketCount - 1
+                        ? e >= bucketMin && e <= bucketMax
+                        : e >= bucketMin && e < bucketMax
+                ).length;
+                buckets.push({
+                    label: `${bucketMin.toFixed(2)} - ${bucketMax.toFixed(2)}`,
+                    count,
+                    midpoint: (bucketMin + bucketMax) / 2
+                });
+            }
+
+            const ctx = document.getElementById('expectancyDistChart').getContext('2d');
+            expectancyDistChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: buckets.map(b => b.label),
+                    datasets: [{
+                        label: 'Number of Runs',
+                        data: buckets.map(b => b.count),
+                        backgroundColor: buckets.map(b =>
+                            b.midpoint >= 0 ? 'rgba(59, 130, 246, 0.7)' : 'rgba(239, 68, 68, 0.7)'
+                        ),
+                        borderColor: buckets.map(b =>
+                            b.midpoint >= 0 ? 'rgba(59, 130, 246, 1)' : 'rgba(239, 68, 68, 1)'
+                        ),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Expectancy Range ($/trade)' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Number of Runs' },
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function renderCumulativeExpectancy(runs) {
+            const colors = [
+                '#667eea', '#f093fb', '#4ade80', '#f97316', '#06b6d4',
+                '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#3b82f6'
+            ];
+
+            const datasets = [];
+
+            for (let i = 0; i < Math.min(runs.length, 10); i++) {
+                const run = runs[i];
+                try {
+                    const response = await fetch(`${API_BASE}/experiments/runs/${run.id}`);
+                    if (response.ok) {
+                        const runDetail = await response.json();
+                        const trades = runDetail.trades;
+
+                        if (trades.length > 0) {
+                            // Build cumulative expectancy (running average P/L per trade)
+                            const expectancyData = [];
+                            let cumulativePL = 0;
+
+                            trades.forEach((trade, idx) => {
+                                cumulativePL += parseFloat(trade.profitLoss);
+                                const avgPLPerTrade = cumulativePL / (idx + 1);
+                                expectancyData.push({ x: idx + 1, y: avgPLPerTrade });
+                            });
+
+                            datasets.push({
+                                label: `Run ${run.runNumber}`,
+                                data: expectancyData,
+                                borderColor: colors[i % colors.length],
+                                backgroundColor: 'transparent',
+                                borderWidth: 2,
+                                tension: 0.1,
+                                pointRadius: 0
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Failed to load run ${run.id}:`, e);
+                }
+            }
+
+            if (datasets.length === 0) return;
+
+            const ctx = document.getElementById('cumulativeExpectancyChart').getContext('2d');
+            cumulativeExpectancyChart = new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { boxWidth: 12, padding: 10 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: 'Trade #' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Cumulative Avg P/L ($/trade)' }
                         }
                     }
                 }
