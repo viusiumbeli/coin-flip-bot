@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coin Flip Trading Bot - Live Simulation</title>
+    <script src="formatters.js"></script>
     <style>
         * {
             margin: 0;
@@ -584,7 +585,7 @@
                 configInfo.style.display = 'block';
                 configInfo.innerHTML = `
                     <strong>Configuration:</strong>
-                    Initial Capital: $${config.initialCapital.toLocaleString()} |
+                    Initial Capital: $${formatNumber(config.initialCapital)} |
                     Risk per Trade: ${config.riskPerTrade}% |
                     ATR Period: ${config.atrPeriod} |
                     ATR Multiplier: ${config.atrMultiplier} |
@@ -682,11 +683,6 @@
             } catch (error) {
                 showError('Failed to reset: ' + error.message);
             }
-        }
-
-        function formatNumber(num) {
-            // Format with space as thousand separator (e.g., "7 430" instead of "7,430")
-            return num.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
         }
 
         function formatDateTime(timestamp) {
