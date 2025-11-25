@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coin Flip Trading Bot - Data Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            background: #f8f9fa;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: translateY(-1px);
+        }
+
+        .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: transparent;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .data-table {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            padding: 14px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f5f7fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        .status-outdated {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .status-uptodate {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .status-nodata {
+            color: #f59e0b;
+            font-weight: 600;
+        }
+
+        .spinner-small {
+            display: inline-block;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .sync-result {
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .sync-result.success {
+            color: #10b981;
+        }
+
+        .sync-result.error {
+            color: #ef4444;
+        }
+
+        .error-message {
+            background: #fee;
+            border: 2px solid #fcc;
+            color: #c33;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-box {
+            background: white;
+            padding: 30px 50px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+    </style>
+    <script src="formatters.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Data Management</h1>
+            <p class="subtitle">Manage historical candle data from Binance</p>
+            <div class="nav-tabs">
+                <a href="index.html" class="nav-link">Backtest</a>
+                <a href="simulation.html" class="nav-link">Simulation</a>
+                <a href="data.html" class="nav-link active">Data</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="button-group">
+                <button class="btn-primary" onclick="syncAll()" id="syncAllBtn">Sync All Data</button>
+                <button class="btn-primary btn-small" onclick="refreshStatus()" id="refreshBtn">Refresh Status</button>
+            </div>
+
+            <div id="error" class="error-message"></div>
+
+            <div class="data-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Timeframe</th>
+                            <th>Candle Count</th>
+                            <th>Earliest</th>
+                            <th>Latest</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 40px;">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-box">
+            <div class="spinner"></div>
+            <p id="loadingText">Syncing data...</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/data';
+
+        async function loadStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                if (!response.ok) throw new Error('Failed to load status');
+
+                const statusList = await response.json();
+                renderTable(statusList);
+            } catch (error) {
+                showError('Failed to load data status: ' + error.message);
+            }
+        }
+
+        function renderTable(statusList) {
+            const tbody = document.getElementById('dataTableBody');
+
+            if (statusList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">No configured symbols found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = statusList.map(status => {
+                const statusClass = getStatusClass(status);
+                const statusText = getStatusText(status);
+
+                return `
+                    <tr id="row-${status.symbol}-${status.timeframe}">
+                        <td><strong>${status.symbol}</strong></td>
+                        <td>${status.timeframe}</td>
+                        <td>${formatNumber(status.candleCount)}</td>
+                        <td>${formatDate(status.earliestCandle)}</td>
+                        <td>${formatDate(status.latestCandle)}</td>
+                        <td class="${statusClass}">${statusText}</td>
+                        <td>
+                            <button class="btn-primary btn-small"
+                                    onclick="syncSingle('${status.symbol}', '${status.timeframe}')"
+                                    id="btn-${status.symbol}-${status.timeframe}">
+                                Sync
+                            </button>
+                            <div id="result-${status.symbol}-${status.timeframe}" class="sync-result"></div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getStatusClass(status) {
+            if (status.candleCount === 0) return 'status-nodata';
+            if (status.hoursOutdated === null || status.hoursOutdated <= 0) return 'status-uptodate';
+            return 'status-outdated';
+        }
+
+        function getStatusText(status) {
+            if (status.candleCount === 0) return 'No data';
+            if (status.hoursOutdated === null || status.hoursOutdated <= 0) return 'Up to date';
+
+            const hours = status.hoursOutdated;
+            if (hours < 24) return `${hours}h behind`;
+            const days = Math.floor(hours / 24);
+            return `${days}d behind`;
+        }
+
+        function formatDate(dateString) {
+            return dateString || '-';
+        }
+
+        async function syncSingle(symbol, timeframe) {
+            const btn = document.getElementById(`btn-${symbol}-${timeframe}`);
+            const resultDiv = document.getElementById(`result-${symbol}-${timeframe}`);
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-small"></span>Syncing...';
+            resultDiv.innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_BASE}/sync`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ symbol, timeframe })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    resultDiv.className = 'sync-result success';
+                    resultDiv.textContent = `+${result.newCandlesAdded} candles`;
+                    refreshStatus();
+                } else {
+                    resultDiv.className = 'sync-result error';
+                    resultDiv.textContent = result.error || 'Failed';
+                }
+            } catch (error) {
+                resultDiv.className = 'sync-result error';
+                resultDiv.textContent = error.message;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Sync';
+            }
+        }
+
+        async function syncAll() {
+            const syncAllBtn = document.getElementById('syncAllBtn');
+            const refreshBtn = document.getElementById('refreshBtn');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+
+            syncAllBtn.disabled = true;
+            refreshBtn.disabled = true;
+            loadingOverlay.classList.add('show');
+            loadingText.textContent = 'Syncing all data... This may take a few minutes.';
+
+            // Disable all individual sync buttons
+            document.querySelectorAll('[id^="btn-"]').forEach(btn => btn.disabled = true);
+
+            try {
+                const response = await fetch(`${API_BASE}/sync-all`, {
+                    method: 'POST'
+                });
+
+                const results = await response.json();
+
+                // Show results for each
+                results.forEach(result => {
+                    const resultDiv = document.getElementById(`result-${result.symbol}-${result.timeframe}`);
+                    if (resultDiv) {
+                        if (result.success) {
+                            resultDiv.className = 'sync-result success';
+                            resultDiv.textContent = `+${result.newCandlesAdded} candles`;
+                        } else {
+                            resultDiv.className = 'sync-result error';
+                            resultDiv.textContent = result.error || 'Failed';
+                        }
+                    }
+                });
+
+                // Refresh the table to show updated counts
+                await loadStatus();
+            } catch (error) {
+                showError('Failed to sync all: ' + error.message);
+            } finally {
+                syncAllBtn.disabled = false;
+                refreshBtn.disabled = false;
+                loadingOverlay.classList.remove('show');
+                document.querySelectorAll('[id^="btn-"]').forEach(btn => btn.disabled = false);
+            }
+        }
+
+        async function refreshStatus() {
+            const refreshBtn = document.getElementById('refreshBtn');
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = 'Refreshing...';
+
+            await loadStatus();
+
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = 'Refresh Status';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // Load status on page load
+        loadStatus();
+    </script>
+</body>
+</html>
