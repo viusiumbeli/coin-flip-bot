@@ -146,6 +146,10 @@
         .btn-secondary {
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
             color: white;
+            flex: 0;
+            min-width: auto;
+            padding: 8px 16px;
+            font-size: 14px;
         }
 
         .btn-secondary:hover:not(:disabled) {
@@ -328,18 +332,109 @@
             align-items: center;
         }
 
+        /* Navigation bar for back buttons */
+        .nav-bar {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            padding: 16px 24px;
+            margin: -25px -25px 25px -25px;
+            border-bottom: 1px solid #e2e8f0;
+            border-radius: 10px 10px 0 0;
+        }
+
         .back-btn {
-            background: #6b7280;
+            background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
             color: white;
-            padding: 8px 16px;
+            padding: 16px 32px;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            flex: 0;
+            min-width: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
         }
 
         .back-btn:hover {
-            background: #4b5563;
+            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+        }
+
+        .back-btn::before {
+            content: '\2190';
+            font-size: 20px;
+        }
+
+        /* Action bar for compare button */
+        .action-bar {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            padding: 20px 24px;
+            margin: 20px -25px -25px -25px;
+            border-top: 1px solid #bbf7d0;
+            border-radius: 0 0 10px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .action-bar-text {
+            font-size: 14px;
+            color: #166534;
+            font-weight: 500;
+        }
+
+        .btn-compare {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 16px 32px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            min-width: 220px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-compare:hover:not(:disabled) {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-compare:disabled {
+            background: #9ca3af;
+            color: #f3f4f6;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-compare::before {
+            content: '\2194';
+            font-size: 20px;
+        }
+
+        .btn-compare .count-badge {
+            background: rgba(255, 255, 255, 0.3);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .btn-compare:disabled .count-badge {
+            background: rgba(0, 0, 0, 0.1);
         }
 
         .experiment-header {
@@ -453,10 +548,7 @@
 
         <!-- Experiment History -->
         <div class="card" id="historySection">
-            <div class="section-title">
-                <h2>Experiment History</h2>
-                <button class="btn-secondary" onclick="compareSelected()" id="compareBtn" disabled>Compare Selected</button>
-            </div>
+            <h2 style="margin-bottom: 20px;">Experiment History</h2>
 
             <div class="data-table">
                 <table>
@@ -482,14 +574,22 @@
                     </tbody>
                 </table>
             </div>
+
+            <div class="action-bar">
+                <span class="action-bar-text" id="selectionText">Select experiments to compare</span>
+                <button class="btn-compare" onclick="compareSelected()" id="compareBtn" disabled>
+                    Compare <span class="count-badge">0</span>
+                </button>
+            </div>
         </div>
 
         <!-- Comparison View -->
         <div class="card hidden" id="comparisonSection">
-            <div class="section-title">
-                <h2>Experiment Comparison</h2>
+            <div class="nav-bar">
                 <button class="back-btn" onclick="hideComparison()">Back to History</button>
             </div>
+
+            <h2 style="margin-bottom: 20px;">Experiment Comparison</h2>
 
             <div class="data-table">
                 <table id="comparisonTable">
@@ -501,12 +601,15 @@
 
         <!-- Experiment Detail View -->
         <div class="card hidden" id="detailSection">
+            <div class="nav-bar">
+                <button class="back-btn" onclick="hideDetail()">Back to History</button>
+            </div>
+
             <div class="experiment-header">
                 <div>
                     <h2 class="experiment-title" id="detailTitle">Experiment Details</h2>
                     <p class="experiment-meta" id="detailMeta"></p>
                 </div>
-                <button class="back-btn" onclick="hideDetail()">Back to History</button>
             </div>
 
             <div id="detailNotes" class="hidden" style="background: #f0f9ff; padding: 15px; border-radius: 6px; margin-bottom: 20px; color: #0369a1;">
@@ -539,12 +642,15 @@
 
         <!-- Run Detail View (trades) -->
         <div class="card hidden" id="runDetailSection">
+            <div class="nav-bar">
+                <button class="back-btn" onclick="hideRunDetail()">Back to Experiment</button>
+            </div>
+
             <div class="experiment-header">
                 <div>
                     <h2 class="experiment-title" id="runDetailTitle">Run Details</h2>
                     <p class="experiment-meta" id="runDetailMeta"></p>
                 </div>
-                <button class="back-btn" onclick="hideRunDetail()">Back to Experiment</button>
             </div>
 
             <h3 style="margin-bottom: 15px;">Run Metrics</h3>
@@ -752,6 +858,7 @@
 
         function displayExperimentDetail(exp) {
             currentExperimentId = exp.id;
+            document.getElementById('createForm').classList.add('hidden');
             document.getElementById('historySection').classList.add('hidden');
             document.getElementById('comparisonSection').classList.add('hidden');
             document.getElementById('runDetailSection').classList.add('hidden');
@@ -939,6 +1046,7 @@
         function hideDetail() {
             document.getElementById('detailSection').classList.add('hidden');
             document.getElementById('runDetailSection').classList.add('hidden');
+            document.getElementById('createForm').classList.remove('hidden');
             document.getElementById('historySection').classList.remove('hidden');
             currentExperimentId = null;
         }
@@ -992,8 +1100,18 @@
 
         function updateCompareButton() {
             const btn = document.getElementById('compareBtn');
-            btn.disabled = selectedExperiments.size < 2;
-            btn.textContent = `Compare Selected (${selectedExperiments.size})`;
+            const text = document.getElementById('selectionText');
+            const count = selectedExperiments.size;
+            btn.disabled = count < 2;
+            btn.innerHTML = `Compare <span class="count-badge">${count}</span>`;
+
+            if (count === 0) {
+                text.textContent = 'Select experiments to compare';
+            } else if (count === 1) {
+                text.textContent = 'Select at least 1 more experiment';
+            } else {
+                text.textContent = `${count} experiments selected`;
+            }
         }
 
         async function compareSelected() {
@@ -1031,6 +1149,7 @@
         }
 
         function displayComparison(data) {
+            document.getElementById('createForm').classList.add('hidden');
             document.getElementById('historySection').classList.add('hidden');
             document.getElementById('detailSection').classList.add('hidden');
             document.getElementById('runDetailSection').classList.add('hidden');
@@ -1061,6 +1180,7 @@
 
         function hideComparison() {
             document.getElementById('comparisonSection').classList.add('hidden');
+            document.getElementById('createForm').classList.remove('hidden');
             document.getElementById('historySection').classList.remove('hidden');
         }
 
@@ -1078,14 +1198,6 @@
 
         function hideError() {
             document.getElementById('error').classList.add('hidden');
-        }
-
-        function formatDate(isoString) {
-            return new Date(isoString).toLocaleDateString();
-        }
-
-        function formatDateTime(isoString) {
-            return new Date(isoString).toLocaleString();
         }
 
         // Initialize on page load
