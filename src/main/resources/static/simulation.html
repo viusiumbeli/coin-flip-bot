@@ -174,7 +174,24 @@
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             padding: 20px;
             border-radius: 8px;
-            margin-bottom: 20px;
+            margin-bottom: 0;
+        }
+
+        .previous-candle-info {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            opacity: 0.85;
+        }
+
+        .previous-candle-info .candle-label {
+            color: #888;
+        }
+
+        .previous-candle-info .candle-value {
+            color: #666;
+            font-weight: 600;
         }
 
         .candle-grid {
@@ -380,7 +397,39 @@
             </div>
 
             <div class="card">
-                <h2 style="margin-bottom: 20px;">Current Candle</h2>
+                <h2 style="margin-bottom: 20px;">Candle Data</h2>
+
+                <h3 style="margin-bottom: 10px; font-size: 16px; color: #666;">Previous</h3>
+                <div class="previous-candle-info">
+                    <div class="candle-grid">
+                        <div class="candle-item">
+                            <div class="candle-label">Time</div>
+                            <div class="candle-value" id="prevCandleTime">-</div>
+                        </div>
+                        <div class="candle-item">
+                            <div class="candle-label">Open</div>
+                            <div class="candle-value" id="prevCandleOpen">-</div>
+                        </div>
+                        <div class="candle-item">
+                            <div class="candle-label">High</div>
+                            <div class="candle-value" id="prevCandleHigh">-</div>
+                        </div>
+                        <div class="candle-item">
+                            <div class="candle-label">Low</div>
+                            <div class="candle-value" id="prevCandleLow">-</div>
+                        </div>
+                        <div class="candle-item">
+                            <div class="candle-label">Close</div>
+                            <div class="candle-value" id="prevCandleClose">-</div>
+                        </div>
+                        <div class="candle-item">
+                            <div class="candle-label">ATR</div>
+                            <div class="candle-value" id="prevCandleATR">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin-bottom: 10px; margin-top: 15px; font-size: 16px; color: #333;">Current</h3>
                 <div class="candle-info">
                     <div class="candle-grid">
                         <div class="candle-item">
@@ -659,6 +708,25 @@
             // Update navigation buttons
             document.getElementById('prevBtn').disabled = state.currentCandleIndex <= 0;
             document.getElementById('nextBtn').disabled = state.currentCandleIndex >= state.totalCandles - 1;
+
+            // Update previous candle
+            if (state.previousCandle) {
+                document.getElementById('prevCandleTime').textContent = formatDateTime(state.previousCandle.openTime);
+                document.getElementById('prevCandleOpen').textContent = '$' + formatNumber(state.previousCandle.open);
+                document.getElementById('prevCandleHigh').textContent = '$' + formatNumber(state.previousCandle.high);
+                document.getElementById('prevCandleLow').textContent = '$' + formatNumber(state.previousCandle.low);
+                document.getElementById('prevCandleClose').textContent = '$' + formatNumber(state.previousCandle.close);
+                document.getElementById('prevCandleATR').textContent = state.previousCandle.atr
+                    ? '$' + formatNumber(state.previousCandle.atr)
+                    : 'N/A';
+            } else {
+                document.getElementById('prevCandleTime').textContent = '-';
+                document.getElementById('prevCandleOpen').textContent = '-';
+                document.getElementById('prevCandleHigh').textContent = '-';
+                document.getElementById('prevCandleLow').textContent = '-';
+                document.getElementById('prevCandleClose').textContent = '-';
+                document.getElementById('prevCandleATR').textContent = '-';
+            }
 
             // Update current candle
             if (state.currentCandle) {

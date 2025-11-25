@@ -57,6 +57,7 @@ data class SimulationStateDto(
     val currentCandleIndex: Int,
     val totalCandles: Int,
     val currentCandle: CandleDto?,
+    val previousCandle: CandleDto?,
     val metrics: SimulationMetricsDto,
     val openPositions: List<OpenPositionDto>,
     val closedTrades: List<TradeDto>
