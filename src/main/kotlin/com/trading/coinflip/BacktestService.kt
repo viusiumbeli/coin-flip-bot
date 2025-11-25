@@ -107,7 +107,7 @@ class BacktestService(
         startDate: Instant? = null,
         endDate: Instant? = null
     ): BacktestResult {
-        log.info { "Processing: $symbol - ${timeframe.label}" }
+        log.debug { "Processing: $symbol - ${timeframe.label}" }
 
         // Load historical data
         dataService.loadHistoricalData(
@@ -116,7 +116,7 @@ class BacktestService(
             startDate = startDate ?: properties.startDate ?: Instant.parse("2017-01-01T00:00:00Z")
         )
 
-        log.info { dataService.getDataSummary(symbol, timeframe) }
+        log.debug { dataService.getDataSummary(symbol, timeframe) }
 
         // Get candles for backtest
         val candles = dataService.getCandlesForBacktest(

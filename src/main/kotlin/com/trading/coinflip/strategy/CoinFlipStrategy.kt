@@ -141,7 +141,7 @@ class CoinFlipStrategy(
             allocatedCapital = allocatedCapital
         )
 
-        log.info {
+        log.debug {
             "Created ${side.name} position for ${candle.symbol} at $entryPrice, " +
                 "stop: $initialStopLoss, size: $positionSize, ATR: $atr"
         }

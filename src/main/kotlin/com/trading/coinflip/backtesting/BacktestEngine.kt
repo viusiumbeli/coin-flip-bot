@@ -17,8 +17,8 @@ class BacktestEngine(
 ) {
 
     fun runBacktest(config: BacktestConfig, candles: List<Candle>): BacktestResult {
-        log.info { "Starting backtest for ${config.symbol} ${config.timeframe.label}" }
-        log.info { "Initial capital: ${config.initialCapital}, Risk per trade: ${config.riskPerTrade}%" }
+        log.debug { "Starting backtest for ${config.symbol} ${config.timeframe.label}" }
+        log.debug { "Initial capital: ${config.initialCapital}, Risk per trade: ${config.riskPerTrade}%" }
 
         strategy.reset()
 
@@ -42,7 +42,7 @@ class BacktestEngine(
             return createEmptyResult(config, candles)
         }
 
-        log.info { "Backtesting ${backtestCandles.size} candles from ${backtestCandles.first().openTime} to ${backtestCandles.last().openTime}" }
+        log.debug { "Backtesting ${backtestCandles.size} candles from ${backtestCandles.first().openTime} to ${backtestCandles.last().openTime}" }
 
         // Walk through each candle
         for (i in backtestCandles.indices) {
@@ -158,8 +158,8 @@ class BacktestEngine(
             closedTrades.add(trade)
         }
 
-        log.info { "Backtest completed. Closed ${closedTrades.size} trades" }
-        log.info { "Final balance: $accountBalance (${((accountBalance - config.initialCapital) / config.initialCapital * BigDecimal(100)).setScale(2, RoundingMode.HALF_UP)}%)" }
+        log.debug { "Backtest completed. Closed ${closedTrades.size} trades" }
+        log.debug { "Final balance: $accountBalance (${((accountBalance - config.initialCapital) / config.initialCapital * BigDecimal(100)).setScale(2, RoundingMode.HALF_UP)}%)" }
 
         // Calculate buy and hold performance
         val buyAndHoldReturn = calculateBuyAndHoldReturn(backtestCandles, config.initialCapital)
