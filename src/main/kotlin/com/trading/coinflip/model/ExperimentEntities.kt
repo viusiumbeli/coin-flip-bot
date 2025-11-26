@@ -4,6 +4,14 @@ import jakarta.persistence.*
 import java.math.BigDecimal
 import java.time.Instant
 
+enum class ExperimentStatus {
+    PENDING,
+    RUNNING,
+    COMPLETED,
+    FAILED,
+    CANCELLED
+}
+
 @Entity
 @Table(name = "experiments", indexes = [
     Index(name = "idx_experiments_symbol_timeframe", columnList = "symbol,timeframe"),
@@ -31,10 +39,10 @@ data class Experiment(
     val timeframe: Timeframe,
 
     @Column(name = "start_date", nullable = false)
-    val startDate: Instant,
+    var startDate: Instant,
 
     @Column(name = "end_date", nullable = false)
-    val endDate: Instant,
+    var endDate: Instant,
 
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
@@ -61,60 +69,80 @@ data class Experiment(
     @Column(name = "max_concurrent_positions", nullable = false)
     val maxConcurrentPositions: Int,
 
-    // Aggregated Results (averages across all runs)
+    // Aggregated Results (averages across all runs) - mutable for async updates
     @Column(name = "final_capital", nullable = false, precision = 20, scale = 8)
-    val finalCapital: BigDecimal,
+    var finalCapital: BigDecimal,
 
     @Column(name = "total_return", nullable = false, precision = 20, scale = 8)
-    val totalReturn: BigDecimal,
+    var totalReturn: BigDecimal,
 
     @Column(name = "total_return_percent", nullable = false, precision = 20, scale = 8)
-    val totalReturnPercent: BigDecimal,
+    var totalReturnPercent: BigDecimal,
 
     @Column(name = "max_drawdown", nullable = false, precision = 20, scale = 8)
-    val maxDrawdown: BigDecimal,
+    var maxDrawdown: BigDecimal,
 
     @Column(name = "max_drawdown_percent", nullable = false, precision = 20, scale = 8)
-    val maxDrawdownPercent: BigDecimal,
+    var maxDrawdownPercent: BigDecimal,
 
     @Column(name = "win_rate", nullable = false, precision = 10, scale = 4)
-    val winRate: BigDecimal,
+    var winRate: BigDecimal,
 
     @Column(name = "profit_factor", nullable = false, precision = 20, scale = 8)
-    val profitFactor: BigDecimal,
+    var profitFactor: BigDecimal,
 
     @Column(name = "sharpe_ratio", nullable = false, precision = 20, scale = 8)
-    val sharpeRatio: BigDecimal,
+    var sharpeRatio: BigDecimal,
 
     @Column(name = "total_trades", nullable = false)
-    val totalTrades: Int,
+    var totalTrades: Int,
 
     @Column(name = "winning_trades", nullable = false)
-    val winningTrades: Int,
+    var winningTrades: Int,
 
     @Column(name = "losing_trades", nullable = false)
-    val losingTrades: Int,
+    var losingTrades: Int,
 
     @Column(name = "average_win", nullable = false, precision = 20, scale = 8)
-    val averageWin: BigDecimal,
+    var averageWin: BigDecimal,
 
     @Column(name = "average_loss", nullable = false, precision = 20, scale = 8)
-    val averageLoss: BigDecimal,
+    var averageLoss: BigDecimal,
 
     @Column(name = "largest_win", nullable = false, precision = 20, scale = 8)
-    val largestWin: BigDecimal,
+    var largestWin: BigDecimal,
 
     @Column(name = "largest_loss", nullable = false, precision = 20, scale = 8)
-    val largestLoss: BigDecimal,
+    var largestLoss: BigDecimal,
 
     @Column(name = "average_trade_duration", nullable = false)
-    val averageTradeDuration: Long,
+    var averageTradeDuration: Long,
 
     @Column(name = "buy_and_hold_return", nullable = false, precision = 20, scale = 8)
-    val buyAndHoldReturn: BigDecimal,
+    var buyAndHoldReturn: BigDecimal,
 
     @Column(name = "buy_and_hold_return_percent", nullable = false, precision = 20, scale = 8)
-    val buyAndHoldReturnPercent: BigDecimal
+    var buyAndHoldReturnPercent: BigDecimal,
+
+    // Async execution status
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    var status: ExperimentStatus = ExperimentStatus.COMPLETED,
+
+    @Column(name = "completed_runs", nullable = false)
+    var completedRuns: Int = 0,
+
+    @Column(name = "failed_runs", nullable = false)
+    var failedRuns: Int = 0,
+
+    @Column(name = "started_at")
+    var startedAt: Instant? = null,
+
+    @Column(name = "finished_at")
+    var finishedAt: Instant? = null,
+
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    var errorMessage: String? = null
 )
 
 @Entity

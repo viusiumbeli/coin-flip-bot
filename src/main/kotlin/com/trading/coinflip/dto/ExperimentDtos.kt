@@ -2,6 +2,7 @@ package com.trading.coinflip.dto
 
 import com.trading.coinflip.model.BacktestRun
 import com.trading.coinflip.model.Experiment
+import com.trading.coinflip.model.ExperimentStatus
 import com.trading.coinflip.model.ExperimentTrade
 import com.trading.coinflip.model.PositionSide
 import java.math.BigDecimal
@@ -22,6 +23,33 @@ data class CompareExperimentsRequest(
     val experimentIds: List<Long>
 )
 
+// Async experiment response DTOs
+data class CreateExperimentResponse(
+    val id: Long,
+    val status: ExperimentStatus,
+    val message: String
+)
+
+data class ExperimentStatusDto(
+    val id: Long,
+    val status: ExperimentStatus,
+    val totalRuns: Int,
+    val completedRuns: Int,
+    val failedRuns: Int,
+    val progressPercent: Double,
+    val startedAt: Instant?,
+    val finishedAt: Instant?,
+    val errorMessage: String?
+)
+
+data class PaginatedRunsDto(
+    val runs: List<BacktestRunSummaryDto>,
+    val page: Int,
+    val size: Int,
+    val totalPages: Int,
+    val totalElements: Long
+)
+
 // Response DTOs
 data class ExperimentSummaryDto(
     val id: Long,
@@ -38,7 +66,10 @@ data class ExperimentSummaryDto(
     val winRate: BigDecimal,
     val maxDrawdownPercent: BigDecimal,
     val sharpeRatio: BigDecimal,
-    val profitFactor: BigDecimal
+    val profitFactor: BigDecimal,
+    val status: ExperimentStatus,
+    val completedRuns: Int,
+    val progressPercent: Double
 )
 
 data class BacktestRunSummaryDto(
@@ -165,7 +196,10 @@ fun Experiment.toSummaryDto() = ExperimentSummaryDto(
     winRate = winRate,
     maxDrawdownPercent = maxDrawdownPercent,
     sharpeRatio = sharpeRatio,
-    profitFactor = profitFactor
+    profitFactor = profitFactor,
+    status = status,
+    completedRuns = completedRuns,
+    progressPercent = if (numBacktests > 0) (completedRuns.toDouble() / numBacktests) * 100 else 0.0
 )
 
 fun Experiment.toDetailDto(runs: List<BacktestRun>) = ExperimentDetailDto(

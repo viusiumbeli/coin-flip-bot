@@ -1,8 +1,10 @@
 package com.trading.coinflip.controller
 
 import com.trading.coinflip.dto.*
+import com.trading.coinflip.model.ExperimentStatus
 import com.trading.coinflip.service.ExperimentService
 import mu.KotlinLogging
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
@@ -15,17 +17,60 @@ class ExperimentController(
     private val experimentService: ExperimentService
 ) {
 
+    /**
+     * Creates a new experiment asynchronously.
+     * Returns 202 Accepted immediately with experiment ID for status polling.
+     */
     @PostMapping
-    fun createExperiment(@RequestBody request: CreateExperimentRequest): ResponseEntity<ExperimentDetailDto> {
+    fun createExperiment(@RequestBody request: CreateExperimentRequest): ResponseEntity<CreateExperimentResponse> {
         return try {
-            log.info { "Creating experiment for ${request.symbol} ${request.timeframe} with ${request.numBacktests} backtests" }
-            val result = experimentService.createExperiment(request)
-            ResponseEntity.ok(result)
+            log.info { "Initiating async experiment for ${request.symbol} ${request.timeframe} with ${request.numBacktests} backtests" }
+            val experiment = experimentService.initiateExperiment(request)
+            ResponseEntity.status(HttpStatus.ACCEPTED).body(
+                CreateExperimentResponse(
+                    id = experiment.id!!,
+                    status = experiment.status,
+                    message = "Experiment started. Poll GET /api/experiments/${experiment.id}/status for progress."
+                )
+            )
         } catch (e: IllegalArgumentException) {
             log.error { "Invalid request: ${e.message}" }
             ResponseEntity.badRequest().build()
         } catch (e: Exception) {
             log.error(e) { "Error creating experiment" }
+            ResponseEntity.internalServerError().build()
+        }
+    }
+
+    /**
+     * Gets the current status of an experiment (for progress polling).
+     */
+    @GetMapping("/{id}/status")
+    fun getExperimentStatus(@PathVariable id: Long): ResponseEntity<ExperimentStatusDto> {
+        return try {
+            val status = experimentService.getExperimentStatus(id)
+            ResponseEntity.ok(status)
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity.notFound().build()
+        } catch (e: Exception) {
+            log.error(e) { "Error getting experiment status $id" }
+            ResponseEntity.internalServerError().build()
+        }
+    }
+
+    /**
+     * Cancels a running experiment.
+     */
+    @PostMapping("/{id}/cancel")
+    fun cancelExperiment(@PathVariable id: Long): ResponseEntity<ExperimentStatusDto> {
+        return try {
+            val status = experimentService.cancelExperiment(id)
+            ResponseEntity.ok(status)
+        } catch (e: IllegalArgumentException) {
+            log.error { "Cannot cancel experiment $id: ${e.message}" }
+            ResponseEntity.badRequest().build()
+        } catch (e: Exception) {
+            log.error(e) { "Error cancelling experiment $id" }
             ResponseEntity.internalServerError().build()
         }
     }
@@ -50,6 +95,23 @@ class ExperimentController(
             ResponseEntity.notFound().build()
         } catch (e: Exception) {
             log.error(e) { "Error getting experiment $id" }
+            ResponseEntity.internalServerError().build()
+        }
+    }
+
+    @GetMapping("/{id}/runs")
+    fun getExperimentRuns(
+        @PathVariable id: Long,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "100") size: Int
+    ): ResponseEntity<PaginatedRunsDto> {
+        return try {
+            val runs = experimentService.getExperimentRuns(id, page, size)
+            ResponseEntity.ok(runs)
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity.notFound().build()
+        } catch (e: Exception) {
+            log.error(e) { "Error getting experiment runs for $id" }
             ResponseEntity.internalServerError().build()
         }
     }

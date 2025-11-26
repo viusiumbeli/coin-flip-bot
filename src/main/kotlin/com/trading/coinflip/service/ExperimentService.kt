@@ -1,12 +1,14 @@
 package com.trading.coinflip.service
 
 import com.trading.coinflip.BacktestService
+import com.trading.coinflip.config.BacktestProperties
 import com.trading.coinflip.data.BacktestRunRepository
 import com.trading.coinflip.data.ExperimentRepository
 import com.trading.coinflip.data.ExperimentTradeRepository
 import com.trading.coinflip.dto.*
 import com.trading.coinflip.model.*
 import mu.KotlinLogging
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -22,14 +24,16 @@ class ExperimentService(
     private val experimentRepository: ExperimentRepository,
     private val backtestRunRepository: BacktestRunRepository,
     private val experimentTradeRepository: ExperimentTradeRepository,
-    private val backtestService: BacktestService
+    private val backtestService: BacktestService,
+    private val asyncExperimentExecutor: AsyncExperimentExecutor,
+    private val properties: BacktestProperties
 ) {
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
         .withZone(ZoneId.of("UTC"))
 
     @Transactional
     fun createExperiment(request: CreateExperimentRequest): ExperimentDetailDto {
-        val numBacktests = request.numBacktests.coerceIn(1, 100)
+        val numBacktests = request.numBacktests.coerceIn(1, 1_000_000)
         log.info { "Creating experiment for ${request.symbol} ${request.timeframe} with $numBacktests backtests" }
 
         val timeframe = Timeframe.fromLabel(request.timeframe)
@@ -183,9 +187,25 @@ class ExperimentService(
         val experiment = experimentRepository.findById(id)
             .orElseThrow { IllegalArgumentException("Experiment not found: $id") }
 
-        val runs = backtestRunRepository.findByExperimentIdOrderByRunNumberAsc(id)
+        // Don't load all runs - frontend will fetch them via paginated endpoint
+        return experiment.toDetailDto(emptyList())
+    }
 
-        return experiment.toDetailDto(runs)
+    fun getExperimentRuns(id: Long, page: Int, size: Int): PaginatedRunsDto {
+        if (!experimentRepository.existsById(id)) {
+            throw IllegalArgumentException("Experiment not found: $id")
+        }
+
+        val pageable = PageRequest.of(page.coerceAtLeast(0), size.coerceIn(1, 1000))
+        val runsPage = backtestRunRepository.findByExperimentIdOrderByRunNumberAsc(id, pageable)
+
+        return PaginatedRunsDto(
+            runs = runsPage.content.map { it.toSummaryDto() },
+            page = runsPage.number,
+            size = runsPage.size,
+            totalPages = runsPage.totalPages,
+            totalElements = runsPage.totalElements
+        )
     }
 
     fun getBacktestRun(runId: Long): BacktestRunDetailDto {
@@ -241,6 +261,119 @@ class ExperimentService(
         }
         experimentRepository.deleteById(id)
         log.info { "Deleted experiment $id" }
+    }
+
+    // ==================== Async Experiment Methods ====================
+
+    /**
+     * Initiates an experiment asynchronously.
+     * Creates the experiment record with PENDING status and triggers background execution.
+     * Returns immediately without waiting for backtests to complete.
+     */
+    @Transactional
+    fun initiateExperiment(request: CreateExperimentRequest): Experiment {
+        val numBacktests = request.numBacktests.coerceIn(1, 10_000_000)
+        log.info { "Initiating async experiment for ${request.symbol} ${request.timeframe} with $numBacktests backtests" }
+
+        val timeframe = Timeframe.fromLabel(request.timeframe)
+            ?: throw IllegalArgumentException("Invalid timeframe: ${request.timeframe}")
+
+        val startDate = Instant.parse(request.startDate)
+        val endDate = Instant.parse(request.endDate)
+
+        // Generate auto name
+        val autoName = generateExperimentName(request.symbol, timeframe, startDate, endDate, numBacktests)
+
+        // Create experiment with PENDING status and placeholder values for aggregated stats
+        val experiment = Experiment(
+            name = autoName,
+            customName = request.customName?.takeIf { it.isNotBlank() },
+            notes = request.notes?.takeIf { it.isNotBlank() },
+            symbol = request.symbol,
+            timeframe = timeframe,
+            startDate = startDate,
+            endDate = endDate,
+            numBacktests = numBacktests,
+            initialCapital = properties.initialCapital,
+            riskPerTrade = properties.riskPerTrade,
+            atrPeriod = properties.atrPeriod,
+            atrMultiplier = properties.atrMultiplier,
+            transactionCostPercent = properties.transactionCostPercent,
+            maxConcurrentPositions = properties.maxConcurrentPositions,
+            // Placeholder values - will be updated when experiment completes
+            finalCapital = BigDecimal.ZERO,
+            totalReturn = BigDecimal.ZERO,
+            totalReturnPercent = BigDecimal.ZERO,
+            maxDrawdown = BigDecimal.ZERO,
+            maxDrawdownPercent = BigDecimal.ZERO,
+            winRate = BigDecimal.ZERO,
+            profitFactor = BigDecimal.ZERO,
+            sharpeRatio = BigDecimal.ZERO,
+            totalTrades = 0,
+            winningTrades = 0,
+            losingTrades = 0,
+            averageWin = BigDecimal.ZERO,
+            averageLoss = BigDecimal.ZERO,
+            largestWin = BigDecimal.ZERO,
+            largestLoss = BigDecimal.ZERO,
+            averageTradeDuration = 0,
+            buyAndHoldReturn = BigDecimal.ZERO,
+            buyAndHoldReturnPercent = BigDecimal.ZERO,
+            // Status fields
+            status = ExperimentStatus.PENDING,
+            completedRuns = 0,
+            failedRuns = 0,
+            startedAt = null,
+            finishedAt = null,
+            errorMessage = null
+        )
+
+        val savedExperiment = experimentRepository.save(experiment)
+        log.info { "Created experiment ${savedExperiment.id} with PENDING status" }
+
+        // Trigger async execution (non-blocking)
+        asyncExperimentExecutor.executeExperiment(savedExperiment.id!!, request)
+
+        return savedExperiment
+    }
+
+    /**
+     * Gets the current status of an experiment.
+     */
+    fun getExperimentStatus(id: Long): ExperimentStatusDto {
+        val experiment = experimentRepository.findById(id)
+            .orElseThrow { IllegalArgumentException("Experiment not found: $id") }
+
+        return ExperimentStatusDto(
+            id = experiment.id!!,
+            status = experiment.status,
+            totalRuns = experiment.numBacktests,
+            completedRuns = experiment.completedRuns,
+            failedRuns = experiment.failedRuns,
+            progressPercent = if (experiment.numBacktests > 0) {
+                (experiment.completedRuns.toDouble() / experiment.numBacktests) * 100
+            } else 0.0,
+            startedAt = experiment.startedAt,
+            finishedAt = experiment.finishedAt,
+            errorMessage = experiment.errorMessage
+        )
+    }
+
+    /**
+     * Cancels a running experiment.
+     */
+    fun cancelExperiment(id: Long): ExperimentStatusDto {
+        val experiment = experimentRepository.findById(id)
+            .orElseThrow { IllegalArgumentException("Experiment not found: $id") }
+
+        if (experiment.status != ExperimentStatus.RUNNING && experiment.status != ExperimentStatus.PENDING) {
+            throw IllegalArgumentException("Cannot cancel experiment in ${experiment.status} status")
+        }
+
+        asyncExperimentExecutor.cancel(id)
+
+        // Return updated status
+        return getExperimentStatus(id)
     }
 
     private fun generateExperimentName(
