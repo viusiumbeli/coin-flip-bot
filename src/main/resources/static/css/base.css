@@ -1,0 +1,184 @@
+/* Base CSS - Reset, Variables, Typography */
+
+/* CSS Variables */
+:root {
+    /* Colors */
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    --danger-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    --info-gradient: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+    --neutral-gradient: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+    --metric-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+
+    --primary-color: #667eea;
+    --primary-dark: #764ba2;
+    --success-color: #10b981;
+    --danger-color: #ef4444;
+    --warning-color: #f59e0b;
+    --info-color: #06b6d4;
+
+    --text-primary: #333;
+    --text-secondary: #666;
+    --text-muted: #999;
+
+    --border-color: #e0e0e0;
+    --bg-light: #f5f7fa;
+    --bg-card: white;
+
+    /* Typography */
+    --font-stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+    /* Spacing */
+    --spacing-xs: 5px;
+    --spacing-sm: 10px;
+    --spacing-md: 15px;
+    --spacing-lg: 20px;
+    --spacing-xl: 25px;
+    --spacing-xxl: 30px;
+
+    /* Border Radius */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-pill: 25px;
+
+    /* Shadows */
+    --shadow-card: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-hover: 0 6px 12px rgba(102, 126, 234, 0.4);
+
+    /* Theme-specific colors (light defaults) */
+    --nav-hover-bg: #f0f4ff;
+    --nav-bar-bg: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    --nav-bar-border: #e2e8f0;
+    --action-bar-bg: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    --action-bar-border: #bbf7d0;
+    --action-bar-text: #166534;
+    --table-header-hover: #e5e9f2;
+    --table-row-hover: #f9fafb;
+    --error-bg: #fee;
+    --error-border: #fcc;
+    --error-text: #c33;
+    --info-bg: #f0f9ff;
+    --info-text: #0369a1;
+    --candle-previous-bg: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+    /* Text */
+    --text-primary: #e5e7eb;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+
+    /* Backgrounds */
+    --bg-light: #1f2937;
+    --bg-card: #111827;
+
+    /* Borders */
+    --border-color: #374151;
+
+    /* Gradients */
+    --metric-gradient: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+
+    /* Shadows */
+    --shadow-card: 0 4px 6px rgba(0, 0, 0, 0.3);
+
+    /* Theme-specific colors (dark overrides) */
+    --nav-hover-bg: #374151;
+    --nav-bar-bg: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+    --nav-bar-border: #374151;
+    --action-bar-bg: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+    --action-bar-border: #047857;
+    --action-bar-text: #6ee7b7;
+    --table-header-hover: #374151;
+    --table-row-hover: #1f2937;
+    --error-bg: #450a0a;
+    --error-border: #7f1d1d;
+    --error-text: #fca5a5;
+    --info-bg: #0c4a6e;
+    --info-text: #7dd3fc;
+    --candle-previous-bg: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+}
+
+[data-theme="dark"] body {
+    background: #0f172a;
+}
+
+[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Base Typography */
+body {
+    font-family: var(--font-stack);
+    background: var(--primary-gradient);
+    min-height: 100vh;
+    padding: var(--spacing-lg);
+}
+
+h1 {
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+h2 {
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-lg);
+}
+
+h3 {
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+}
+
+/* Utility Classes */
+.positive {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.negative {
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Spinner Animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto var(--spacing-md);
+}
+
+.spinner-small {
+    display: inline-block;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid var(--primary-color);
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    animation: spin 1s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+}

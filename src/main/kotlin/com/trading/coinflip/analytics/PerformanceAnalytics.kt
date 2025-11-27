@@ -21,6 +21,7 @@ class PerformanceAnalytics {
         trades: List<Trade>,
         finalCapital: BigDecimal,
         maxDrawdown: BigDecimal,
+        peakBalance: BigDecimal,
         buyAndHoldReturn: BigDecimal,
         startDate: Instant,
         endDate: Instant
@@ -35,8 +36,11 @@ class PerformanceAnalytics {
         val totalReturnPercent = (totalReturn / config.initialCapital * BigDecimal(100))
             .setScale(2, RoundingMode.HALF_UP)
 
-        val maxDrawdownPercent = (maxDrawdown / config.initialCapital * BigDecimal(100))
-            .setScale(2, RoundingMode.HALF_UP)
+        val maxDrawdownPercent = if (peakBalance > BigDecimal.ZERO) {
+            (maxDrawdown / peakBalance * BigDecimal(100)).setScale(2, RoundingMode.HALF_UP)
+        } else {
+            BigDecimal.ZERO
+        }
 
         val winningTrades = trades.filter { it.profitLoss > BigDecimal.ZERO }
         val losingTrades = trades.filter { it.profitLoss < BigDecimal.ZERO }

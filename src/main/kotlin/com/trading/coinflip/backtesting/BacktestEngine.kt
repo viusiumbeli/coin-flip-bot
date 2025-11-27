@@ -169,6 +169,7 @@ class BacktestEngine(
             trades = closedTrades,
             finalCapital = accountBalance,
             maxDrawdown = maxDrawdown,
+            peakBalance = peakBalance,
             buyAndHoldReturn = buyAndHoldReturn,
             startDate = backtestCandles.first().openTime,
             endDate = backtestCandles.last().openTime
