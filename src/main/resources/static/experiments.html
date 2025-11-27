@@ -255,6 +255,32 @@
             z-index: 10;
         }
 
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th.sortable:hover {
+            background: #e5e9f2;
+        }
+
+        th.sortable .sort-indicator::after {
+            content: '';
+            display: inline-block;
+            margin-left: 4px;
+            opacity: 0.3;
+        }
+
+        th.sortable.sort-asc .sort-indicator::after {
+            content: '▲';
+            opacity: 1;
+        }
+
+        th.sortable.sort-desc .sort-indicator::after {
+            content: '▼';
+            opacity: 1;
+        }
+
         tr:hover {
             background: #f9fafb;
         }
@@ -319,6 +345,13 @@
         .actions {
             display: flex;
             gap: 8px;
+        }
+
+        /* Name column - allow full experiment names to display */
+        .name-column {
+            min-width: 200px;
+            white-space: normal;
+            word-break: break-word;
         }
 
         .hidden {
@@ -595,7 +628,7 @@
                     <thead>
                         <tr>
                             <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
-                            <th>Name</th>
+                            <th class="name-column">Name</th>
                             <th>Status</th>
                             <th>Runs</th>
                             <th>Symbol</th>
@@ -696,16 +729,16 @@
             <div class="runs-section">
                 <h3>Individual Backtest Runs</h3>
                 <div class="data-table">
-                    <table>
+                    <table id="runsTable">
                         <thead>
                             <tr>
-                                <th>Run #</th>
-                                <th>Return %</th>
-                                <th>Win Rate</th>
-                                <th>Sharpe</th>
-                                <th>Profit Factor</th>
-                                <th>Max DD %</th>
-                                <th>Trades</th>
+                                <th class="sortable sort-asc" data-field="runNumber" onclick="sortRuns('runNumber')">Run #<span class="sort-indicator"></span></th>
+                                <th class="sortable" data-field="totalReturnPercent" onclick="sortRuns('totalReturnPercent')">Return %<span class="sort-indicator"></span></th>
+                                <th class="sortable" data-field="winRate" onclick="sortRuns('winRate')">Win Rate<span class="sort-indicator"></span></th>
+                                <th class="sortable" data-field="sharpeRatio" onclick="sortRuns('sharpeRatio')">Sharpe<span class="sort-indicator"></span></th>
+                                <th class="sortable" data-field="profitFactor" onclick="sortRuns('profitFactor')">Profit Factor<span class="sort-indicator"></span></th>
+                                <th class="sortable" data-field="maxDrawdownPercent" onclick="sortRuns('maxDrawdownPercent')">Max DD %<span class="sort-indicator"></span></th>
+                                <th class="sortable" data-field="totalTrades" onclick="sortRuns('totalTrades')">Trades<span class="sort-indicator"></span></th>
                                 <th>Actions</th>
                             </tr>
                         </thead>

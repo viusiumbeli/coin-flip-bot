@@ -9,6 +9,7 @@ import com.trading.coinflip.dto.*
 import com.trading.coinflip.model.*
 import mu.KotlinLogging
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -191,13 +192,21 @@ class ExperimentService(
         return experiment.toDetailDto(emptyList())
     }
 
-    fun getExperimentRuns(id: Long, page: Int, size: Int): PaginatedRunsDto {
+    fun getExperimentRuns(id: Long, page: Int, size: Int, sortBy: String, sortDir: String): PaginatedRunsDto {
         if (!experimentRepository.existsById(id)) {
             throw IllegalArgumentException("Experiment not found: $id")
         }
 
-        val pageable = PageRequest.of(page.coerceAtLeast(0), size.coerceIn(1, 1000))
-        val runsPage = backtestRunRepository.findByExperimentIdOrderByRunNumberAsc(id, pageable)
+        // Validate sortBy field to prevent invalid column names
+        val allowedFields = setOf("runNumber", "totalReturnPercent", "winRate", "sharpeRatio", "profitFactor", "maxDrawdownPercent", "totalTrades")
+        val validSortBy = if (sortBy in allowedFields) sortBy else "runNumber"
+
+        val sort = Sort.by(
+            if (sortDir.equals("desc", ignoreCase = true)) Sort.Direction.DESC else Sort.Direction.ASC,
+            validSortBy
+        )
+        val pageable = PageRequest.of(page.coerceAtLeast(0), size.coerceIn(1, 1000), sort)
+        val runsPage = backtestRunRepository.findByExperimentId(id, pageable)
 
         return PaginatedRunsDto(
             runs = runsPage.content.map { it.toSummaryDto() },

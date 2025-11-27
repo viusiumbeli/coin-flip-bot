@@ -6,6 +6,8 @@ let pollingInterval = null;
 let currentExperiment = null;  // Store current experiment for pagination
 let currentPage = 0;
 let pageSize = 100;
+let currentSortField = 'runNumber';
+let currentSortDir = 'asc';
 
 // Load config and experiments on page load
 async function init() {
@@ -68,7 +70,7 @@ async function loadExperiments() {
         tbody.innerHTML = experiments.map(exp => `
             <tr>
                 <td><input type="checkbox" data-id="${exp.id}" onchange="toggleSelection(${exp.id})" ${exp.status !== 'COMPLETED' ? 'disabled' : ''}></td>
-                <td title="${exp.name}">${exp.customName || exp.name.substring(0, 25)}${exp.name.length > 25 ? '...' : ''}</td>
+                <td class="name-column">${exp.customName || exp.name}</td>
                 <td>${getStatusBadge(exp.status, exp.progressPercent)}</td>
                 <td><span class="badge">${exp.completedRuns}/${exp.numBacktests}</span></td>
                 <td>${exp.symbol}</td>
@@ -323,6 +325,9 @@ function displayExperimentDetail(exp) {
     // Store experiment for use by pagination and charts
     currentExperiment = exp;
     currentPage = 0;
+    // Reset sort to default when viewing a new experiment
+    currentSortField = 'runNumber';
+    currentSortDir = 'asc';
 
     // Load runs via paginated API
     loadExperimentRuns(exp.id, 0);
@@ -333,7 +338,7 @@ function displayExperimentDetail(exp) {
 
 async function loadExperimentRuns(experimentId, page) {
     try {
-        const response = await fetch(`${API_BASE}/experiments/${experimentId}/runs?page=${page}&size=${pageSize}`);
+        const response = await fetch(`${API_BASE}/experiments/${experimentId}/runs?page=${page}&size=${pageSize}&sortBy=${currentSortField}&sortDir=${currentSortDir}`);
         if (!response.ok) {
             throw new Error(`Server returned ${response.status}`);
         }
@@ -369,6 +374,9 @@ async function loadExperimentRuns(experimentId, page) {
 
         // Render pagination controls
         renderPaginationControls(experimentId, data);
+
+        // Update sort indicators
+        updateSortIndicators();
 
     } catch (error) {
         showError('Failed to load runs: ' + error.message);
@@ -694,6 +702,32 @@ async function cancelExperiment(experimentId) {
 
     } catch (error) {
         showError('Failed to cancel experiment: ' + error.message);
+    }
+}
+
+function sortRuns(field) {
+    if (currentSortField === field) {
+        // Toggle direction if same field
+        currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        // New field, default to ascending
+        currentSortField = field;
+        currentSortDir = 'asc';
+    }
+    // Reset to first page and reload
+    currentPage = 0;
+    loadExperimentRuns(currentExperimentId, 0);
+}
+
+function updateSortIndicators() {
+    // Remove all sort classes
+    document.querySelectorAll('#runsTable th.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+    });
+    // Add class to current sorted column
+    const currentTh = document.querySelector(`#runsTable th[data-field="${currentSortField}"]`);
+    if (currentTh) {
+        currentTh.classList.add(currentSortDir === 'asc' ? 'sort-asc' : 'sort-desc');
     }
 }
 
