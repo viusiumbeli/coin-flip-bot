@@ -38,7 +38,7 @@ backtest:
     - ONE_HOUR
     - FOUR_HOURS
     - ONE_DAY
-  initial-capital: 10000
+  initial-capital: 1000
   risk-per-trade: 1.0
   atr-period: 10
   atr-multiplier: 3.0
