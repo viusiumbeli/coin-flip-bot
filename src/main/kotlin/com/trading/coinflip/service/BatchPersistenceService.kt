@@ -148,6 +148,7 @@ class BatchPersistenceService(
                 averageTradeDuration = stats.averageTradeDuration
                 buyAndHoldReturn = stats.buyAndHoldReturn
                 buyAndHoldReturnPercent = stats.buyAndHoldReturnPercent
+                runsBeatBuyHold = stats.runsBeatBuyHold
 
                 this.startDate = startDate
                 this.endDate = endDate

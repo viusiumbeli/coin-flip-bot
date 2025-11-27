@@ -59,7 +59,7 @@ async function loadExperiments() {
         if (experiments.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="12" style="text-align: center; padding: 40px; color: #666;">
+                    <td colspan="14" style="text-align: center; padding: 40px; color: #666;">
                         No experiments yet. Create your first experiment above!
                     </td>
                 </tr>
@@ -70,6 +70,7 @@ async function loadExperiments() {
         tbody.innerHTML = experiments.map(exp => `
             <tr>
                 <td><input type="checkbox" data-id="${exp.id}" onchange="toggleSelection(${exp.id})" ${exp.status !== 'COMPLETED' ? 'disabled' : ''}></td>
+                <td>${exp.id}</td>
                 <td class="name-column">${exp.customName || exp.name}</td>
                 <td>${getStatusBadge(exp.status, exp.progressPercent)}</td>
                 <td><span class="badge">${exp.completedRuns}/${exp.numBacktests}</span></td>
@@ -77,6 +78,7 @@ async function loadExperiments() {
                 <td>${exp.timeframe}</td>
                 <td>${formatDate(exp.startDate)} - ${formatDate(exp.endDate)}</td>
                 <td class="${exp.status === 'COMPLETED' ? (exp.totalReturnPercent >= 0 ? 'positive' : 'negative') : ''}">${exp.status === 'COMPLETED' ? formatNumber(exp.totalReturnPercent) + '%' : '-'}</td>
+                <td class="${exp.status === 'COMPLETED' ? (exp.buyAndHoldReturnPercent >= 0 ? 'positive' : 'negative') : ''}">${exp.status === 'COMPLETED' ? formatNumber(exp.buyAndHoldReturnPercent) + '%' : '-'}</td>
                 <td>${exp.status === 'COMPLETED' ? formatNumber(exp.winRate) + '%' : '-'}</td>
                 <td>${exp.status === 'COMPLETED' ? formatNumber(exp.sharpeRatio) : '-'}</td>
                 <td>${formatDateTime(exp.createdAt)}</td>
@@ -262,7 +264,7 @@ function displayExperimentDetail(exp) {
     const isProfit = exp.totalReturnPercent >= 0;
 
     document.getElementById('detailTitle').innerHTML = `
-        ${exp.customName || exp.name}
+        #${exp.id} ${exp.customName || exp.name}
         <span class="badge" style="margin-left: 10px;">${exp.numBacktests} runs</span>
         <span style="color: ${isProfit ? '#10b981' : '#ef4444'}; font-size: 18px; margin-left: 15px;">
             Avg ${formatNumber(exp.totalReturnPercent)}% Return

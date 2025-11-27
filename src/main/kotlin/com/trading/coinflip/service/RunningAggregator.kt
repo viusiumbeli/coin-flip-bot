@@ -36,6 +36,9 @@ class RunningAggregator {
     private var buyAndHoldReturn: BigDecimal? = null
     private var buyAndHoldReturnPercent: BigDecimal? = null
 
+    // Count of runs that beat buy & hold
+    private var runsBeatBuyHold = 0
+
     @Synchronized
     fun add(result: BacktestResult) {
         count.incrementAndGet()
@@ -62,6 +65,11 @@ class RunningAggregator {
         if (buyAndHoldReturn == null) {
             buyAndHoldReturn = result.buyAndHoldReturn
             buyAndHoldReturnPercent = result.buyAndHoldReturnPercent
+        }
+
+        // Count runs that beat buy & hold
+        if (result.totalReturnPercent >= result.buyAndHoldReturnPercent) {
+            runsBeatBuyHold++
         }
     }
 
@@ -94,7 +102,8 @@ class RunningAggregator {
             largestLoss = sumLargestLoss.divide(divisor, 8, RoundingMode.HALF_UP),
             averageTradeDuration = (sumAverageTradeDuration.toDouble() / n).toLong(),
             buyAndHoldReturn = buyAndHoldReturn ?: BigDecimal.ZERO,
-            buyAndHoldReturnPercent = buyAndHoldReturnPercent ?: BigDecimal.ZERO
+            buyAndHoldReturnPercent = buyAndHoldReturnPercent ?: BigDecimal.ZERO,
+            runsBeatBuyHold = runsBeatBuyHold
         )
     }
 }
@@ -120,7 +129,8 @@ data class AggregatedStats(
     val largestLoss: BigDecimal,
     val averageTradeDuration: Long,
     val buyAndHoldReturn: BigDecimal,
-    val buyAndHoldReturnPercent: BigDecimal
+    val buyAndHoldReturnPercent: BigDecimal,
+    val runsBeatBuyHold: Int
 ) {
     companion object {
         fun empty() = AggregatedStats(
@@ -141,7 +151,8 @@ data class AggregatedStats(
             largestLoss = BigDecimal.ZERO,
             averageTradeDuration = 0,
             buyAndHoldReturn = BigDecimal.ZERO,
-            buyAndHoldReturnPercent = BigDecimal.ZERO
+            buyAndHoldReturnPercent = BigDecimal.ZERO,
+            runsBeatBuyHold = 0
         )
     }
 }

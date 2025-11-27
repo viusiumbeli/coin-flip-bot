@@ -124,6 +124,9 @@ data class Experiment(
     @Column(name = "buy_and_hold_return_percent", nullable = false, precision = 20, scale = 8)
     var buyAndHoldReturnPercent: BigDecimal,
 
+    @Column(name = "runs_beat_buy_hold", nullable = false)
+    var runsBeatBuyHold: Int = 0,
+
     // Async execution status
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
