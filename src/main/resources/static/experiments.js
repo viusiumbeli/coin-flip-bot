@@ -331,9 +331,6 @@ function displayExperimentDetail(exp) {
 
     // Load runs via paginated API
     loadExperimentRuns(exp.id, 0);
-
-    // Render charts (with limits for large experiments)
-    renderCharts(exp);
 }
 
 async function loadExperimentRuns(experimentId, page) {
@@ -514,7 +511,7 @@ function hideRunDetail() {
 }
 
 function hideDetail() {
-    destroyCharts();
+    clearAllCharts();
     document.getElementById('detailSection').classList.add('hidden');
     document.getElementById('runDetailSection').classList.add('hidden');
     document.getElementById('createForm').classList.remove('hidden');

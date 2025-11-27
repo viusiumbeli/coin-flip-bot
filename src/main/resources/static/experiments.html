@@ -534,11 +534,73 @@
             position: relative;
         }
 
+        .chart-container.full-width {
+            grid-column: 1 / -1;
+            height: 400px;
+        }
+
         .chart-container h4 {
             margin-bottom: 15px;
             color: #333;
             font-size: 14px;
             text-align: center;
+        }
+
+        .chart-container .remove-chart {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chart-container .remove-chart:hover {
+            background: #dc2626;
+        }
+
+        .add-chart-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .chart-menu {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            min-width: 200px;
+        }
+
+        .chart-menu-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .chart-menu-item:hover {
+            background: #f5f7fa;
+        }
+
+        .chart-menu-item:first-child {
+            border-radius: 6px 6px 0 0;
+        }
+
+        .chart-menu-item:last-child {
+            border-radius: 0 0 6px 6px;
         }
     </style>
 </head>
@@ -693,37 +755,22 @@
             <div class="metrics-grid" id="detailMetrics"></div>
 
             <div class="charts-section">
-                <h3>Performance Charts</h3>
-                <div class="charts-grid">
-                    <div class="chart-container">
-                        <h4>Return Distribution Across Runs</h4>
-                        <canvas id="returnDistChart"></canvas>
-                    </div>
-                    <div class="chart-container">
-                        <h4>Win/Loss Ratio</h4>
-                        <canvas id="winLossChart"></canvas>
-                    </div>
-                    <div class="chart-container" style="grid-column: 1 / -1; height: 400px;">
-                        <h4>Equity Curves (All Runs)</h4>
-                        <canvas id="equityCurveChart"></canvas>
-                    </div>
-                    <div class="chart-container">
-                        <h4>Expectancy Per Run ($/trade)</h4>
-                        <canvas id="expectancyPerRunChart"></canvas>
-                    </div>
-                    <div class="chart-container">
-                        <h4>Expectancy Distribution</h4>
-                        <canvas id="expectancyDistChart"></canvas>
-                    </div>
-                    <div class="chart-container" style="grid-column: 1 / -1; height: 400px;">
-                        <h4>Cumulative Expectancy (All Runs)</h4>
-                        <canvas id="cumulativeExpectancyChart"></canvas>
-                    </div>
-                    <div class="chart-container">
-                        <h4>Std Dev of P/L Per Run</h4>
-                        <canvas id="stdDevChart"></canvas>
+                <div class="section-title">
+                    <h3>Performance Charts</h3>
+                    <div class="add-chart-dropdown">
+                        <button class="btn-secondary" onclick="toggleChartMenu()">+ Add Chart</button>
+                        <div id="chartMenu" class="chart-menu hidden">
+                            <div class="chart-menu-item" onclick="addChart('returnDist')">Return Distribution</div>
+                            <div class="chart-menu-item" onclick="addChart('winLoss')">Win/Loss Ratio</div>
+                            <div class="chart-menu-item" onclick="addChart('equity')">Equity Curves</div>
+                            <div class="chart-menu-item" onclick="addChart('expectancyPerRun')">Expectancy Per Run</div>
+                            <div class="chart-menu-item" onclick="addChart('expectancyDist')">Expectancy Distribution</div>
+                            <div class="chart-menu-item" onclick="addChart('cumulativeExpectancy')">Cumulative Expectancy</div>
+                            <div class="chart-menu-item" onclick="addChart('stdDev')">Std Dev of P/L</div>
+                        </div>
                     </div>
                 </div>
+                <div id="chartsGrid" class="charts-grid"></div>
             </div>
 
             <div class="runs-section">

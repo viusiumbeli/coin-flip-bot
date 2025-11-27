@@ -1,81 +1,160 @@
-// Chart instances
-let returnDistChart = null;
-let winLossChart = null;
-let equityCurveChart = null;
-let expectancyPerRunChart = null;
-let expectancyDistChart = null;
-let cumulativeExpectancyChart = null;
-let stdDevChart = null;
-let isRenderingCharts = false;
+// Chart type registry
+const CHART_TYPES = {
+    returnDist: {
+        title: 'Return Distribution Across Runs',
+        render: renderReturnDistribution,
+        needsRuns: true
+    },
+    winLoss: {
+        title: 'Win/Loss Ratio',
+        render: renderWinLossPie,
+        needsRuns: false
+    },
+    equity: {
+        title: 'Equity Curves (All Runs)',
+        render: renderEquityCurves,
+        needsRuns: true,
+        fullWidth: true
+    },
+    expectancyPerRun: {
+        title: 'Expectancy Per Run ($/trade)',
+        render: renderExpectancyPerRun,
+        needsRuns: true
+    },
+    expectancyDist: {
+        title: 'Expectancy Distribution',
+        render: renderExpectancyDistribution,
+        needsRuns: true
+    },
+    cumulativeExpectancy: {
+        title: 'Cumulative Expectancy (All Runs)',
+        render: renderCumulativeExpectancy,
+        needsRuns: true,
+        fullWidth: true
+    },
+    stdDev: {
+        title: 'Std Dev of P/L Per Run',
+        render: renderStdDevChart,
+        needsRuns: true
+    }
+};
 
-function destroyCharts() {
-    if (returnDistChart) { returnDistChart.destroy(); returnDistChart = null; }
-    if (winLossChart) { winLossChart.destroy(); winLossChart = null; }
-    if (equityCurveChart) { equityCurveChart.destroy(); equityCurveChart = null; }
-    if (expectancyPerRunChart) { expectancyPerRunChart.destroy(); expectancyPerRunChart = null; }
-    if (expectancyDistChart) { expectancyDistChart.destroy(); expectancyDistChart = null; }
-    if (cumulativeExpectancyChart) { cumulativeExpectancyChart.destroy(); cumulativeExpectancyChart = null; }
-    if (stdDevChart) { stdDevChart.destroy(); stdDevChart = null; }
+let activeCharts = new Map();
+let cachedRuns = null;
+
+function toggleChartMenu() {
+    const menu = document.getElementById('chartMenu');
+    menu.classList.toggle('hidden');
 }
 
-async function renderCharts(experiment) {
-    if (isRenderingCharts) return;
-    isRenderingCharts = true;
-    try {
-        destroyCharts();
+// Close menu when clicking outside
+document.addEventListener('click', function(e) {
+    const dropdown = document.querySelector('.add-chart-dropdown');
+    const menu = document.getElementById('chartMenu');
+    if (dropdown && menu && !dropdown.contains(e.target)) {
+        menu.classList.add('hidden');
+    }
+});
 
-        // For large experiments, disable most charts (they require fetching all run details)
-        const isLargeExperiment = experiment.numBacktests > 1000;
+function addChart(type) {
+    const chartInfo = CHART_TYPES[type];
+    if (!chartInfo) return;
 
-        if (isLargeExperiment) {
-            // Show message for charts that are disabled
-            const disabledMessage = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666; font-size: 14px; text-align: center;">Charts disabled for experiments with &gt;1,000 runs</div>';
+    const chartId = `chart_${type}_${Date.now()}`;
 
-            document.getElementById('returnDistChart').parentElement.innerHTML =
-                '<h4>Return Distribution Across Runs</h4>' + disabledMessage;
-            document.getElementById('equityCurveChart').parentElement.innerHTML =
-                '<h4>Equity Curves (All Runs)</h4>' + disabledMessage;
-            document.getElementById('expectancyPerRunChart').parentElement.innerHTML =
-                '<h4>Expectancy Per Run ($/trade)</h4>' + disabledMessage;
-            document.getElementById('expectancyDistChart').parentElement.innerHTML =
-                '<h4>Expectancy Distribution</h4>' + disabledMessage;
-            document.getElementById('cumulativeExpectancyChart').parentElement.innerHTML =
-                '<h4>Cumulative Expectancy (All Runs)</h4>' + disabledMessage;
-            document.getElementById('stdDevChart').parentElement.innerHTML =
-                '<h4>Std Dev of P/L Per Run</h4>' + disabledMessage;
+    // Create container
+    const container = document.createElement('div');
+    container.className = 'chart-container' + (chartInfo.fullWidth ? ' full-width' : '');
+    container.id = chartId;
+    container.innerHTML = `
+        <button class="remove-chart" onclick="removeChart('${chartId}')">&times;</button>
+        <h4>${chartInfo.title}</h4>
+        <canvas id="canvas_${chartId}"></canvas>
+    `;
 
-            // Only render the Win/Loss pie chart (uses aggregated data, not individual runs)
-            renderWinLossPie(experiment);
-        } else {
-            // For small experiments, fetch first page of runs for basic charts
-            const response = await fetch(`${API_BASE}/experiments/${experiment.id}/runs?page=0&size=1000`);
-            if (response.ok) {
-                const data = await response.json();
-                const runs = data.runs;
+    document.getElementById('chartsGrid').appendChild(container);
 
-                if (runs.length > 0) {
-                    renderReturnDistribution(runs);
-                    renderWinLossPie(experiment);
-                    await renderEquityCurves(runs);
-                    await renderExpectancyPerRun(runs);
-                    await renderExpectancyDistribution(runs);
-                    await renderCumulativeExpectancy(runs);
-                    await renderStdDevChart(runs);
-                } else {
-                    renderWinLossPie(experiment);
-                }
-            } else {
-                renderWinLossPie(experiment);
-            }
-        }
-    } finally {
-        isRenderingCharts = false;
+    // Render chart
+    renderSingleChart(type, chartId);
+
+    // Hide menu
+    document.getElementById('chartMenu').classList.add('hidden');
+}
+
+function removeChart(chartId) {
+    if (activeCharts.has(chartId)) {
+        activeCharts.get(chartId).destroy();
+        activeCharts.delete(chartId);
+    }
+    const container = document.getElementById(chartId);
+    if (container) {
+        container.remove();
     }
 }
 
-function renderReturnDistribution(runs) {
-    const ctx = document.getElementById('returnDistChart').getContext('2d');
-    returnDistChart = new Chart(ctx, {
+function clearAllCharts() {
+    activeCharts.forEach((chart) => {
+        chart.destroy();
+    });
+    activeCharts.clear();
+    cachedRuns = null;
+    const grid = document.getElementById('chartsGrid');
+    if (grid) {
+        grid.innerHTML = '';
+    }
+}
+
+async function renderSingleChart(type, chartId) {
+    const chartInfo = CHART_TYPES[type];
+    const canvasId = `canvas_${chartId}`;
+
+    // Check for large experiment
+    if (currentExperiment && currentExperiment.numBacktests > 1000 && chartInfo.needsRuns) {
+        const container = document.getElementById(chartId);
+        if (container) {
+            container.innerHTML = `
+                <button class="remove-chart" onclick="removeChart('${chartId}')">&times;</button>
+                <h4>${chartInfo.title}</h4>
+                <div style="display: flex; align-items: center; justify-content: center; height: 80%; color: #666; font-size: 14px; text-align: center;">
+                    Charts disabled for experiments with &gt;1,000 runs
+                </div>
+            `;
+        }
+        return;
+    }
+
+    // Fetch runs if needed and not cached
+    if (chartInfo.needsRuns && !cachedRuns) {
+        try {
+            const response = await fetch(`${API_BASE}/experiments/${currentExperiment.id}/runs?page=0&size=1000`);
+            if (response.ok) {
+                cachedRuns = (await response.json()).runs;
+            }
+        } catch (e) {
+            console.error('Failed to fetch runs:', e);
+            return;
+        }
+    }
+
+    try {
+        const chart = await chartInfo.render(
+            canvasId,
+            chartInfo.needsRuns ? cachedRuns : currentExperiment
+        );
+
+        if (chart) {
+            activeCharts.set(chartId, chart);
+        }
+    } catch (e) {
+        console.error(`Failed to render chart ${type}:`, e);
+    }
+}
+
+function renderReturnDistribution(canvasId, runs) {
+    if (!runs || runs.length === 0) return null;
+
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    return new Chart(ctx, {
         type: 'bar',
         data: {
             labels: runs.map(r => `Run ${r.runNumber}`),
@@ -107,13 +186,15 @@ function renderReturnDistribution(runs) {
     });
 }
 
-function renderWinLossPie(experiment) {
-    const ctx = document.getElementById('winLossChart').getContext('2d');
+function renderWinLossPie(canvasId, experiment) {
+    if (!experiment) return null;
+
+    const ctx = document.getElementById(canvasId).getContext('2d');
     const wins = experiment.winningTrades;
     const losses = experiment.losingTrades;
     const total = wins + losses;
 
-    winLossChart = new Chart(ctx, {
+    return new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: [`Wins (${wins})`, `Losses (${losses})`],
@@ -146,8 +227,9 @@ function renderWinLossPie(experiment) {
     });
 }
 
-async function renderEquityCurves(runs) {
-    // Fetch trade data for each run to build equity curves
+async function renderEquityCurves(canvasId, runs) {
+    if (!runs || runs.length === 0) return null;
+
     const colors = [
         '#667eea', '#f093fb', '#4ade80', '#f97316', '#06b6d4',
         '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#3b82f6'
@@ -164,7 +246,6 @@ async function renderEquityCurves(runs) {
                 const trades = runDetail.trades;
 
                 if (trades.length > 0) {
-                    // Build equity curve from trades
                     const equityData = [{ x: 0, y: parseFloat(trades[0].balanceBeforeOpen) }];
                     trades.forEach((trade, idx) => {
                         equityData.push({ x: idx + 1, y: parseFloat(trade.balanceAfterClose) });
@@ -186,10 +267,10 @@ async function renderEquityCurves(runs) {
         }
     }
 
-    if (datasets.length === 0) return;
+    if (datasets.length === 0) return null;
 
-    const ctx = document.getElementById('equityCurveChart').getContext('2d');
-    equityCurveChart = new Chart(ctx, {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    return new Chart(ctx, {
         type: 'line',
         data: { datasets },
         options: {
@@ -215,8 +296,9 @@ async function renderEquityCurves(runs) {
     });
 }
 
-async function renderExpectancyPerRun(runs) {
-    // Fetch run details to get totalReturn in $ for accurate expectancy
+async function renderExpectancyPerRun(canvasId, runs) {
+    if (!runs || runs.length === 0) return null;
+
     const expectancies = [];
 
     for (let i = 0; i < runs.length; i++) {
@@ -235,10 +317,10 @@ async function renderExpectancyPerRun(runs) {
         }
     }
 
-    if (expectancies.length === 0) return;
+    if (expectancies.length === 0) return null;
 
-    const ctx = document.getElementById('expectancyPerRunChart').getContext('2d');
-    expectancyPerRunChart = new Chart(ctx, {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    return new Chart(ctx, {
         type: 'bar',
         data: {
             labels: expectancies.map(e => `Run ${e.runNumber}`),
@@ -270,8 +352,9 @@ async function renderExpectancyPerRun(runs) {
     });
 }
 
-async function renderExpectancyDistribution(runs) {
-    // Fetch run details for expectancy values
+async function renderExpectancyDistribution(canvasId, runs) {
+    if (!runs || runs.length === 0) return null;
+
     const expectancies = [];
 
     for (let i = 0; i < runs.length; i++) {
@@ -290,7 +373,7 @@ async function renderExpectancyDistribution(runs) {
         }
     }
 
-    if (expectancies.length === 0) return;
+    if (expectancies.length === 0) return null;
 
     // Create histogram buckets
     const min = Math.min(...expectancies);
@@ -315,8 +398,8 @@ async function renderExpectancyDistribution(runs) {
         });
     }
 
-    const ctx = document.getElementById('expectancyDistChart').getContext('2d');
-    expectancyDistChart = new Chart(ctx, {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    return new Chart(ctx, {
         type: 'bar',
         data: {
             labels: buckets.map(b => b.label),
@@ -353,7 +436,9 @@ async function renderExpectancyDistribution(runs) {
     });
 }
 
-async function renderCumulativeExpectancy(runs) {
+async function renderCumulativeExpectancy(canvasId, runs) {
+    if (!runs || runs.length === 0) return null;
+
     const colors = [
         '#667eea', '#f093fb', '#4ade80', '#f97316', '#06b6d4',
         '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#3b82f6'
@@ -370,7 +455,6 @@ async function renderCumulativeExpectancy(runs) {
                 const trades = runDetail.trades;
 
                 if (trades.length > 0) {
-                    // Build cumulative expectancy (running average P/L per trade)
                     const expectancyData = [];
                     let cumulativePL = 0;
 
@@ -396,10 +480,10 @@ async function renderCumulativeExpectancy(runs) {
         }
     }
 
-    if (datasets.length === 0) return;
+    if (datasets.length === 0) return null;
 
-    const ctx = document.getElementById('cumulativeExpectancyChart').getContext('2d');
-    cumulativeExpectancyChart = new Chart(ctx, {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    return new Chart(ctx, {
         type: 'line',
         data: { datasets },
         options: {
@@ -425,7 +509,9 @@ async function renderCumulativeExpectancy(runs) {
     });
 }
 
-async function renderStdDevChart(runs) {
+async function renderStdDevChart(canvasId, runs) {
+    if (!runs || runs.length === 0) return null;
+
     const stdDevs = [];
 
     for (let i = 0; i < runs.length; i++) {
@@ -437,7 +523,6 @@ async function renderStdDevChart(runs) {
                 const trades = runDetail.trades;
 
                 if (trades.length > 1) {
-                    // Calculate standard deviation of P/L
                     const pls = trades.map(t => parseFloat(t.profitLoss));
                     const mean = pls.reduce((a, b) => a + b, 0) / pls.length;
                     const variance = pls.reduce((sum, pl) => sum + Math.pow(pl - mean, 2), 0) / pls.length;
@@ -452,10 +537,10 @@ async function renderStdDevChart(runs) {
         }
     }
 
-    if (stdDevs.length === 0) return;
+    if (stdDevs.length === 0) return null;
 
-    const ctx = document.getElementById('stdDevChart').getContext('2d');
-    stdDevChart = new Chart(ctx, {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    return new Chart(ctx, {
         type: 'bar',
         data: {
             labels: stdDevs.map(s => `Run ${s.runNumber}`),
