@@ -324,6 +324,52 @@ function displayExperimentDetail(exp) {
         </div>
     `;
 
+    // Display variance/distribution metrics (if available)
+    const distributionDiv = document.getElementById('distributionMetrics');
+    if (exp.returnStdDev !== null && exp.returnStdDev !== undefined) {
+        distributionDiv.innerHTML = `
+            <h3 style="margin-top: 30px; margin-bottom: 15px; color: #374151;">Return Distribution</h3>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Standard Deviation</div>
+                    <div class="metric-value">${formatNumber(exp.returnStdDev)}%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Min Return</div>
+                    <div class="metric-value ${exp.returnMin >= 0 ? 'positive' : 'negative'}">${formatNumber(exp.returnMin)}%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Max Return</div>
+                    <div class="metric-value ${exp.returnMax >= 0 ? 'positive' : 'negative'}">${formatNumber(exp.returnMax)}%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">P5 (5th Percentile)</div>
+                    <div class="metric-value">${formatNumber(exp.returnP5)}%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Q1 (25th Percentile)</div>
+                    <div class="metric-value">${formatNumber(exp.returnP25)}%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Median (50th Percentile)</div>
+                    <div class="metric-value">${formatNumber(exp.returnP50)}%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Q3 (75th Percentile)</div>
+                    <div class="metric-value">${formatNumber(exp.returnP75)}%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">P95 (95th Percentile)</div>
+                    <div class="metric-value">${formatNumber(exp.returnP95)}%</div>
+                </div>
+            </div>
+        `;
+        distributionDiv.classList.remove('hidden');
+    } else {
+        distributionDiv.innerHTML = '';
+        distributionDiv.classList.add('hidden');
+    }
+
     // Store experiment for use by pagination and charts
     currentExperiment = exp;
     currentPage = 0;

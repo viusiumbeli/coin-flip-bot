@@ -150,6 +150,16 @@ class BatchPersistenceService(
                 buyAndHoldReturnPercent = stats.buyAndHoldReturnPercent
                 runsBeatBuyHold = stats.runsBeatBuyHold
 
+                // Variance metrics
+                returnStdDev = stats.returnStdDev
+                returnMin = stats.returnMin
+                returnMax = stats.returnMax
+                returnP5 = stats.returnP5
+                returnP25 = stats.returnP25
+                returnP50 = stats.returnP50
+                returnP75 = stats.returnP75
+                returnP95 = stats.returnP95
+
                 this.startDate = startDate
                 this.endDate = endDate
 

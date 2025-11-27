@@ -149,6 +149,16 @@ data class ExperimentDetailDto(
     val buyAndHoldReturnPercent: BigDecimal,
     val runsBeatBuyHold: Int,
 
+    // Variance/distribution metrics for totalReturnPercent
+    val returnStdDev: BigDecimal?,
+    val returnMin: BigDecimal?,
+    val returnMax: BigDecimal?,
+    val returnP5: BigDecimal?,
+    val returnP25: BigDecimal?,
+    val returnP50: BigDecimal?,
+    val returnP75: BigDecimal?,
+    val returnP95: BigDecimal?,
+
     // Individual runs
     val runs: List<BacktestRunSummaryDto>
 )
@@ -241,6 +251,14 @@ fun Experiment.toDetailDto(runs: List<BacktestRun>) = ExperimentDetailDto(
     buyAndHoldReturn = buyAndHoldReturn,
     buyAndHoldReturnPercent = buyAndHoldReturnPercent,
     runsBeatBuyHold = runsBeatBuyHold,
+    returnStdDev = returnStdDev,
+    returnMin = returnMin,
+    returnMax = returnMax,
+    returnP5 = returnP5,
+    returnP25 = returnP25,
+    returnP50 = returnP50,
+    returnP75 = returnP75,
+    returnP95 = returnP95,
     runs = runs.map { it.toSummaryDto() }
 )
 

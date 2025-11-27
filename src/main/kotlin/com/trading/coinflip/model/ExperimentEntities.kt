@@ -127,6 +127,31 @@ data class Experiment(
     @Column(name = "runs_beat_buy_hold", nullable = false)
     var runsBeatBuyHold: Int = 0,
 
+    // Variance/distribution metrics for totalReturnPercent (nullable for backward compatibility)
+    @Column(name = "return_std_dev", precision = 20, scale = 8)
+    var returnStdDev: BigDecimal? = null,
+
+    @Column(name = "return_min", precision = 20, scale = 8)
+    var returnMin: BigDecimal? = null,
+
+    @Column(name = "return_max", precision = 20, scale = 8)
+    var returnMax: BigDecimal? = null,
+
+    @Column(name = "return_p5", precision = 20, scale = 8)
+    var returnP5: BigDecimal? = null,
+
+    @Column(name = "return_p25", precision = 20, scale = 8)
+    var returnP25: BigDecimal? = null,
+
+    @Column(name = "return_p50", precision = 20, scale = 8)
+    var returnP50: BigDecimal? = null,
+
+    @Column(name = "return_p75", precision = 20, scale = 8)
+    var returnP75: BigDecimal? = null,
+
+    @Column(name = "return_p95", precision = 20, scale = 8)
+    var returnP95: BigDecimal? = null,
+
     // Async execution status
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
