@@ -4,13 +4,15 @@ import com.trading.coinflip.model.BacktestConfig
 import com.trading.coinflip.model.BacktestResult
 import com.trading.coinflip.model.Trade
 import mu.KotlinLogging
+import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Duration
 import java.time.Instant
 import kotlin.math.sqrt
 
-object PerformanceAnalytics {
+@Component
+class PerformanceAnalytics {
     private val log = KotlinLogging.logger {}
 
     fun calculatePerformance(

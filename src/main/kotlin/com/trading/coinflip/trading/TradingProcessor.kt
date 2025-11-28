@@ -8,6 +8,7 @@ import com.trading.coinflip.model.PositionStatus
 import com.trading.coinflip.model.Trade
 import com.trading.coinflip.strategy.CoinFlipStrategy
 import mu.KotlinLogging
+import org.springframework.stereotype.Component
 import java.math.BigDecimal
 
 /**
@@ -15,7 +16,10 @@ import java.math.BigDecimal
  * Encapsulates position processing, P&L calculation, and drawdown tracking.
  * Thread-safe when used with separate TradingState instances.
  */
-object TradingProcessor {
+@Component
+class TradingProcessor(
+    private val strategy: CoinFlipStrategy,
+) {
     private val log = KotlinLogging.logger {}
 
     /**
@@ -32,7 +36,7 @@ object TradingProcessor {
         val positionsToClose = mutableListOf<Position>()
         for (position in state.openPositions) {
             val shouldClose =
-                CoinFlipStrategy.updatePosition(
+                strategy.updatePosition(
                     position = position,
                     candle = candle,
                     candles = candles,
@@ -64,7 +68,7 @@ object TradingProcessor {
                 // Random entry frequency based on config
                 if (kotlin.random.Random.nextDouble() < config.entryFrequency) {
                     val newPosition =
-                        CoinFlipStrategy.createPosition(
+                        strategy.createPosition(
                             candle = candle,
                             candles = candles,
                             candleIndex = candleIndex,
@@ -105,7 +109,7 @@ object TradingProcessor {
             }
         val transactionCost =
             position.entryPrice * position.positionSize *
-                (transactionCostPercent / BigDecimal(100)) * BigDecimal(2) // Entry + Exit
+                    (transactionCostPercent / BigDecimal(100)) * BigDecimal(2) // Entry + Exit
 
         state.accountBalance += pnl - transactionCost
         val balanceAfterClose = state.accountBalance
@@ -115,7 +119,7 @@ object TradingProcessor {
 
         log.debug {
             "Closed ${trade.side} trade: P/L ${trade.profitLoss} (${trade.profitLossPercent}%), " +
-                "Balance: ${state.accountBalance}"
+                    "Balance: ${state.accountBalance}"
         }
 
         // Track drawdown

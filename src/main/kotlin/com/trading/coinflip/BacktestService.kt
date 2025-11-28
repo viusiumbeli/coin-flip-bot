@@ -16,6 +16,7 @@ class BacktestService(
     private val properties: BacktestProperties,
     private val dataService: DataService,
     private val reportGenerator: ReportGenerator,
+    private val backtestEngine: BacktestEngine,
 ) {
     private val log = KotlinLogging.logger {}
 
@@ -69,7 +70,7 @@ class BacktestService(
                         )
 
                     // Run backtest
-                    val result = BacktestEngine.runBacktest(config, candles)
+                    val result = backtestEngine.runBacktest(config, candles)
                     allResults.add(result)
 
                     // Print individual result
@@ -136,6 +137,6 @@ class BacktestService(
             )
 
         // Run backtest
-        return BacktestEngine.runBacktest(config, candles)
+        return backtestEngine.runBacktest(config, candles)
     }
 }

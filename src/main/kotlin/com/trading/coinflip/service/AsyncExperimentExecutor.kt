@@ -43,6 +43,7 @@ class AsyncExperimentExecutor(
     private val batchPersistenceService: BatchPersistenceService,
     private val experimentRepository: ExperimentRepository,
     private val properties: BacktestProperties,
+    private val backtestEngine: BacktestEngine,
 ) {
     private val log = KotlinLogging.logger {}
 
@@ -170,7 +171,7 @@ class AsyncExperimentExecutor(
                     semaphore.withPermit {
                         try {
                             // Run backtest - candles are shared read-only
-                            val result = BacktestEngine.runBacktest(config, candles)
+                            val result = backtestEngine.runBacktest(config, candles)
 
                             // Send result to channel
                             resultChannel.send(BacktestResultWithRunNumber(result, runNumber))

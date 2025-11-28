@@ -5,11 +5,15 @@ import com.trading.coinflip.model.Position
 import com.trading.coinflip.model.PositionSide
 import com.trading.coinflip.model.PositionStatus
 import mu.KotlinLogging
+import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.random.Random
 
-object CoinFlipStrategy {
+@Component
+class CoinFlipStrategy(
+    private val atrCalculator: ATRCalculator,
+) {
     private val log = KotlinLogging.logger {}
     private val random = Random.Default
 
@@ -57,7 +61,7 @@ object CoinFlipStrategy {
         balanceBeforeOpen: BigDecimal,
         positionId: Long,
     ): Position? {
-        val atr = ATRCalculator.getATRForCandle(candles, candleIndex)
+        val atr = atrCalculator.getATRForCandle(candles, candleIndex)
         if (atr == null || atr <= BigDecimal.ZERO) {
             log.warn { "No valid ATR at index $candleIndex for ${candle.symbol}" }
             return null
@@ -157,7 +161,7 @@ object CoinFlipStrategy {
         candleIndex: Int,
         atrMultiplier: BigDecimal,
     ): Boolean {
-        val atr = ATRCalculator.getATRForCandle(candles, candleIndex)
+        val atr = atrCalculator.getATRForCandle(candles, candleIndex)
         if (atr == null || atr <= BigDecimal.ZERO) {
             return false
         }
