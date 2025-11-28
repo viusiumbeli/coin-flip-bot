@@ -56,7 +56,7 @@ class AsyncExperimentExecutor(
     // Limit concurrent backtests to prevent CPU/memory saturation
     private val parallelism =
         (Runtime.getRuntime().availableProcessors() * 2)
-            .coerceIn(properties.parallelismMin, properties.parallelismMax)
+            .coerceIn(properties.async.parallelismMin, properties.async.parallelismMax)
 
     init {
         log.info { "AsyncExperimentExecutor initialized with parallelism=$parallelism" }
@@ -100,7 +100,7 @@ class AsyncExperimentExecutor(
 
         val startDate = Instant.parse(request.startDate)
         val endDate = Instant.parse(request.endDate)
-        val numBacktests = request.numBacktests.coerceIn(1, properties.asyncBacktestLimit)
+        val numBacktests = request.numBacktests.coerceIn(1, properties.experiment.asyncBacktestLimit)
 
         log.info { "Starting experiment $experimentId: ${request.symbol} ${timeframe.label} with $numBacktests backtests" }
 
@@ -142,18 +142,13 @@ class AsyncExperimentExecutor(
                 symbol = request.symbol,
                 timeframe = timeframe,
                 initialCapital = properties.initialCapital,
-                riskPerTrade = properties.riskPerTrade,
-                atrPeriod = properties.atrPeriod,
-                atrMultiplier = properties.atrMultiplier,
-                transactionCostPercent = properties.transactionCostPercent,
-                maxConcurrentPositions = properties.maxConcurrentPositions,
-                entryFrequency = properties.entryFrequency,
+                trading = properties.trading,
                 startDate = startDate,
                 endDate = endDate,
             )
 
         // Step 3: Create result channel and aggregator
-        val resultChannel = Channel<BacktestResultWithRunNumber>(capacity = properties.channelCapacity)
+        val resultChannel = Channel<BacktestResultWithRunNumber>(capacity = properties.async.channelCapacity)
         val aggregator = RunningAggregator()
 
         // Step 4: Run backtests with semaphore-limited parallelism
@@ -185,7 +180,7 @@ class AsyncExperimentExecutor(
                             resultChannel.send(BacktestResultWithRunNumber(result, runNumber))
 
                             // Log progress periodically
-                            if (runNumber % properties.progressLogInterval == 0 || runNumber == numBacktests) {
+                            if (runNumber % properties.async.progressLogInterval == 0 || runNumber == numBacktests) {
                                 val elapsed = System.currentTimeMillis() - backtestStartTime
                                 val rate = runNumber * 1000.0 / elapsed
                                 log.info {
@@ -273,7 +268,7 @@ class AsyncExperimentExecutor(
         scope.cancel()
 
         runBlocking {
-            withTimeoutOrNull(properties.shutdownTimeoutMs) {
+            withTimeoutOrNull(properties.async.shutdownTimeoutMs) {
                 activeJobs.values.forEach { it.join() }
             } ?: log.warn { "Shutdown timeout - some jobs did not complete" }
         }

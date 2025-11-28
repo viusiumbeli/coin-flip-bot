@@ -84,11 +84,11 @@ class BacktestController(
                 "symbols" to properties.symbols,
                 "timeframes" to properties.timeframes.map { it.label },
                 "initialCapital" to properties.initialCapital,
-                "riskPerTrade" to properties.riskPerTrade,
-                "atrPeriod" to properties.atrPeriod,
-                "atrMultiplier" to properties.atrMultiplier,
-                "transactionCostPercent" to properties.transactionCostPercent,
-                "maxConcurrentPositions" to properties.maxConcurrentPositions,
+                "riskPerTrade" to properties.trading.riskPerTrade,
+                "atrPeriod" to properties.trading.atrPeriod,
+                "atrMultiplier" to properties.trading.atrMultiplier,
+                "transactionCostPercent" to properties.trading.transactionCostPercent,
+                "maxConcurrentPositions" to properties.trading.maxConcurrentPositions,
             ),
         )
 }

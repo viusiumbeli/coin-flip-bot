@@ -4,7 +4,6 @@ import com.trading.coinflip.analytics.PerformanceAnalytics
 import com.trading.coinflip.model.BacktestConfig
 import com.trading.coinflip.model.BacktestResult
 import com.trading.coinflip.model.Candle
-import com.trading.coinflip.trading.TradingConfig
 import com.trading.coinflip.trading.TradingProcessor
 import com.trading.coinflip.trading.TradingState
 import mu.KotlinLogging
@@ -22,19 +21,11 @@ class BacktestEngine(
         candles: List<Candle>,
     ): BacktestResult {
         log.debug { "Starting backtest for ${config.symbol} ${config.timeframe.label}" }
-        log.debug { "Initial capital: ${config.initialCapital}, Risk per trade: ${config.riskPerTrade}%" }
+        log.debug { "Initial capital: ${config.initialCapital}, Risk per trade: ${config.trading.riskPerTrade}%" }
 
         processor.resetStrategy()
 
         val state = TradingState.create(config.initialCapital)
-        val tradingConfig =
-            TradingConfig(
-                atrMultiplier = config.atrMultiplier,
-                riskPerTrade = config.riskPerTrade,
-                maxConcurrentPositions = config.maxConcurrentPositions,
-                transactionCostPercent = config.transactionCostPercent,
-                entryFrequency = config.entryFrequency,
-            )
 
         // Filter candles by date range if specified
         val backtestCandles =
@@ -56,7 +47,7 @@ class BacktestEngine(
         // Walk through each candle
         for (i in backtestCandles.indices) {
             val candle = backtestCandles[i]
-            processor.processCandle(state, candle, backtestCandles, i, tradingConfig)
+            processor.processCandle(state, candle, backtestCandles, i, config.trading)
         }
 
         // Close any remaining open positions at the last candle price
@@ -69,7 +60,7 @@ class BacktestEngine(
                 exitPrice = lastCandle.close,
                 exitTime = lastCandle.openTime,
                 exitReason = "End of backtest period",
-                transactionCostPercent = config.transactionCostPercent,
+                transactionCostPercent = config.trading.transactionCostPercent,
             )
         }
 

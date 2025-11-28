@@ -196,12 +196,7 @@ data class BacktestConfig(
     val symbol: String,
     val timeframe: Timeframe,
     val initialCapital: BigDecimal,
-    val riskPerTrade: BigDecimal, // Percentage (e.g., 1.0 for 1%)
-    val atrPeriod: Int = 10,
-    val atrMultiplier: BigDecimal = BigDecimal("3.0"),
-    val transactionCostPercent: BigDecimal = BigDecimal("0.1"), // 0.1%
-    val maxConcurrentPositions: Int = 5,
-    val entryFrequency: Double = 0.1, // Probability of entering a trade on each candle
+    val trading: com.trading.coinflip.config.TradingConfig,
     val startDate: Instant? = null,
     val endDate: Instant? = null,
 )
