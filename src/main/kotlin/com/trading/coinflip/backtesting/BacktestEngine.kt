@@ -112,8 +112,8 @@ class BacktestEngine(
 
                 // Only try to open if we have available capital
                 if (availableBalance > BigDecimal.ZERO) {
-                    // Random entry frequency: try to enter on ~10% of candles
-                    if (kotlin.random.Random.nextDouble() < 0.1) {
+                    // Random entry frequency based on config
+                    if (kotlin.random.Random.nextDouble() < config.entryFrequency) {
                         val newPosition = strategy.createPosition(
                             candle = candle,
                             candles = backtestCandles,

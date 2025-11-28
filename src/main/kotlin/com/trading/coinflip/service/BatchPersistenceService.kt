@@ -8,6 +8,7 @@ import com.trading.coinflip.model.BacktestRun
 import com.trading.coinflip.model.ExperimentStatus
 import com.trading.coinflip.model.ExperimentTrade
 import kotlinx.coroutines.channels.ReceiveChannel
+import com.trading.coinflip.config.BacktestProperties
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
@@ -32,9 +33,9 @@ class BatchPersistenceService(
     private val backtestRunRepository: BacktestRunRepository,
     private val experimentRepository: ExperimentRepository,
     private val experimentTradeRepository: ExperimentTradeRepository,
-    private val transactionTemplate: TransactionTemplate
+    private val transactionTemplate: TransactionTemplate,
+    private val properties: BacktestProperties
 ) {
-    private val batchSize = 1000
 
     /**
      * Consumes backtest results from the channel and persists them in batches.
@@ -57,7 +58,7 @@ class BatchPersistenceService(
             batch.add(resultWithNumber)
             aggregator.add(resultWithNumber.result)
 
-            if (batch.size >= batchSize) {
+            if (batch.size >= properties.batchSize) {
                 persistBatch(experimentId, batch, numBacktests)
                 updateProgress(experimentId, aggregator.getCount())
                 batch.clear()
@@ -110,7 +111,7 @@ class BatchPersistenceService(
             log.debug { "Persisted batch of ${runs.size} backtest runs for experiment $experimentId" }
 
             // Save trades only for small experiments
-            if (numBacktests <= 100) {
+            if (numBacktests <= properties.tradesThreshold) {
                 val allTrades = mutableListOf<ExperimentTrade>()
 
                 savedRuns.forEachIndexed { index, savedRun ->

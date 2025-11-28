@@ -35,7 +35,7 @@ class ExperimentService(
 
     @Transactional
     fun createExperiment(request: CreateExperimentRequest): ExperimentDetailDto {
-        val numBacktests = request.numBacktests.coerceIn(1, 1_000_000)
+        val numBacktests = request.numBacktests.coerceIn(1, properties.syncBacktestLimit)
         log.info { "Creating experiment for ${request.symbol} ${request.timeframe} with $numBacktests backtests" }
 
         val timeframe = Timeframe.fromLabel(request.timeframe)
@@ -221,7 +221,7 @@ class ExperimentService(
             if (sortDir.equals("desc", ignoreCase = true)) Sort.Direction.DESC else Sort.Direction.ASC,
             validSortBy
         )
-        val pageable = PageRequest.of(page.coerceAtLeast(0), size.coerceIn(1, 1000), sort)
+        val pageable = PageRequest.of(page.coerceAtLeast(0), size.coerceIn(1, properties.maxPageSize), sort)
         val runsPage = backtestRunRepository.findByExperimentId(id, pageable)
 
         return PaginatedRunsDto(
@@ -304,7 +304,7 @@ class ExperimentService(
      */
     @Transactional
     fun initiateExperiment(request: CreateExperimentRequest): Experiment {
-        val numBacktests = request.numBacktests.coerceIn(1, 10_000_000)
+        val numBacktests = request.numBacktests.coerceIn(1, properties.asyncBacktestLimit)
         log.info { "Initiating async experiment for ${request.symbol} ${request.timeframe} with $numBacktests backtests" }
 
         val timeframe = Timeframe.fromLabel(request.timeframe)
