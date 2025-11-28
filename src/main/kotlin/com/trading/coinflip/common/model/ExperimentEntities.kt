@@ -1,4 +1,4 @@
-package com.trading.coinflip.model
+package com.trading.coinflip.common.model
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity

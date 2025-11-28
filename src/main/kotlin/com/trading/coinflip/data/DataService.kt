@@ -1,8 +1,8 @@
 package com.trading.coinflip.data
 
-import com.trading.coinflip.model.Candle
-import com.trading.coinflip.model.Timeframe
-import com.trading.coinflip.strategy.ATRCalculator
+import com.trading.coinflip.common.model.Candle
+import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.engine.ATRCalculator
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.springframework.stereotype.Service

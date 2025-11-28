@@ -1,7 +1,7 @@
-package com.trading.coinflip.service
+package com.trading.coinflip.experiment
 
 import com.tdunning.math.stats.TDigest
-import com.trading.coinflip.model.BacktestResult
+import com.trading.coinflip.common.model.BacktestResult
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.util.concurrent.atomic.AtomicInteger

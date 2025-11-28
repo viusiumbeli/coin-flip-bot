@@ -1,6 +1,6 @@
 package com.trading.coinflip.analytics
 
-import com.trading.coinflip.model.BacktestResult
+import com.trading.coinflip.common.model.BacktestResult
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.io.File

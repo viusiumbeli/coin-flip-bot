@@ -1,6 +1,6 @@
-package com.trading.coinflip.config
+package com.trading.coinflip.common.config
 
-import com.trading.coinflip.model.Timeframe
+import com.trading.coinflip.common.model.Timeframe
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.NestedConfigurationProperty
 import org.springframework.context.annotation.Configuration

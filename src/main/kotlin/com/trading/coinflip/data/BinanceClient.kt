@@ -1,9 +1,9 @@
 package com.trading.coinflip.data
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.trading.coinflip.config.BacktestProperties
-import com.trading.coinflip.model.Candle
-import com.trading.coinflip.model.Timeframe
+import com.trading.coinflip.common.config.BacktestProperties
+import com.trading.coinflip.common.model.Candle
+import com.trading.coinflip.common.model.Timeframe
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get

@@ -1,12 +1,11 @@
-package com.trading.coinflip
+package com.trading.coinflip.backtest
 
 import com.trading.coinflip.analytics.ReportGenerator
-import com.trading.coinflip.backtesting.BacktestEngine
-import com.trading.coinflip.config.BacktestProperties
+import com.trading.coinflip.common.config.BacktestProperties
+import com.trading.coinflip.common.model.BacktestConfig
+import com.trading.coinflip.common.model.BacktestResult
+import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.DataService
-import com.trading.coinflip.model.BacktestConfig
-import com.trading.coinflip.model.BacktestResult
-import com.trading.coinflip.model.Timeframe
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import java.time.Instant

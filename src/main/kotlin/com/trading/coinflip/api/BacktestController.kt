@@ -1,12 +1,12 @@
-package com.trading.coinflip.controller
+package com.trading.coinflip.api
 
-import com.trading.coinflip.BacktestService
-import com.trading.coinflip.config.BacktestProperties
-import com.trading.coinflip.dto.AvailableSymbolsResponse
-import com.trading.coinflip.dto.BacktestRequest
-import com.trading.coinflip.dto.BacktestResponse
-import com.trading.coinflip.dto.toDto
-import com.trading.coinflip.model.Timeframe
+import com.trading.coinflip.backtest.BacktestService
+import com.trading.coinflip.common.config.BacktestProperties
+import com.trading.coinflip.common.dto.AvailableSymbolsResponse
+import com.trading.coinflip.common.dto.BacktestRequest
+import com.trading.coinflip.common.dto.BacktestResponse
+import com.trading.coinflip.common.dto.toDto
+import com.trading.coinflip.common.model.Timeframe
 import mu.KotlinLogging
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.CrossOrigin

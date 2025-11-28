@@ -1,8 +1,8 @@
 package com.trading.coinflip.analytics
 
-import com.trading.coinflip.model.BacktestConfig
-import com.trading.coinflip.model.BacktestResult
-import com.trading.coinflip.model.Trade
+import com.trading.coinflip.common.model.BacktestConfig
+import com.trading.coinflip.common.model.BacktestResult
+import com.trading.coinflip.common.model.Trade
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal

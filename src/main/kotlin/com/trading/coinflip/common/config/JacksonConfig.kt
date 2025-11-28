@@ -1,4 +1,4 @@
-package com.trading.coinflip.config
+package com.trading.coinflip.common.config
 
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer

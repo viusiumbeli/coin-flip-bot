@@ -1,4 +1,4 @@
-package com.trading.coinflip.dto
+package com.trading.coinflip.common.dto
 
 import java.time.Instant
 

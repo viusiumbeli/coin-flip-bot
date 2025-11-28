@@ -1,12 +1,11 @@
-package com.trading.coinflip.trading
+package com.trading.coinflip.engine
 
-import com.trading.coinflip.config.TradingConfig
-import com.trading.coinflip.model.Candle
-import com.trading.coinflip.model.Position
-import com.trading.coinflip.model.PositionSide
-import com.trading.coinflip.model.PositionStatus
-import com.trading.coinflip.model.Trade
-import com.trading.coinflip.strategy.CoinFlipStrategy
+import com.trading.coinflip.common.config.TradingConfig
+import com.trading.coinflip.common.model.Candle
+import com.trading.coinflip.common.model.Position
+import com.trading.coinflip.common.model.PositionSide
+import com.trading.coinflip.common.model.PositionStatus
+import com.trading.coinflip.common.model.Trade
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
@@ -109,7 +108,7 @@ class TradingProcessor(
             }
         val transactionCost =
             position.entryPrice * position.positionSize *
-                    (transactionCostPercent / BigDecimal(100)) * BigDecimal(2) // Entry + Exit
+                (transactionCostPercent / BigDecimal(100)) * BigDecimal(2) // Entry + Exit
 
         state.accountBalance += pnl - transactionCost
         val balanceAfterClose = state.accountBalance
@@ -119,7 +118,7 @@ class TradingProcessor(
 
         log.debug {
             "Closed ${trade.side} trade: P/L ${trade.profitLoss} (${trade.profitLossPercent}%), " +
-                    "Balance: ${state.accountBalance}"
+                "Balance: ${state.accountBalance}"
         }
 
         // Track drawdown

@@ -1,13 +1,13 @@
-package com.trading.coinflip.service
+package com.trading.coinflip.experiment
 
-import com.trading.coinflip.config.BacktestProperties
+import com.trading.coinflip.common.config.BacktestProperties
+import com.trading.coinflip.common.model.BacktestResult
+import com.trading.coinflip.common.model.BacktestRun
+import com.trading.coinflip.common.model.ExperimentStatus
+import com.trading.coinflip.common.model.ExperimentTrade
 import com.trading.coinflip.data.BacktestRunRepository
 import com.trading.coinflip.data.ExperimentRepository
 import com.trading.coinflip.data.ExperimentTradeRepository
-import com.trading.coinflip.model.BacktestResult
-import com.trading.coinflip.model.BacktestRun
-import com.trading.coinflip.model.ExperimentStatus
-import com.trading.coinflip.model.ExperimentTrade
 import kotlinx.coroutines.channels.ReceiveChannel
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
