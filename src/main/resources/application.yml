@@ -47,7 +47,7 @@ backtest:
   start-date: 2020-01-01T00:00:00Z
 
   # Strategy
-  entry-frequency: 0.1
+  entry-frequency: 2
 
   # Experiment limits
   sync-backtest-limit: 1000000

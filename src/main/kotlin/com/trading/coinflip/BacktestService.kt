@@ -1,7 +1,7 @@
 package com.trading.coinflip
 
 import com.trading.coinflip.analytics.ReportGenerator
-import com.trading.coinflip.backtesting.BacktestEngine
+import com.trading.coinflip.backtesting.BacktestEngineFactory
 import com.trading.coinflip.config.BacktestProperties
 import com.trading.coinflip.data.DataService
 import com.trading.coinflip.model.BacktestConfig
@@ -15,7 +15,7 @@ import java.time.Instant
 class BacktestService(
     private val properties: BacktestProperties,
     private val dataService: DataService,
-    private val backtestEngine: BacktestEngine,
+    private val backtestEngineFactory: BacktestEngineFactory,
     private val reportGenerator: ReportGenerator,
 ) {
     private val log = KotlinLogging.logger {}
@@ -74,7 +74,8 @@ class BacktestService(
                         )
 
                     // Run backtest
-                    val result = backtestEngine.runBacktest(config, candles)
+                    val engine = backtestEngineFactory.create()
+                    val result = engine.runBacktest(config, candles)
                     allResults.add(result)
 
                     // Print individual result
@@ -145,6 +146,7 @@ class BacktestService(
             )
 
         // Run backtest
-        return backtestEngine.runBacktest(config, candles)
+        val engine = backtestEngineFactory.create()
+        return engine.runBacktest(config, candles)
     }
 }
