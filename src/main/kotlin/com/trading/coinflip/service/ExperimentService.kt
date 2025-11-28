@@ -19,8 +19,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.sqrt
 
-private val log = KotlinLogging.logger {}
-
 @Service
 class ExperimentService(
     private val experimentRepository: ExperimentRepository,
@@ -30,6 +28,9 @@ class ExperimentService(
     private val asyncExperimentExecutor: AsyncExperimentExecutor,
     private val properties: BacktestProperties
 ) {
+
+    private val log = KotlinLogging.logger {}
+
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
         .withZone(ZoneId.of("UTC"))
 

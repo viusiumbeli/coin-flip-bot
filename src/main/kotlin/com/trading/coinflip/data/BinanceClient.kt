@@ -13,13 +13,14 @@ import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.time.Instant
 
-private val log = KotlinLogging.logger {}
-
 @Service
 class BinanceClient(
     private val objectMapper: ObjectMapper,
     private val properties: BacktestProperties
 ) {
+
+    private val log = KotlinLogging.logger {}
+
     private val client = HttpClient(CIO) {
         engine {
             requestTimeout = properties.httpTimeoutMs

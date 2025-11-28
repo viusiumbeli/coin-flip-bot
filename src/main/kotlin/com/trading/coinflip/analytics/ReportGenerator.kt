@@ -6,10 +6,10 @@ import org.springframework.stereotype.Component
 import java.io.File
 import java.math.RoundingMode
 
-private val log = KotlinLogging.logger {}
-
 @Component
 class ReportGenerator {
+
+    private val log = KotlinLogging.logger {}
 
     fun printResult(result: BacktestResult) {
         log.info { "\n" + "-".repeat(80) }

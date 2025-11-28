@@ -9,14 +9,14 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 
-private val log = KotlinLogging.logger {}
-
 @Service
 class DataService(
     private val candleRepository: CandleRepository,
     private val binanceClient: BinanceClient,
     private val atrCalculator: ATRCalculator
 ) {
+
+    private val log = KotlinLogging.logger {}
 
     fun loadHistoricalData(
         symbol: String,

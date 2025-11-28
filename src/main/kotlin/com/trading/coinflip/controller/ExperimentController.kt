@@ -8,14 +8,14 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
-private val log = KotlinLogging.logger {}
-
 @RestController
 @RequestMapping("/api/experiments")
 @CrossOrigin(origins = ["*"])
 class ExperimentController(
     private val experimentService: ExperimentService
 ) {
+
+    private val log = KotlinLogging.logger {}
 
     /**
      * Creates a new experiment asynchronously.

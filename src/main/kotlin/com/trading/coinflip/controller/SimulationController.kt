@@ -7,14 +7,14 @@ import mu.KotlinLogging
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
-private val log = KotlinLogging.logger {}
-
 @RestController
 @RequestMapping("/api/simulation")
 @CrossOrigin(origins = ["*"])
 class SimulationController(
     private val simulationService: SimulationService
 ) {
+
+    private val log = KotlinLogging.logger {}
 
     @PostMapping("/init")
     fun initialize(@RequestBody request: SimulationInitRequest): ResponseEntity<SimulationStateDto> {

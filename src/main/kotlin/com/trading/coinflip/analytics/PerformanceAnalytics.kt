@@ -11,10 +11,10 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.math.sqrt
 
-private val log = KotlinLogging.logger {}
-
 @Component
 class PerformanceAnalytics {
+
+    private val log = KotlinLogging.logger {}
 
     fun calculatePerformance(
         config: BacktestConfig,

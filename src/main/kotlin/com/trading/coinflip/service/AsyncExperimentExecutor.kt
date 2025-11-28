@@ -18,8 +18,6 @@ import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
-private val log = KotlinLogging.logger {}
-
 /**
  * Async executor for running large-scale experiments using Kotlin coroutines.
  *
@@ -37,6 +35,9 @@ class AsyncExperimentExecutor(
     private val experimentRepository: ExperimentRepository,
     private val properties: BacktestProperties
 ) {
+
+    private val log = KotlinLogging.logger {}
+
     // Coroutine scope with SupervisorJob - allows individual backtest failures without cancelling all
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 

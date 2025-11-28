@@ -10,12 +10,13 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.random.Random
 
-private val log = KotlinLogging.logger {}
-
 @Component
 class CoinFlipStrategy(
     private val atrCalculator: ATRCalculator
 ) {
+
+    private val log = KotlinLogging.logger {}
+
     private var positionIdCounter = 0L
     private val random = Random.Default
 

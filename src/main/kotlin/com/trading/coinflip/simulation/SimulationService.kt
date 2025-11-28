@@ -14,14 +14,15 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-private val log = KotlinLogging.logger {}
-
 @Service
 class SimulationService(
     private val candleRepository: CandleRepository,
     private val strategy: CoinFlipStrategy,
     private val properties: BacktestProperties
 ) {
+
+    private val log = KotlinLogging.logger {}
+
     private val lock = ReentrantReadWriteLock()
 
     // Global simulation state

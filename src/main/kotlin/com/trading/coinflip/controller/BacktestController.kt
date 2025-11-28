@@ -9,8 +9,6 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.time.Instant
 
-private val log = KotlinLogging.logger {}
-
 @RestController
 @RequestMapping("/api/backtest")
 @CrossOrigin(origins = ["*"])
@@ -18,6 +16,8 @@ class BacktestController(
     private val backtestService: BacktestService,
     private val properties: BacktestProperties
 ) {
+
+    private val log = KotlinLogging.logger {}
 
     @PostMapping("/run")
     fun runBacktest(@RequestBody request: BacktestRequest): ResponseEntity<BacktestResponse> {

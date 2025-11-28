@@ -13,8 +13,6 @@ import org.springframework.web.bind.annotation.*
 import java.time.Duration
 import java.time.Instant
 
-private val log = KotlinLogging.logger {}
-
 @RestController
 @RequestMapping("/api/data")
 @CrossOrigin(origins = ["*"])
@@ -23,6 +21,8 @@ class DataController(
     private val candleRepository: CandleRepository,
     private val properties: BacktestProperties
 ) {
+
+    private val log = KotlinLogging.logger {}
 
     @GetMapping("/status")
     fun getDataStatus(): ResponseEntity<List<DataStatus>> {
