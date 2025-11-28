@@ -13,21 +13,24 @@ import java.time.Instant
 class DataService(
     private val candleRepository: CandleRepository,
     private val binanceClient: BinanceClient,
-    private val atrCalculator: ATRCalculator
+    private val atrCalculator: ATRCalculator,
 ) {
-
     private val log = KotlinLogging.logger {}
 
     fun loadHistoricalData(
         symbol: String,
         timeframe: Timeframe,
         startDate: Instant,
-        forceReload: Boolean = false
+        forceReload: Boolean = false,
     ) = runBlocking {
         if (!forceReload) {
-            val existingCount = candleRepository.findBySymbolAndTimeframeFromDate(
-                symbol, timeframe, startDate
-            ).size
+            val existingCount =
+                candleRepository
+                    .findBySymbolAndTimeframeFromDate(
+                        symbol,
+                        timeframe,
+                        startDate,
+                    ).size
 
             if (existingCount > 0) {
                 log.info { "Found $existingCount existing candles for $symbol $timeframe, skipping download" }
@@ -53,12 +56,17 @@ class DataService(
     }
 
     @Transactional
-    fun saveCandles(symbol: String, timeframe: Timeframe, candles: List<Candle>) {
+    fun saveCandles(
+        symbol: String,
+        timeframe: Timeframe,
+        candles: List<Candle>,
+    ) {
         // Fetch all existing open times in a single query
-        val existingOpenTimes = candleRepository
-            .findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe)
-            .map { it.openTime }
-            .toSet()
+        val existingOpenTimes =
+            candleRepository
+                .findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe)
+                .map { it.openTime }
+                .toSet()
 
         // Filter out candles that already exist (in memory)
         val newCandles = candles.filter { it.openTime !in existingOpenTimes }
@@ -73,7 +81,11 @@ class DataService(
     }
 
     @Transactional
-    fun calculateAndSaveATR(symbol: String, timeframe: Timeframe, period: Int = 10) {
+    fun calculateAndSaveATR(
+        symbol: String,
+        timeframe: Timeframe,
+        period: Int = 10,
+    ) {
         log.info { "Calculating ATR for $symbol $timeframe with period $period" }
 
         // Check how many candles need ATR calculation
@@ -132,7 +144,9 @@ class DataService(
 
             val processed = ((index + 1) * batchSize).coerceAtMost(candlesNeedingUpdate.size)
             val progress = (processed * 100.0 / candlesNeedingUpdate.size).toInt()
-            log.info { "Batch ${index + 1}/${batches.size}: Updated ${batch.size} candles in ${batchTime}ms (Progress: $progress%, Total: $processed/${candlesNeedingUpdate.size})" }
+            log.info {
+                "Batch ${index + 1}/${batches.size}: Updated ${batch.size} candles in ${batchTime}ms (Progress: $progress%, Total: $processed/${candlesNeedingUpdate.size})"
+            }
         }
 
         val totalUpdateTime = System.currentTimeMillis() - updateStartTime
@@ -143,20 +157,25 @@ class DataService(
         symbol: String,
         timeframe: Timeframe,
         startDate: Instant? = null,
-        endDate: Instant? = null
-    ): List<Candle> {
-        return if (startDate != null && endDate != null) {
+        endDate: Instant? = null,
+    ): List<Candle> =
+        if (startDate != null && endDate != null) {
             candleRepository.findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc(
-                symbol, timeframe, startDate, endDate
+                symbol,
+                timeframe,
+                startDate,
+                endDate,
             )
         } else if (startDate != null) {
             candleRepository.findBySymbolAndTimeframeFromDate(symbol, timeframe, startDate)
         } else {
             candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe)
         }
-    }
 
-    fun getDataSummary(symbol: String, timeframe: Timeframe): String {
+    fun getDataSummary(
+        symbol: String,
+        timeframe: Timeframe,
+    ): String {
         val earliest = candleRepository.findEarliestCandleTime(symbol, timeframe)
         val latest = candleRepository.findLatestCandleTime(symbol, timeframe)
         val count = candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe).size
@@ -166,43 +185,48 @@ class DataService(
             Timeframe: ${timeframe.label}
             Candles: $count
             Period: $earliest to $latest
-        """.trimIndent()
+            """.trimIndent()
     }
 
-    fun syncMissingData(symbol: String, timeframe: Timeframe): Int = runBlocking {
-        val latestCandleTime = candleRepository.findLatestCandleTime(symbol, timeframe)
+    fun syncMissingData(
+        symbol: String,
+        timeframe: Timeframe,
+    ): Int =
+        runBlocking {
+            val latestCandleTime = candleRepository.findLatestCandleTime(symbol, timeframe)
 
-        val startTime = if (latestCandleTime != null) {
-            // Start from the next candle after the latest one
-            latestCandleTime.plusSeconds(timeframe.minutes * 60L)
-        } else {
-            // No data exists, use configured start date
-            Instant.parse("2020-01-01T00:00:00Z")
+            val startTime =
+                if (latestCandleTime != null) {
+                    // Start from the next candle after the latest one
+                    latestCandleTime.plusSeconds(timeframe.minutes * 60L)
+                } else {
+                    // No data exists, use configured start date
+                    Instant.parse("2020-01-01T00:00:00Z")
+                }
+
+            val now = Instant.now()
+            if (!startTime.isBefore(now)) {
+                log.info { "Data for $symbol ${timeframe.label} is already up to date" }
+                return@runBlocking 0
+            }
+
+            log.info { "Syncing missing data for $symbol ${timeframe.label} from $startTime" }
+            val candles = binanceClient.fetchAllHistoricalData(symbol, timeframe, startTime)
+
+            if (candles.isEmpty()) {
+                log.info { "No new candles fetched for $symbol ${timeframe.label}" }
+                return@runBlocking 0
+            }
+
+            val countBefore = candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe).size
+            saveCandles(symbol, timeframe, candles)
+            val countAfter = candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe).size
+            val newCandlesAdded = countAfter - countBefore
+
+            // Calculate ATR for new candles
+            calculateAndSaveATR(symbol, timeframe)
+
+            log.info { "Synced $newCandlesAdded new candles for $symbol ${timeframe.label}" }
+            return@runBlocking newCandlesAdded
         }
-
-        val now = Instant.now()
-        if (!startTime.isBefore(now)) {
-            log.info { "Data for $symbol ${timeframe.label} is already up to date" }
-            return@runBlocking 0
-        }
-
-        log.info { "Syncing missing data for $symbol ${timeframe.label} from $startTime" }
-        val candles = binanceClient.fetchAllHistoricalData(symbol, timeframe, startTime)
-
-        if (candles.isEmpty()) {
-            log.info { "No new candles fetched for $symbol ${timeframe.label}" }
-            return@runBlocking 0
-        }
-
-        val countBefore = candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe).size
-        saveCandles(symbol, timeframe, candles)
-        val countAfter = candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe).size
-        val newCandlesAdded = countAfter - countBefore
-
-        // Calculate ATR for new candles
-        calculateAndSaveATR(symbol, timeframe)
-
-        log.info { "Synced $newCandlesAdded new candles for $symbol ${timeframe.label}" }
-        return@runBlocking newCandlesAdded
-    }
 }

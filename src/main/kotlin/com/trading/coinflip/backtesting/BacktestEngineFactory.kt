@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class BacktestEngineFactory(
-    private val analytics: PerformanceAnalytics
+    private val analytics: PerformanceAnalytics,
 ) {
     /**
      * Creates a new BacktestEngine instance with an independent CoinFlipStrategy.

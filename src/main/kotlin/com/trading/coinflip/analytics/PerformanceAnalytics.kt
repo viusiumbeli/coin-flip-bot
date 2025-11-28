@@ -13,7 +13,6 @@ import kotlin.math.sqrt
 
 @Component
 class PerformanceAnalytics {
-
     private val log = KotlinLogging.logger {}
 
     fun calculatePerformance(
@@ -24,23 +23,29 @@ class PerformanceAnalytics {
         peakBalance: BigDecimal,
         buyAndHoldReturn: BigDecimal,
         startDate: Instant,
-        endDate: Instant
+        endDate: Instant,
     ): BacktestResult {
         if (trades.isEmpty()) {
             return createEmptyResult(
-                config, finalCapital, buyAndHoldReturn, startDate, endDate
+                config,
+                finalCapital,
+                buyAndHoldReturn,
+                startDate,
+                endDate,
             )
         }
 
         val totalReturn = finalCapital - config.initialCapital
-        val totalReturnPercent = (totalReturn / config.initialCapital * BigDecimal(100))
-            .setScale(2, RoundingMode.HALF_UP)
+        val totalReturnPercent =
+            (totalReturn / config.initialCapital * BigDecimal(100))
+                .setScale(2, RoundingMode.HALF_UP)
 
-        val maxDrawdownPercent = if (peakBalance > BigDecimal.ZERO) {
-            (maxDrawdown / peakBalance * BigDecimal(100)).setScale(2, RoundingMode.HALF_UP)
-        } else {
-            BigDecimal.ZERO
-        }
+        val maxDrawdownPercent =
+            if (peakBalance > BigDecimal.ZERO) {
+                (maxDrawdown / peakBalance * BigDecimal(100)).setScale(2, RoundingMode.HALF_UP)
+            } else {
+                BigDecimal.ZERO
+            }
 
         val winningTrades = trades.filter { it.profitLoss > BigDecimal.ZERO }
         val losingTrades = trades.filter { it.profitLoss < BigDecimal.ZERO }
@@ -49,57 +54,72 @@ class PerformanceAnalytics {
         if (trades.isNotEmpty()) {
             log.debug { "Debug: Total trades: ${trades.size}, Winning: ${winningTrades.size}, Losing: ${losingTrades.size}" }
             log.debug { "Debug: First 5 trades P/L: ${trades.take(5).map { it.profitLoss }}" }
-            log.debug { "Debug: Sample winning trades: ${winningTrades.take(3).map { "P/L: ${it.profitLoss}, Entry: ${it.entryPrice}, Exit: ${it.exitPrice}, Size: ${it.positionSize}" }}" }
-            log.debug { "Debug: Sample losing trades: ${losingTrades.take(3).map { "P/L: ${it.profitLoss}, Entry: ${it.entryPrice}, Exit: ${it.exitPrice}, Size: ${it.positionSize}" }}" }
+            log.debug {
+                "Debug: Sample winning trades: ${winningTrades.take(
+                    3,
+                ).map { "P/L: ${it.profitLoss}, Entry: ${it.entryPrice}, Exit: ${it.exitPrice}, Size: ${it.positionSize}" }}"
+            }
+            log.debug {
+                "Debug: Sample losing trades: ${losingTrades.take(
+                    3,
+                ).map { "P/L: ${it.profitLoss}, Entry: ${it.entryPrice}, Exit: ${it.exitPrice}, Size: ${it.positionSize}" }}"
+            }
         }
 
-        val winRate = if (trades.isNotEmpty()) {
-            (BigDecimal(winningTrades.size) * BigDecimal(100) / BigDecimal(trades.size))
-                .setScale(2, RoundingMode.HALF_UP)
-        } else {
-            BigDecimal.ZERO
-        }
+        val winRate =
+            if (trades.isNotEmpty()) {
+                (BigDecimal(winningTrades.size) * BigDecimal(100) / BigDecimal(trades.size))
+                    .setScale(2, RoundingMode.HALF_UP)
+            } else {
+                BigDecimal.ZERO
+            }
 
         log.debug { "Debug: Win rate calculation: ${winningTrades.size} * 100 / ${trades.size} = $winRate" }
 
         val totalWins = winningTrades.sumOf { it.profitLoss }
         val totalLosses = losingTrades.sumOf { it.profitLoss }.abs()
 
-        val profitFactor = if (totalLosses > BigDecimal.ZERO) {
-            (totalWins / totalLosses).setScale(2, RoundingMode.HALF_UP)
-        } else if (totalWins > BigDecimal.ZERO) {
-            BigDecimal(999.99) // Arbitrarily large if no losses
-        } else {
-            BigDecimal.ZERO
-        }
+        val profitFactor =
+            if (totalLosses > BigDecimal.ZERO) {
+                (totalWins / totalLosses).setScale(2, RoundingMode.HALF_UP)
+            } else if (totalWins > BigDecimal.ZERO) {
+                BigDecimal(999.99) // Arbitrarily large if no losses
+            } else {
+                BigDecimal.ZERO
+            }
 
-        val averageWin = if (winningTrades.isNotEmpty()) {
-            (totalWins / BigDecimal(winningTrades.size)).setScale(2, RoundingMode.HALF_UP)
-        } else {
-            BigDecimal.ZERO
-        }
+        val averageWin =
+            if (winningTrades.isNotEmpty()) {
+                (totalWins / BigDecimal(winningTrades.size)).setScale(2, RoundingMode.HALF_UP)
+            } else {
+                BigDecimal.ZERO
+            }
 
-        val averageLoss = if (losingTrades.isNotEmpty()) {
-            (totalLosses / BigDecimal(losingTrades.size)).setScale(2, RoundingMode.HALF_UP)
-        } else {
-            BigDecimal.ZERO
-        }
+        val averageLoss =
+            if (losingTrades.isNotEmpty()) {
+                (totalLosses / BigDecimal(losingTrades.size)).setScale(2, RoundingMode.HALF_UP)
+            } else {
+                BigDecimal.ZERO
+            }
 
         val largestWin = winningTrades.maxOfOrNull { it.profitLoss } ?: BigDecimal.ZERO
         val largestLoss = losingTrades.minOfOrNull { it.profitLoss } ?: BigDecimal.ZERO
 
-        val averageTradeDuration = if (trades.isNotEmpty()) {
-            trades.map { Duration.between(it.entryTime, it.exitTime).toMinutes() }
-                .average()
-                .toLong()
-        } else {
-            0L
-        }
+        val averageTradeDuration =
+            if (trades.isNotEmpty()) {
+                trades
+                    .map { Duration.between(it.entryTime, it.exitTime).toMinutes() }
+                    .average()
+                    .toLong()
+            } else {
+                0L
+            }
 
         val sharpeRatio = calculateSharpeRatio(trades, startDate, endDate)
 
-        val buyAndHoldReturnPercent = (buyAndHoldReturn / config.initialCapital * BigDecimal(100))
-            .setScale(2, RoundingMode.HALF_UP)
+        val buyAndHoldReturnPercent =
+            (buyAndHoldReturn / config.initialCapital * BigDecimal(100))
+                .setScale(2, RoundingMode.HALF_UP)
 
         return BacktestResult(
             config = config,
@@ -124,14 +144,14 @@ class PerformanceAnalytics {
             startDate = startDate,
             endDate = endDate,
             buyAndHoldReturn = buyAndHoldReturn,
-            buyAndHoldReturnPercent = buyAndHoldReturnPercent
+            buyAndHoldReturnPercent = buyAndHoldReturnPercent,
         )
     }
 
     private fun calculateSharpeRatio(
         trades: List<Trade>,
         startDate: Instant,
-        endDate: Instant
+        endDate: Instant,
     ): BigDecimal {
         if (trades.isEmpty()) return BigDecimal.ZERO
 
@@ -148,11 +168,12 @@ class PerformanceAnalytics {
 
         // Annualize assuming risk-free rate = 0 for simplicity
         val daysInPeriod = Duration.between(startDate, endDate).toDays()
-        val annualizationFactor = if (daysInPeriod > 0) {
-            sqrt(365.0 / daysInPeriod * trades.size)
-        } else {
-            1.0
-        }
+        val annualizationFactor =
+            if (daysInPeriod > 0) {
+                sqrt(365.0 / daysInPeriod * trades.size)
+            } else {
+                1.0
+            }
 
         val sharpe = (meanReturn / stdDev) * annualizationFactor
 
@@ -164,9 +185,9 @@ class PerformanceAnalytics {
         finalCapital: BigDecimal,
         buyAndHoldReturn: BigDecimal,
         startDate: Instant,
-        endDate: Instant
-    ): BacktestResult {
-        return BacktestResult(
+        endDate: Instant,
+    ): BacktestResult =
+        BacktestResult(
             config = config,
             trades = emptyList(),
             initialCapital = config.initialCapital,
@@ -189,8 +210,8 @@ class PerformanceAnalytics {
             startDate = startDate,
             endDate = endDate,
             buyAndHoldReturn = buyAndHoldReturn,
-            buyAndHoldReturnPercent = (buyAndHoldReturn / config.initialCapital * BigDecimal(100))
-                .setScale(2, RoundingMode.HALF_UP)
+            buyAndHoldReturnPercent =
+                (buyAndHoldReturn / config.initialCapital * BigDecimal(100))
+                    .setScale(2, RoundingMode.HALF_UP),
         )
-    }
 }

@@ -16,3 +16,20 @@ All runtime constants are centralized in `BacktestProperties` (`config/BacktestP
 - **Experiment limits**: `sync-backtest-limit`, `async-backtest-limit`, `trades-threshold`
 - **Async execution**: `parallelism-min/max`, `channel-capacity`, `batch-size`, `shutdown-timeout-ms`, `progress-log-interval`
 - **API**: `max-page-size`, `http-timeout-ms`, `rate-limit-delay-ms`
+
+## Logging
+Use `KotlinLogging` with logger declared **inside the class** as the first property:
+```kotlin
+@Service
+class SomeService(...) {
+
+    private val log = KotlinLogging.logger {}
+
+    // rest of class
+}
+```
+
+## Code Style
+ktlint enforces Kotlin code style. Runs automatically on build.
+- `./gradlew ktlintCheck` - Check for violations
+- `./gradlew ktlintFormat` - Auto-fix violations

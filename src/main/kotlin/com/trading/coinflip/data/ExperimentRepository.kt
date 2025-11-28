@@ -12,12 +12,11 @@ import org.springframework.stereotype.Repository
 
 @Repository
 interface ExperimentRepository : JpaRepository<Experiment, Long> {
-
     fun findAllByOrderByCreatedAtDesc(): List<Experiment>
 
     fun findBySymbolAndTimeframeOrderByCreatedAtDesc(
         symbol: String,
-        timeframe: Timeframe
+        timeframe: Timeframe,
     ): List<Experiment>
 
     @Query("SELECT e FROM Experiment e WHERE e.id IN :ids ORDER BY e.createdAt DESC")
@@ -26,12 +25,17 @@ interface ExperimentRepository : JpaRepository<Experiment, Long> {
 
 @Repository
 interface BacktestRunRepository : JpaRepository<BacktestRun, Long> {
-
     fun findByExperimentIdOrderByRunNumberAsc(experimentId: Long): List<BacktestRun>
 
-    fun findByExperimentIdOrderByRunNumberAsc(experimentId: Long, pageable: Pageable): Page<BacktestRun>
+    fun findByExperimentIdOrderByRunNumberAsc(
+        experimentId: Long,
+        pageable: Pageable,
+    ): Page<BacktestRun>
 
-    fun findByExperimentId(experimentId: Long, pageable: Pageable): Page<BacktestRun>
+    fun findByExperimentId(
+        experimentId: Long,
+        pageable: Pageable,
+    ): Page<BacktestRun>
 
     @Query("SELECT COUNT(r) FROM BacktestRun r WHERE r.experiment.id = :experimentId")
     fun countByExperimentId(experimentId: Long): Long
@@ -39,7 +43,6 @@ interface BacktestRunRepository : JpaRepository<BacktestRun, Long> {
 
 @Repository
 interface ExperimentTradeRepository : JpaRepository<ExperimentTrade, Long> {
-
     fun findByBacktestRunIdOrderByTradeNumberAsc(backtestRunId: Long): List<ExperimentTrade>
 
     @Query("SELECT COUNT(t) FROM ExperimentTrade t WHERE t.backtestRun.id = :backtestRunId")

@@ -2,7 +2,6 @@ package com.trading.coinflip.dto
 
 import com.trading.coinflip.model.BacktestResult
 import com.trading.coinflip.model.PositionSide
-import com.trading.coinflip.model.Timeframe
 import java.math.BigDecimal
 import java.time.Instant
 
@@ -10,7 +9,7 @@ data class BacktestRequest(
     val symbol: String,
     val timeframe: String,
     val startDate: String? = null,
-    val endDate: String? = null
+    val endDate: String? = null,
 )
 
 data class BacktestResponse(
@@ -37,7 +36,7 @@ data class BacktestResponse(
     val endDate: Instant,
     val buyAndHoldReturn: BigDecimal,
     val buyAndHoldReturnPercent: BigDecimal,
-    val trades: List<TradeDto>
+    val trades: List<TradeDto>,
 )
 
 data class TradeDto(
@@ -55,16 +54,16 @@ data class TradeDto(
     val balanceBeforeOpen: BigDecimal,
     val balanceAfterOpen: BigDecimal,
     val balanceBeforeClose: BigDecimal,
-    val balanceAfterClose: BigDecimal
+    val balanceAfterClose: BigDecimal,
 )
 
 data class AvailableSymbolsResponse(
     val symbols: List<String>,
-    val timeframes: List<String>
+    val timeframes: List<String>,
 )
 
-fun BacktestResult.toDto(): BacktestResponse {
-    return BacktestResponse(
+fun BacktestResult.toDto(): BacktestResponse =
+    BacktestResponse(
         symbol = config.symbol,
         timeframe = config.timeframe.label,
         initialCapital = initialCapital,
@@ -88,24 +87,24 @@ fun BacktestResult.toDto(): BacktestResponse {
         endDate = endDate,
         buyAndHoldReturn = buyAndHoldReturn,
         buyAndHoldReturnPercent = buyAndHoldReturnPercent,
-        trades = trades.map { trade ->
-            TradeDto(
-                id = trade.id,
-                symbol = trade.symbol,
-                side = trade.side,
-                entryTime = trade.entryTime,
-                entryPrice = trade.entryPrice,
-                exitTime = trade.exitTime,
-                exitPrice = trade.exitPrice,
-                positionSize = trade.positionSize,
-                profitLoss = trade.profitLoss,
-                profitLossPercent = trade.profitLossPercent,
-                exitReason = trade.exitReason,
-                balanceBeforeOpen = trade.balanceBeforeOpen,
-                balanceAfterOpen = trade.balanceAfterOpen,
-                balanceBeforeClose = trade.balanceBeforeClose,
-                balanceAfterClose = trade.balanceAfterClose
-            )
-        }
+        trades =
+            trades.map { trade ->
+                TradeDto(
+                    id = trade.id,
+                    symbol = trade.symbol,
+                    side = trade.side,
+                    entryTime = trade.entryTime,
+                    entryPrice = trade.entryPrice,
+                    exitTime = trade.exitTime,
+                    exitPrice = trade.exitPrice,
+                    positionSize = trade.positionSize,
+                    profitLoss = trade.profitLoss,
+                    profitLossPercent = trade.profitLossPercent,
+                    exitReason = trade.exitReason,
+                    balanceBeforeOpen = trade.balanceBeforeOpen,
+                    balanceAfterOpen = trade.balanceAfterOpen,
+                    balanceBeforeClose = trade.balanceBeforeClose,
+                    balanceAfterClose = trade.balanceAfterClose,
+                )
+            },
     )
-}

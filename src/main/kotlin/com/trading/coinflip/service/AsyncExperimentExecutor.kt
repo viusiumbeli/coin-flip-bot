@@ -9,10 +9,20 @@ import com.trading.coinflip.model.BacktestConfig
 import com.trading.coinflip.model.ExperimentStatus
 import com.trading.coinflip.model.Timeframe
 import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -33,9 +43,8 @@ class AsyncExperimentExecutor(
     private val backtestEngineFactory: BacktestEngineFactory,
     private val batchPersistenceService: BatchPersistenceService,
     private val experimentRepository: ExperimentRepository,
-    private val properties: BacktestProperties
+    private val properties: BacktestProperties,
 ) {
-
     private val log = KotlinLogging.logger {}
 
     // Coroutine scope with SupervisorJob - allows individual backtest failures without cancelling all
@@ -45,8 +54,9 @@ class AsyncExperimentExecutor(
     private val activeJobs = ConcurrentHashMap<Long, Job>()
 
     // Limit concurrent backtests to prevent CPU/memory saturation
-    private val parallelism = (Runtime.getRuntime().availableProcessors() * 2)
-        .coerceIn(properties.parallelismMin, properties.parallelismMax)
+    private val parallelism =
+        (Runtime.getRuntime().availableProcessors() * 2)
+            .coerceIn(properties.parallelismMin, properties.parallelismMax)
 
     init {
         log.info { "AsyncExperimentExecutor initialized with parallelism=$parallelism" }
@@ -56,19 +66,23 @@ class AsyncExperimentExecutor(
      * Executes an experiment asynchronously.
      * Returns immediately after launching the coroutine.
      */
-    fun executeExperiment(experimentId: Long, request: CreateExperimentRequest) {
-        val job = scope.launch {
-            try {
-                executeInternal(experimentId, request)
-            } catch (e: CancellationException) {
-                log.info { "Experiment $experimentId was cancelled" }
-                batchPersistenceService.markExperimentCancelled(experimentId)
-                throw e
-            } catch (e: Exception) {
-                log.error(e) { "Experiment $experimentId failed with error" }
-                batchPersistenceService.markExperimentFailed(experimentId, e.message ?: "Unknown error")
+    fun executeExperiment(
+        experimentId: Long,
+        request: CreateExperimentRequest,
+    ) {
+        val job =
+            scope.launch {
+                try {
+                    executeInternal(experimentId, request)
+                } catch (e: CancellationException) {
+                    log.info { "Experiment $experimentId was cancelled" }
+                    batchPersistenceService.markExperimentCancelled(experimentId)
+                    throw e
+                } catch (e: Exception) {
+                    log.error(e) { "Experiment $experimentId failed with error" }
+                    batchPersistenceService.markExperimentFailed(experimentId, e.message ?: "Unknown error")
+                }
             }
-        }
 
         activeJobs[experimentId] = job
         job.invokeOnCompletion { activeJobs.remove(experimentId) }
@@ -76,9 +90,13 @@ class AsyncExperimentExecutor(
         log.info { "Launched async execution for experiment $experimentId" }
     }
 
-    private suspend fun executeInternal(experimentId: Long, request: CreateExperimentRequest) {
-        val timeframe = Timeframe.fromLabel(request.timeframe)
-            ?: throw IllegalArgumentException("Invalid timeframe: ${request.timeframe}")
+    private suspend fun executeInternal(
+        experimentId: Long,
+        request: CreateExperimentRequest,
+    ) {
+        val timeframe =
+            Timeframe.fromLabel(request.timeframe)
+                ?: throw IllegalArgumentException("Invalid timeframe: ${request.timeframe}")
 
         val startDate = Instant.parse(request.startDate)
         val endDate = Instant.parse(request.endDate)
@@ -97,18 +115,19 @@ class AsyncExperimentExecutor(
             dataService.loadHistoricalData(
                 symbol = request.symbol,
                 timeframe = timeframe,
-                startDate = startDate
+                startDate = startDate,
             )
         }
 
-        val candles = withContext(Dispatchers.IO) {
-            dataService.getCandlesForBacktest(
-                symbol = request.symbol,
-                timeframe = timeframe,
-                startDate = startDate,
-                endDate = endDate
-            )
-        }
+        val candles =
+            withContext(Dispatchers.IO) {
+                dataService.getCandlesForBacktest(
+                    symbol = request.symbol,
+                    timeframe = timeframe,
+                    startDate = startDate,
+                    endDate = endDate,
+                )
+            }
 
         val loadTime = System.currentTimeMillis() - loadStartTime
         log.info { "Loaded ${candles.size} candles in ${loadTime}ms for experiment $experimentId" }
@@ -118,19 +137,20 @@ class AsyncExperimentExecutor(
         }
 
         // Step 2: Create backtest config
-        val config = BacktestConfig(
-            symbol = request.symbol,
-            timeframe = timeframe,
-            initialCapital = properties.initialCapital,
-            riskPerTrade = properties.riskPerTrade,
-            atrPeriod = properties.atrPeriod,
-            atrMultiplier = properties.atrMultiplier,
-            transactionCostPercent = properties.transactionCostPercent,
-            maxConcurrentPositions = properties.maxConcurrentPositions,
-            entryFrequency = properties.entryFrequency,
-            startDate = startDate,
-            endDate = endDate
-        )
+        val config =
+            BacktestConfig(
+                symbol = request.symbol,
+                timeframe = timeframe,
+                initialCapital = properties.initialCapital,
+                riskPerTrade = properties.riskPerTrade,
+                atrPeriod = properties.atrPeriod,
+                atrMultiplier = properties.atrMultiplier,
+                transactionCostPercent = properties.transactionCostPercent,
+                maxConcurrentPositions = properties.maxConcurrentPositions,
+                entryFrequency = properties.entryFrequency,
+                startDate = startDate,
+                endDate = endDate,
+            )
 
         // Step 3: Create result channel and aggregator
         val resultChannel = Channel<BacktestResultWithRunNumber>(capacity = properties.channelCapacity)
@@ -143,9 +163,10 @@ class AsyncExperimentExecutor(
         log.info { "Starting $numBacktests backtests with parallelism=$parallelism for experiment $experimentId" }
 
         // Start persistence consumer in a separate coroutine (outside coroutineScope so it doesn't block)
-        val persistenceJob = scope.launch {
-            batchPersistenceService.consumeResults(experimentId, resultChannel, aggregator, numBacktests)
-        }
+        val persistenceJob =
+            scope.launch {
+                batchPersistenceService.consumeResults(experimentId, resultChannel, aggregator, numBacktests)
+            }
 
         // Run all backtests - coroutineScope waits for all child coroutines
         coroutineScope {
@@ -167,7 +188,12 @@ class AsyncExperimentExecutor(
                             if (runNumber % properties.progressLogInterval == 0 || runNumber == numBacktests) {
                                 val elapsed = System.currentTimeMillis() - backtestStartTime
                                 val rate = runNumber * 1000.0 / elapsed
-                                log.info { "Experiment $experimentId: $runNumber/$numBacktests complete (${String.format("%.1f", rate)} runs/sec)" }
+                                log.info {
+                                    "Experiment $experimentId: $runNumber/$numBacktests complete (${String.format(
+                                        "%.1f",
+                                        rate,
+                                    )} runs/sec)"
+                                }
                             }
                         } catch (e: CancellationException) {
                             throw e
@@ -197,7 +223,10 @@ class AsyncExperimentExecutor(
         log.info { "Experiment $experimentId completed successfully" }
     }
 
-    private fun updateExperimentStatus(experimentId: Long, status: ExperimentStatus) {
+    private fun updateExperimentStatus(
+        experimentId: Long,
+        status: ExperimentStatus,
+    ) {
         val experiment = experimentRepository.findById(experimentId).orElse(null)
         if (experiment != null) {
             experiment.status = status
@@ -226,9 +255,7 @@ class AsyncExperimentExecutor(
     /**
      * Checks if an experiment is currently running.
      */
-    fun isRunning(experimentId: Long): Boolean {
-        return activeJobs[experimentId]?.isActive == true
-    }
+    fun isRunning(experimentId: Long): Boolean = activeJobs[experimentId]?.isActive == true
 
     /**
      * Graceful shutdown - cancel all running experiments and wait for completion.

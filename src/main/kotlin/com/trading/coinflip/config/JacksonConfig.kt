@@ -14,7 +14,6 @@ import java.time.format.DateTimeFormatter
 
 @Configuration
 class JacksonConfig {
-
     @Bean
     fun objectMapper(builder: Jackson2ObjectMapperBuilder): ObjectMapper {
         val mapper = builder.build<ObjectMapper>()
@@ -25,10 +24,16 @@ class JacksonConfig {
     }
 
     class InstantSerializer : JsonSerializer<Instant>() {
-        private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-            .withZone(ZoneOffset.UTC)
+        private val formatter =
+            DateTimeFormatter
+                .ofPattern("yyyy-MM-dd HH:mm:ss")
+                .withZone(ZoneOffset.UTC)
 
-        override fun serialize(value: Instant?, gen: JsonGenerator?, serializers: SerializerProvider?) {
+        override fun serialize(
+            value: Instant?,
+            gen: JsonGenerator?,
+            serializers: SerializerProvider?,
+        ) {
             if (value != null && gen != null) {
                 gen.writeString(formatter.format(value))
             }

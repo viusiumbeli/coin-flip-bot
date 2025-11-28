@@ -16,18 +16,18 @@ data class CreateExperimentRequest(
     val endDate: String,
     val numBacktests: Int = 1,
     val customName: String? = null,
-    val notes: String? = null
+    val notes: String? = null,
 )
 
 data class CompareExperimentsRequest(
-    val experimentIds: List<Long>
+    val experimentIds: List<Long>,
 )
 
 // Async experiment response DTOs
 data class CreateExperimentResponse(
     val id: Long,
     val status: ExperimentStatus,
-    val message: String
+    val message: String,
 )
 
 data class ExperimentStatusDto(
@@ -39,7 +39,7 @@ data class ExperimentStatusDto(
     val progressPercent: Double,
     val startedAt: Instant?,
     val finishedAt: Instant?,
-    val errorMessage: String?
+    val errorMessage: String?,
 )
 
 data class PaginatedRunsDto(
@@ -47,7 +47,7 @@ data class PaginatedRunsDto(
     val page: Int,
     val size: Int,
     val totalPages: Int,
-    val totalElements: Long
+    val totalElements: Long,
 )
 
 // Response DTOs
@@ -70,7 +70,7 @@ data class ExperimentSummaryDto(
     val profitFactor: BigDecimal,
     val status: ExperimentStatus,
     val completedRuns: Int,
-    val progressPercent: Double
+    val progressPercent: Double,
 )
 
 data class BacktestRunSummaryDto(
@@ -81,7 +81,7 @@ data class BacktestRunSummaryDto(
     val sharpeRatio: BigDecimal,
     val profitFactor: BigDecimal,
     val maxDrawdownPercent: BigDecimal,
-    val totalTrades: Int
+    val totalTrades: Int,
 )
 
 data class BacktestRunDetailDto(
@@ -105,7 +105,7 @@ data class BacktestRunDetailDto(
     val averageTradeDuration: Long,
     val buyAndHoldReturn: BigDecimal,
     val buyAndHoldReturnPercent: BigDecimal,
-    val trades: List<ExperimentTradeDto>
+    val trades: List<ExperimentTradeDto>,
 )
 
 data class ExperimentDetailDto(
@@ -119,7 +119,6 @@ data class ExperimentDetailDto(
     val endDate: Instant,
     val createdAt: Instant,
     val numBacktests: Int,
-
     // Configuration
     val initialCapital: BigDecimal,
     val riskPerTrade: BigDecimal,
@@ -127,7 +126,6 @@ data class ExperimentDetailDto(
     val atrMultiplier: BigDecimal,
     val transactionCostPercent: BigDecimal,
     val maxConcurrentPositions: Int,
-
     // Aggregated Results (averages across all runs)
     val finalCapital: BigDecimal,
     val totalReturn: BigDecimal,
@@ -148,7 +146,6 @@ data class ExperimentDetailDto(
     val buyAndHoldReturn: BigDecimal,
     val buyAndHoldReturnPercent: BigDecimal,
     val runsBeatBuyHold: Int,
-
     // Variance/distribution metrics for totalReturnPercent
     val returnStdDev: BigDecimal?,
     val returnMin: BigDecimal?,
@@ -158,9 +155,8 @@ data class ExperimentDetailDto(
     val returnP50: BigDecimal?,
     val returnP75: BigDecimal?,
     val returnP95: BigDecimal?,
-
     // Individual runs
-    val runs: List<BacktestRunSummaryDto>
+    val runs: List<BacktestRunSummaryDto>,
 )
 
 data class ExperimentTradeDto(
@@ -179,139 +175,144 @@ data class ExperimentTradeDto(
     val balanceBeforeOpen: BigDecimal,
     val balanceAfterOpen: BigDecimal,
     val balanceBeforeClose: BigDecimal,
-    val balanceAfterClose: BigDecimal
+    val balanceAfterClose: BigDecimal,
 )
 
 data class ComparisonMetricDto(
     val label: String,
-    val values: Map<Long, String>
+    val values: Map<Long, String>,
 )
 
 data class ExperimentComparisonDto(
     val experiments: List<ExperimentSummaryDto>,
-    val metrics: List<ComparisonMetricDto>
+    val metrics: List<ComparisonMetricDto>,
 )
 
 // Extension functions
-fun Experiment.toSummaryDto() = ExperimentSummaryDto(
-    id = id!!,
-    name = name,
-    customName = customName,
-    symbol = symbol,
-    timeframe = timeframe.label,
-    startDate = startDate,
-    endDate = endDate,
-    createdAt = createdAt,
-    numBacktests = numBacktests,
-    totalTrades = totalTrades,
-    totalReturnPercent = totalReturnPercent,
-    buyAndHoldReturnPercent = buyAndHoldReturnPercent,
-    winRate = winRate,
-    maxDrawdownPercent = maxDrawdownPercent,
-    sharpeRatio = sharpeRatio,
-    profitFactor = profitFactor,
-    status = status,
-    completedRuns = completedRuns,
-    progressPercent = if (numBacktests > 0) (completedRuns.toDouble() / numBacktests) * 100 else 0.0
-)
+fun Experiment.toSummaryDto() =
+    ExperimentSummaryDto(
+        id = id!!,
+        name = name,
+        customName = customName,
+        symbol = symbol,
+        timeframe = timeframe.label,
+        startDate = startDate,
+        endDate = endDate,
+        createdAt = createdAt,
+        numBacktests = numBacktests,
+        totalTrades = totalTrades,
+        totalReturnPercent = totalReturnPercent,
+        buyAndHoldReturnPercent = buyAndHoldReturnPercent,
+        winRate = winRate,
+        maxDrawdownPercent = maxDrawdownPercent,
+        sharpeRatio = sharpeRatio,
+        profitFactor = profitFactor,
+        status = status,
+        completedRuns = completedRuns,
+        progressPercent = if (numBacktests > 0) (completedRuns.toDouble() / numBacktests) * 100 else 0.0,
+    )
 
-fun Experiment.toDetailDto(runs: List<BacktestRun>) = ExperimentDetailDto(
-    id = id!!,
-    name = name,
-    customName = customName,
-    notes = notes,
-    symbol = symbol,
-    timeframe = timeframe.label,
-    startDate = startDate,
-    endDate = endDate,
-    createdAt = createdAt,
-    numBacktests = numBacktests,
-    initialCapital = initialCapital,
-    riskPerTrade = riskPerTrade,
-    atrPeriod = atrPeriod,
-    atrMultiplier = atrMultiplier,
-    transactionCostPercent = transactionCostPercent,
-    maxConcurrentPositions = maxConcurrentPositions,
-    finalCapital = finalCapital,
-    totalReturn = totalReturn,
-    totalReturnPercent = totalReturnPercent,
-    maxDrawdown = maxDrawdown,
-    maxDrawdownPercent = maxDrawdownPercent,
-    winRate = winRate,
-    profitFactor = profitFactor,
-    sharpeRatio = sharpeRatio,
-    totalTrades = totalTrades,
-    winningTrades = winningTrades,
-    losingTrades = losingTrades,
-    averageWin = averageWin,
-    averageLoss = averageLoss,
-    largestWin = largestWin,
-    largestLoss = largestLoss,
-    averageTradeDuration = averageTradeDuration,
-    buyAndHoldReturn = buyAndHoldReturn,
-    buyAndHoldReturnPercent = buyAndHoldReturnPercent,
-    runsBeatBuyHold = runsBeatBuyHold,
-    returnStdDev = returnStdDev,
-    returnMin = returnMin,
-    returnMax = returnMax,
-    returnP5 = returnP5,
-    returnP25 = returnP25,
-    returnP50 = returnP50,
-    returnP75 = returnP75,
-    returnP95 = returnP95,
-    runs = runs.map { it.toSummaryDto() }
-)
+fun Experiment.toDetailDto(runs: List<BacktestRun>) =
+    ExperimentDetailDto(
+        id = id!!,
+        name = name,
+        customName = customName,
+        notes = notes,
+        symbol = symbol,
+        timeframe = timeframe.label,
+        startDate = startDate,
+        endDate = endDate,
+        createdAt = createdAt,
+        numBacktests = numBacktests,
+        initialCapital = initialCapital,
+        riskPerTrade = riskPerTrade,
+        atrPeriod = atrPeriod,
+        atrMultiplier = atrMultiplier,
+        transactionCostPercent = transactionCostPercent,
+        maxConcurrentPositions = maxConcurrentPositions,
+        finalCapital = finalCapital,
+        totalReturn = totalReturn,
+        totalReturnPercent = totalReturnPercent,
+        maxDrawdown = maxDrawdown,
+        maxDrawdownPercent = maxDrawdownPercent,
+        winRate = winRate,
+        profitFactor = profitFactor,
+        sharpeRatio = sharpeRatio,
+        totalTrades = totalTrades,
+        winningTrades = winningTrades,
+        losingTrades = losingTrades,
+        averageWin = averageWin,
+        averageLoss = averageLoss,
+        largestWin = largestWin,
+        largestLoss = largestLoss,
+        averageTradeDuration = averageTradeDuration,
+        buyAndHoldReturn = buyAndHoldReturn,
+        buyAndHoldReturnPercent = buyAndHoldReturnPercent,
+        runsBeatBuyHold = runsBeatBuyHold,
+        returnStdDev = returnStdDev,
+        returnMin = returnMin,
+        returnMax = returnMax,
+        returnP5 = returnP5,
+        returnP25 = returnP25,
+        returnP50 = returnP50,
+        returnP75 = returnP75,
+        returnP95 = returnP95,
+        runs = runs.map { it.toSummaryDto() },
+    )
 
-fun BacktestRun.toSummaryDto() = BacktestRunSummaryDto(
-    id = id!!,
-    runNumber = runNumber,
-    totalReturnPercent = totalReturnPercent,
-    winRate = winRate,
-    sharpeRatio = sharpeRatio,
-    profitFactor = profitFactor,
-    maxDrawdownPercent = maxDrawdownPercent,
-    totalTrades = totalTrades
-)
+fun BacktestRun.toSummaryDto() =
+    BacktestRunSummaryDto(
+        id = id!!,
+        runNumber = runNumber,
+        totalReturnPercent = totalReturnPercent,
+        winRate = winRate,
+        sharpeRatio = sharpeRatio,
+        profitFactor = profitFactor,
+        maxDrawdownPercent = maxDrawdownPercent,
+        totalTrades = totalTrades,
+    )
 
-fun BacktestRun.toDetailDto(trades: List<ExperimentTrade>) = BacktestRunDetailDto(
-    id = id!!,
-    runNumber = runNumber,
-    finalCapital = finalCapital,
-    totalReturn = totalReturn,
-    totalReturnPercent = totalReturnPercent,
-    maxDrawdown = maxDrawdown,
-    maxDrawdownPercent = maxDrawdownPercent,
-    winRate = winRate,
-    profitFactor = profitFactor,
-    sharpeRatio = sharpeRatio,
-    totalTrades = totalTrades,
-    winningTrades = winningTrades,
-    losingTrades = losingTrades,
-    averageWin = averageWin,
-    averageLoss = averageLoss,
-    largestWin = largestWin,
-    largestLoss = largestLoss,
-    averageTradeDuration = averageTradeDuration,
-    buyAndHoldReturn = buyAndHoldReturn,
-    buyAndHoldReturnPercent = buyAndHoldReturnPercent,
-    trades = trades.map { it.toDto() }
-)
+fun BacktestRun.toDetailDto(trades: List<ExperimentTrade>) =
+    BacktestRunDetailDto(
+        id = id!!,
+        runNumber = runNumber,
+        finalCapital = finalCapital,
+        totalReturn = totalReturn,
+        totalReturnPercent = totalReturnPercent,
+        maxDrawdown = maxDrawdown,
+        maxDrawdownPercent = maxDrawdownPercent,
+        winRate = winRate,
+        profitFactor = profitFactor,
+        sharpeRatio = sharpeRatio,
+        totalTrades = totalTrades,
+        winningTrades = winningTrades,
+        losingTrades = losingTrades,
+        averageWin = averageWin,
+        averageLoss = averageLoss,
+        largestWin = largestWin,
+        largestLoss = largestLoss,
+        averageTradeDuration = averageTradeDuration,
+        buyAndHoldReturn = buyAndHoldReturn,
+        buyAndHoldReturnPercent = buyAndHoldReturnPercent,
+        trades = trades.map { it.toDto() },
+    )
 
-fun ExperimentTrade.toDto() = ExperimentTradeDto(
-    id = id!!,
-    tradeNumber = tradeNumber,
-    symbol = symbol,
-    side = side,
-    entryTime = entryTime,
-    entryPrice = entryPrice,
-    exitTime = exitTime,
-    exitPrice = exitPrice,
-    positionSize = positionSize,
-    profitLoss = profitLoss,
-    profitLossPercent = profitLossPercent,
-    exitReason = exitReason,
-    balanceBeforeOpen = balanceBeforeOpen,
-    balanceAfterOpen = balanceAfterOpen,
-    balanceBeforeClose = balanceBeforeClose,
-    balanceAfterClose = balanceAfterClose
-)
+fun ExperimentTrade.toDto() =
+    ExperimentTradeDto(
+        id = id!!,
+        tradeNumber = tradeNumber,
+        symbol = symbol,
+        side = side,
+        entryTime = entryTime,
+        entryPrice = entryPrice,
+        exitTime = exitTime,
+        exitPrice = exitPrice,
+        positionSize = positionSize,
+        profitLoss = profitLoss,
+        profitLossPercent = profitLossPercent,
+        exitReason = exitReason,
+        balanceBeforeOpen = balanceBeforeOpen,
+        balanceAfterOpen = balanceAfterOpen,
+        balanceBeforeClose = balanceBeforeClose,
+        balanceAfterClose = balanceAfterClose,
+    )

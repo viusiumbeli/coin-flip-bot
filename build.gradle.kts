@@ -6,6 +6,7 @@ plugins {
     kotlin("plugin.jpa") version "1.9.23"
     id("org.springframework.boot") version "3.2.0"
     id("io.spring.dependency-management") version "1.1.4"
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.1"
 }
 
 group = "com.trading"
@@ -14,6 +15,14 @@ java.sourceCompatibility = JavaVersion.VERSION_21
 
 repositories {
     mavenCentral()
+}
+
+ktlint {
+    version.set("1.3.1")
+    android.set(false)
+    outputToConsole.set(true)
+    outputColorName.set("RED")
+    ignoreFailures.set(false)
 }
 
 dependencies {
@@ -65,4 +74,8 @@ tasks.withType<KotlinCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.check {
+    dependsOn(tasks.ktlintCheck)
 }

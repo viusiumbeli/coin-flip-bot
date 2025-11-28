@@ -8,12 +8,12 @@ data class DataStatus(
     val candleCount: Long,
     val earliestCandle: Instant?,
     val latestCandle: Instant?,
-    val hoursOutdated: Long?
+    val hoursOutdated: Long?,
 )
 
 data class SyncRequest(
     val symbol: String,
-    val timeframe: String
+    val timeframe: String,
 )
 
 data class SyncResult(
@@ -21,5 +21,5 @@ data class SyncResult(
     val timeframe: String,
     val newCandlesAdded: Int,
     val success: Boolean,
-    val error: String? = null
+    val error: String? = null,
 )

@@ -1,13 +1,25 @@
 package com.trading.coinflip.model
 
-import jakarta.persistence.*
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
+import jakarta.persistence.Id
+import jakarta.persistence.Index
+import jakarta.persistence.Table
 import java.math.BigDecimal
 import java.time.Instant
 
-enum class Timeframe(val minutes: Int, val label: String) {
+enum class Timeframe(
+    val minutes: Int,
+    val label: String,
+) {
     ONE_HOUR(60, "1h"),
     FOUR_HOURS(240, "4h"),
-    ONE_DAY(1440, "1d");
+    ONE_DAY(1440, "1d"),
+    ;
 
     companion object {
         fun fromLabel(label: String): Timeframe? = entries.find { it.label == label }
@@ -15,49 +27,45 @@ enum class Timeframe(val minutes: Int, val label: String) {
 }
 
 enum class PositionSide {
-    LONG, SHORT
+    LONG,
+    SHORT,
 }
 
 enum class PositionStatus {
-    OPEN, CLOSED
+    OPEN,
+    CLOSED,
 }
 
 @Entity
-@Table(name = "candles", indexes = [
-    Index(name = "idx_candles_symbol_timeframe_time", columnList = "symbol,timeframe,openTime", unique = true)
-])
+@Table(
+    name = "candles",
+    indexes = [
+        Index(name = "idx_candles_symbol_timeframe_time", columnList = "symbol,timeframe,openTime", unique = true),
+    ],
+)
 data class Candle(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
-
     @Column(nullable = false)
     val symbol: String,
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     val timeframe: Timeframe,
-
     @Column(nullable = false)
     val openTime: Instant,
-
     @Column(nullable = false, precision = 20, scale = 8)
     val open: BigDecimal,
-
     @Column(nullable = false, precision = 20, scale = 8)
     val high: BigDecimal,
-
     @Column(nullable = false, precision = 20, scale = 8)
     val low: BigDecimal,
-
     @Column(nullable = false, precision = 20, scale = 8)
     val close: BigDecimal,
-
     @Column(nullable = false, precision = 20, scale = 8)
     val volume: BigDecimal,
-
     @Column(precision = 20, scale = 8)
-    var atr: BigDecimal? = null
+    var atr: BigDecimal? = null,
 )
 
 data class Trade(
@@ -78,7 +86,7 @@ data class Trade(
     val balanceBeforeOpen: BigDecimal,
     val balanceAfterOpen: BigDecimal,
     val balanceBeforeClose: BigDecimal,
-    val balanceAfterClose: BigDecimal
+    val balanceAfterClose: BigDecimal,
 )
 
 data class Position(
@@ -98,25 +106,32 @@ data class Position(
     val allocatedCapital: BigDecimal, // Capital locked up for this position
     var exitTime: Instant? = null,
     var exitPrice: BigDecimal? = null,
-    var exitReason: String? = null
+    var exitReason: String? = null,
 ) {
-    fun updateTrailingStop(currentPrice: BigDecimal, atr: BigDecimal, atrMultiplier: BigDecimal): Boolean {
-        val isFavorableMove = when (side) {
-            PositionSide.LONG -> currentPrice > highestFavorablePrice
-            PositionSide.SHORT -> currentPrice < highestFavorablePrice
-        }
+    fun updateTrailingStop(
+        currentPrice: BigDecimal,
+        atr: BigDecimal,
+        atrMultiplier: BigDecimal,
+    ): Boolean {
+        val isFavorableMove =
+            when (side) {
+                PositionSide.LONG -> currentPrice > highestFavorablePrice
+                PositionSide.SHORT -> currentPrice < highestFavorablePrice
+            }
 
         if (isFavorableMove) {
             highestFavorablePrice = currentPrice
-            val newStop = when (side) {
-                PositionSide.LONG -> currentPrice - (atr * atrMultiplier)
-                PositionSide.SHORT -> currentPrice + (atr * atrMultiplier)
-            }
+            val newStop =
+                when (side) {
+                    PositionSide.LONG -> currentPrice - (atr * atrMultiplier)
+                    PositionSide.SHORT -> currentPrice + (atr * atrMultiplier)
+                }
 
-            val shouldUpdate = when (side) {
-                PositionSide.LONG -> newStop > trailingStop
-                PositionSide.SHORT -> newStop < trailingStop
-            }
+            val shouldUpdate =
+                when (side) {
+                    PositionSide.LONG -> newStop > trailingStop
+                    PositionSide.SHORT -> newStop < trailingStop
+                }
 
             if (shouldUpdate) {
                 trailingStop = newStop
@@ -126,28 +141,33 @@ data class Position(
         return false
     }
 
-    fun isStopHit(currentPrice: BigDecimal): Boolean {
-        return when (side) {
+    fun isStopHit(currentPrice: BigDecimal): Boolean =
+        when (side) {
             PositionSide.LONG -> currentPrice <= trailingStop
             PositionSide.SHORT -> currentPrice >= trailingStop
         }
-    }
 
-    fun toTrade(tradeId: Long, balanceBeforeClose: BigDecimal, balanceAfterClose: BigDecimal): Trade {
+    fun toTrade(
+        tradeId: Long,
+        balanceBeforeClose: BigDecimal,
+        balanceAfterClose: BigDecimal,
+    ): Trade {
         require(status == PositionStatus.CLOSED) { "Position must be closed to convert to trade" }
         require(exitPrice != null && exitTime != null) { "Exit price and time must be set" }
 
-        val pnl = when (side) {
-            PositionSide.LONG -> (exitPrice!! - entryPrice) * positionSize
-            PositionSide.SHORT -> (entryPrice - exitPrice!!) * positionSize
-        }
+        val pnl =
+            when (side) {
+                PositionSide.LONG -> (exitPrice!! - entryPrice) * positionSize
+                PositionSide.SHORT -> (entryPrice - exitPrice!!) * positionSize
+            }
 
         val positionValue = entryPrice * positionSize
-        val pnlPercent = if (positionValue > BigDecimal.ZERO) {
-            (pnl / positionValue) * BigDecimal(100)
-        } else {
-            BigDecimal.ZERO
-        }
+        val pnlPercent =
+            if (positionValue > BigDecimal.ZERO) {
+                (pnl / positionValue) * BigDecimal(100)
+            } else {
+                BigDecimal.ZERO
+            }
 
         return Trade(
             id = tradeId,
@@ -167,7 +187,7 @@ data class Position(
             balanceBeforeOpen = balanceBeforeOpen,
             balanceAfterOpen = balanceAfterOpen,
             balanceBeforeClose = balanceBeforeClose,
-            balanceAfterClose = balanceAfterClose
+            balanceAfterClose = balanceAfterClose,
         )
     }
 }
@@ -183,7 +203,7 @@ data class BacktestConfig(
     val maxConcurrentPositions: Int = 5,
     val entryFrequency: Double = 0.1, // Probability of entering a trade on each candle
     val startDate: Instant? = null,
-    val endDate: Instant? = null
+    val endDate: Instant? = null,
 )
 
 data class BacktestResult(
@@ -209,5 +229,5 @@ data class BacktestResult(
     val startDate: Instant,
     val endDate: Instant,
     val buyAndHoldReturn: BigDecimal,
-    val buyAndHoldReturnPercent: BigDecimal
+    val buyAndHoldReturnPercent: BigDecimal,
 )

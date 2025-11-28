@@ -20,15 +20,12 @@ data class BacktestProperties(
     var maxConcurrentPositions: Int = 5,
     var startDate: Instant? = null,
     var endDate: Instant? = null,
-
     // Strategy parameters
     var entryFrequency: Double = 0.1,
-
     // Experiment limits
     var syncBacktestLimit: Int = 1_000_000,
     var asyncBacktestLimit: Int = 10_000_000,
     var tradesThreshold: Int = 100,
-
     // Async execution parameters
     var parallelismMin: Int = 4,
     var parallelismMax: Int = 32,
@@ -36,9 +33,8 @@ data class BacktestProperties(
     var batchSize: Int = 1000,
     var shutdownTimeoutMs: Long = 30_000,
     var progressLogInterval: Int = 10_000,
-
     // API parameters
     var maxPageSize: Int = 1000,
     var httpTimeoutMs: Long = 30_000,
-    var rateLimitDelayMs: Long = 100
+    var rateLimitDelayMs: Long = 100,
 )
