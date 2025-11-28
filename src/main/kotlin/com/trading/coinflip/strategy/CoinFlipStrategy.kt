@@ -11,9 +11,7 @@ import java.math.RoundingMode
 import kotlin.random.Random
 
 @Component
-class CoinFlipStrategy(
-    private val atrCalculator: ATRCalculator,
-) {
+class CoinFlipStrategy {
     private val log = KotlinLogging.logger {}
 
     private var positionIdCounter = 0L
@@ -62,7 +60,7 @@ class CoinFlipStrategy(
         atrMultiplier: BigDecimal,
         balanceBeforeOpen: BigDecimal,
     ): Position? {
-        val atr = atrCalculator.getATRForCandle(candles, candleIndex)
+        val atr = ATRCalculator.getATRForCandle(candles, candleIndex)
         if (atr == null || atr <= BigDecimal.ZERO) {
             log.warn { "No valid ATR at index $candleIndex for ${candle.symbol}" }
             return null
@@ -162,7 +160,7 @@ class CoinFlipStrategy(
         candleIndex: Int,
         atrMultiplier: BigDecimal,
     ): Boolean {
-        val atr = atrCalculator.getATRForCandle(candles, candleIndex)
+        val atr = ATRCalculator.getATRForCandle(candles, candleIndex)
         if (atr == null || atr <= BigDecimal.ZERO) {
             return false
         }

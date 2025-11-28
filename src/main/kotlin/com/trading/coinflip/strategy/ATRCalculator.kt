@@ -1,12 +1,10 @@
 package com.trading.coinflip.strategy
 
 import com.trading.coinflip.model.Candle
-import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
 
-@Component
-class ATRCalculator {
+object ATRCalculator {
     /**
      * Calculate Average True Range (ATR) for a list of candles
      * ATR = EMA of True Range

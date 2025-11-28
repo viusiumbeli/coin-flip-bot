@@ -1,6 +1,5 @@
 package com.trading.coinflip.trading
 
-import com.trading.coinflip.strategy.ATRCalculator
 import com.trading.coinflip.strategy.CoinFlipStrategy
 import org.springframework.stereotype.Component
 
@@ -17,8 +16,7 @@ class TradingProcessorFactory {
      * Thread-safe: each call returns a new instance with no shared mutable state.
      */
     fun create(): TradingProcessor {
-        val atrCalculator = ATRCalculator()
-        val strategy = CoinFlipStrategy(atrCalculator)
+        val strategy = CoinFlipStrategy()
         return TradingProcessor(strategy)
     }
 }
