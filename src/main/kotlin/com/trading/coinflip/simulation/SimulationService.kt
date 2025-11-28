@@ -13,7 +13,6 @@ import com.trading.coinflip.model.Candle
 import com.trading.coinflip.model.PositionSide
 import com.trading.coinflip.model.Timeframe
 import com.trading.coinflip.trading.TradingProcessor
-import com.trading.coinflip.trading.TradingProcessorFactory
 import com.trading.coinflip.trading.TradingState
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
@@ -27,7 +26,6 @@ import kotlin.concurrent.write
 @Service
 class SimulationService(
     private val candleRepository: CandleRepository,
-    private val tradingProcessorFactory: TradingProcessorFactory,
     private val properties: BacktestProperties,
 ) {
     private val log = KotlinLogging.logger {}
@@ -43,8 +41,7 @@ class SimulationService(
     private var allCandles: List<Candle> = emptyList() // All loaded candles before filtering
     private var currentCandleIndex: Int = -1
 
-    // Trading processor and state
-    private var processor: TradingProcessor? = null
+    // Trading state
     private var tradingState: TradingState? = null
     private var tradingConfig: TradingConfig? = null
 
@@ -96,8 +93,7 @@ class SimulationService(
             candles = filteredCandles
             currentCandleIndex = -1 // Start before first candle
 
-            // Create new processor and state
-            processor = tradingProcessorFactory.create()
+            // Create new state
             tradingState = TradingState.create(initialCapital)
             tradingConfig = properties.trading
             initialized = true
@@ -174,7 +170,7 @@ class SimulationService(
         }
 
         val candle = candles[currentCandleIndex]
-        processor!!.processCandle(tradingState!!, candle, candles, currentCandleIndex, tradingConfig!!)
+        TradingProcessor.processCandle(tradingState!!, candle, candles, currentCandleIndex, tradingConfig!!)
     }
 
     /**

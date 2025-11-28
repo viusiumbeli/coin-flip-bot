@@ -1,6 +1,6 @@
 package com.trading.coinflip.service
 
-import com.trading.coinflip.backtesting.BacktestEngineFactory
+import com.trading.coinflip.backtesting.BacktestEngine
 import com.trading.coinflip.config.BacktestProperties
 import com.trading.coinflip.data.DataService
 import com.trading.coinflip.data.ExperimentRepository
@@ -40,7 +40,6 @@ import java.util.concurrent.ConcurrentHashMap
 @Service
 class AsyncExperimentExecutor(
     private val dataService: DataService,
-    private val backtestEngineFactory: BacktestEngineFactory,
     private val batchPersistenceService: BatchPersistenceService,
     private val experimentRepository: ExperimentRepository,
     private val properties: BacktestProperties,
@@ -170,11 +169,8 @@ class AsyncExperimentExecutor(
                 launch {
                     semaphore.withPermit {
                         try {
-                            // Create a fresh engine with independent random state
-                            val engine = backtestEngineFactory.create()
-
                             // Run backtest - candles are shared read-only
-                            val result = engine.runBacktest(config, candles)
+                            val result = BacktestEngine.runBacktest(config, candles)
 
                             // Send result to channel
                             resultChannel.send(BacktestResultWithRunNumber(result, runNumber))
