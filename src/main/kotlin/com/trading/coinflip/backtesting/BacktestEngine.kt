@@ -23,8 +23,6 @@ class BacktestEngine(
         log.debug { "Starting backtest for ${config.symbol} ${config.timeframe.label}" }
         log.debug { "Initial capital: ${config.initialCapital}, Risk per trade: ${config.trading.riskPerTrade}%" }
 
-        processor.resetStrategy()
-
         val state = TradingState.create(config.initialCapital)
 
         // Filter candles by date range if specified

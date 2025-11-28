@@ -5,16 +5,12 @@ import com.trading.coinflip.model.Position
 import com.trading.coinflip.model.PositionSide
 import com.trading.coinflip.model.PositionStatus
 import mu.KotlinLogging
-import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.random.Random
 
-@Component
-class CoinFlipStrategy {
+object CoinFlipStrategy {
     private val log = KotlinLogging.logger {}
-
-    private var positionIdCounter = 0L
     private val random = Random.Default
 
     /**
@@ -59,6 +55,7 @@ class CoinFlipStrategy {
         riskPercent: BigDecimal,
         atrMultiplier: BigDecimal,
         balanceBeforeOpen: BigDecimal,
+        positionId: Long,
     ): Position? {
         val atr = ATRCalculator.getATRForCandle(candles, candleIndex)
         if (atr == null || atr <= BigDecimal.ZERO) {
@@ -126,7 +123,7 @@ class CoinFlipStrategy {
 
         val position =
             Position(
-                id = ++positionIdCounter,
+                id = positionId,
                 symbol = candle.symbol,
                 timeframe = candle.timeframe,
                 side = side,
@@ -177,9 +174,5 @@ class CoinFlipStrategy {
         }
 
         return false
-    }
-
-    fun reset() {
-        positionIdCounter = 0L
     }
 }

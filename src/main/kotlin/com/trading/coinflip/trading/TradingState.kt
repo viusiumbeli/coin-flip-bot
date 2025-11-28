@@ -15,6 +15,7 @@ data class TradingState(
     val openPositions: MutableList<Position>,
     val closedTrades: MutableList<Trade>,
     var tradeIdCounter: Long,
+    var positionIdCounter: Long,
 ) {
     companion object {
         fun create(initialCapital: BigDecimal): TradingState =
@@ -25,6 +26,7 @@ data class TradingState(
                 openPositions = mutableListOf(),
                 closedTrades = mutableListOf(),
                 tradeIdCounter = 0L,
+                positionIdCounter = 0L,
             )
     }
 
@@ -35,5 +37,6 @@ data class TradingState(
         openPositions.clear()
         closedTrades.clear()
         tradeIdCounter = 0L
+        positionIdCounter = 0L
     }
 }
