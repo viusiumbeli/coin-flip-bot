@@ -1,15 +1,15 @@
 package com.trading.coinflip.api
 
-import com.trading.coinflip.common.dto.BacktestRunDetailDto
-import com.trading.coinflip.common.dto.CompareExperimentsRequest
-import com.trading.coinflip.common.dto.CreateExperimentRequest
-import com.trading.coinflip.common.dto.CreateExperimentResponse
-import com.trading.coinflip.common.dto.ExperimentComparisonDto
-import com.trading.coinflip.common.dto.ExperimentDetailDto
-import com.trading.coinflip.common.dto.ExperimentStatusDto
-import com.trading.coinflip.common.dto.ExperimentSummaryDto
-import com.trading.coinflip.common.dto.PaginatedRunsDto
+import com.trading.coinflip.experiment.BacktestRunDetailDto
+import com.trading.coinflip.experiment.CompareExperimentsRequest
+import com.trading.coinflip.experiment.CreateExperimentRequest
+import com.trading.coinflip.experiment.CreateExperimentResponse
+import com.trading.coinflip.experiment.ExperimentComparisonDto
+import com.trading.coinflip.experiment.ExperimentDetailDto
 import com.trading.coinflip.experiment.ExperimentService
+import com.trading.coinflip.experiment.ExperimentStatusDto
+import com.trading.coinflip.experiment.ExperimentSummaryDto
+import com.trading.coinflip.experiment.PaginatedRunsDto
 import mu.KotlinLogging
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity

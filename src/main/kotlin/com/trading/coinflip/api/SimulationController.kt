@@ -1,8 +1,8 @@
 package com.trading.coinflip.api
 
-import com.trading.coinflip.common.dto.SimulationInitRequest
-import com.trading.coinflip.common.dto.SimulationStateDto
+import com.trading.coinflip.simulation.SimulationInitRequest
 import com.trading.coinflip.simulation.SimulationService
+import com.trading.coinflip.simulation.SimulationStateDto
 import mu.KotlinLogging
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.CrossOrigin

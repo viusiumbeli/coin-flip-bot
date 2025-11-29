@@ -2,16 +2,39 @@
 - shared formatting utilities are in `src/main/resources/static/formatters.js` - use `formatNumber()`, `formatDate()`, and `formatDateTime()` across all HTML pages for consistent formatting
 - use `showConfirmModal(title, message, confirmText, callback, isDanger)` from `js/components/modal.js` for confirmation dialogs instead of browser's `confirm()` - supports danger (red) and warning (orange) styles
 
+## Package Structure
+Feature-based organization under `com.trading.coinflip` with **one class per file**:
+```
+├── api/           # REST controllers
+├── common/        # Shared code
+│   ├── config/    # BacktestProperties, JacksonConfig
+│   ├── dto/       # Shared DTOs only (TradeDto)
+│   └── model/     # Domain models, JPA entities
+├── engine/        # Core trading (TradingProcessor, CoinFlipStrategy, ATRCalculator)
+├── backtest/      # BacktestEngine, BacktestService, BacktestRequest, BacktestResponse
+├── experiment/    # ExperimentService, AsyncExperimentExecutor + experiment DTOs
+├── simulation/    # SimulationService + simulation DTOs
+├── data/          # Repositories, BinanceClient, DataService + data DTOs
+└── analytics/     # PerformanceAnalytics, ReportGenerator
+```
+
+**DTOs live in their feature packages** (not common/dto/):
+- `backtest/`: BacktestRequest, BacktestResponse
+- `data/`: DataStatus, SyncRequest, SyncResult, AvailableSymbolsResponse
+- `experiment/`: CreateExperimentRequest, ExperimentDetailDto, ExperimentMappers, etc.
+- `simulation/`: SimulationInitRequest, SimulationStateDto, CandleDto, etc.
+- `common/dto/`: TradeDto (shared between simulation and backtest)
+
 ## Architecture Notes
-- Kotlin/Spring Boot backend with JPA entities in `model/` directory
+- Kotlin/Spring Boot backend with JPA entities in `common/model/`
 - Async experiment execution uses `RunningAggregator` for memory-efficient streaming statistics
 - Database migrations are in `src/main/resources/db/migration/` using Flyway (V1, V2, V3...)
-- DTOs and entity extension functions are in `dto/ExperimentDtos.kt`
+- Entity extension functions (mappers) are in `experiment/ExperimentMappers.kt`
 - Frontend is vanilla JS with Chart.js for visualizations
 - Trades are saved to `experiment_trades` table only for experiments with ≤`tradesThreshold` backtests (configurable, default 100)
 
 ## Configuration
-All runtime constants are centralized in `BacktestProperties` (`config/BacktestProperties.kt`) with nested config classes, configurable via `application.yml`:
+All runtime constants are centralized in `BacktestProperties` (`common/config/BacktestProperties.kt`) with nested config classes, configurable via `application.yml`:
 
 ```yaml
 backtest:
@@ -58,8 +81,10 @@ ktlint enforces Kotlin code style. Runs automatically on build.
 - `./gradlew ktlintFormat` - Auto-fix violations
 
 ## Trading Architecture
-- `TradingProcessor` - Single source of truth for trading logic (P&L, transaction costs, drawdown tracking)
-- `TradingProcessorFactory` - Creates processor instances with independent `CoinFlipStrategy` for thread-safe parallel execution
-- `TradingState` - Mutable state container (balance, positions, trades)
+All trading components are Spring `@Component` beans with constructor injection:
+- `TradingProcessor` (`engine/`) - Single source of truth for trading logic (P&L, transaction costs, drawdown tracking)
+- `TradingState` (`engine/`) - Mutable state container (balance, positions, trades, counters)
+- `CoinFlipStrategy` (`engine/`) - Random entry with ATR-based trailing stops
 - `TradingConfig` - Reusable config from `BacktestProperties.trading`, passed to processor
-- `BacktestEngine` uses `TradingProcessor` for backtesting, `SimulationService` uses it for step-by-step simulation
+- `BacktestEngine` (`backtest/`) uses `TradingProcessor` for backtesting
+- `SimulationService` (`simulation/`) uses `TradingProcessor` for step-by-step simulation
