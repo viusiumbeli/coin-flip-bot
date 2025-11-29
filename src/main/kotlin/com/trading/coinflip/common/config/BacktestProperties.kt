@@ -24,33 +24,3 @@ data class BacktestProperties(
     @NestedConfigurationProperty
     var api: ApiConfig = ApiConfig(),
 )
-
-data class TradingConfig(
-    var riskPerTrade: BigDecimal = BigDecimal(1.0),
-    var atrPeriod: Int = 10,
-    var atrMultiplier: BigDecimal = BigDecimal(3.0),
-    var transactionCostPercent: BigDecimal = BigDecimal(0.1),
-    var maxConcurrentPositions: Int = 5,
-    var entryFrequency: Double = 0.1,
-)
-
-data class ExperimentConfig(
-    var syncBacktestLimit: Int = 1_000_000,
-    var asyncBacktestLimit: Int = 10_000_000,
-    var tradesThreshold: Int = 100,
-)
-
-data class AsyncConfig(
-    var parallelismMin: Int = 4,
-    var parallelismMax: Int = 32,
-    var channelCapacity: Int = 1000,
-    var batchSize: Int = 1000,
-    var shutdownTimeoutMs: Long = 30_000,
-    var progressLogInterval: Int = 10_000,
-)
-
-data class ApiConfig(
-    var maxPageSize: Int = 1000,
-    var httpTimeoutMs: Long = 30_000,
-    var rateLimitDelayMs: Long = 100,
-)
