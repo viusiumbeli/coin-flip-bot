@@ -80,4 +80,45 @@ class ATRCalculator {
 
         return null
     }
+
+    /**
+     * Calculate ATR incrementally for new candles, continuing from a known ATR value.
+     * This is memory-efficient for sync operations where only a few new candles need ATR.
+     *
+     * @param previousCandle The last candle that has ATR calculated (used for prevClose in TR calculation)
+     * @param newCandles Candles without ATR, ordered by openTime ASC
+     * @param period ATR period (default 10)
+     * @return List of newCandles with ATR values set
+     */
+    fun calculateATRIncremental(
+        previousCandle: CandleEntity,
+        newCandles: List<CandleEntity>,
+        period: Int = 10,
+    ): List<CandleEntity> {
+        if (newCandles.isEmpty()) {
+            return newCandles
+        }
+
+        val previousATR = previousCandle.atr ?: return newCandles
+        var prevClose = previousCandle.close
+        var atr = previousATR
+        val multiplier = BigDecimal.ONE.divide(BigDecimal(period), 8, RoundingMode.HALF_UP)
+
+        for (candle in newCandles) {
+            // Calculate True Range
+            val highLow = candle.high - candle.low
+            val highPrevClose = (candle.high - prevClose).abs()
+            val lowPrevClose = (candle.low - prevClose).abs()
+            val trueRange = maxOf(highLow, highPrevClose, lowPrevClose)
+
+            // EMA formula: ATR = prevATR + multiplier * (currentTR - prevATR)
+            atr =
+                (atr + multiplier * (trueRange - atr))
+                    .setScale(8, RoundingMode.HALF_UP)
+            candle.atr = atr
+            prevClose = candle.close
+        }
+
+        return newCandles
+    }
 }

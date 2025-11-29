@@ -1,4 +1,4 @@
-package com.trading.coinflip.data
+package com.trading.coinflip.backtest
 
 import com.trading.coinflip.common.model.BacktestRunEntity
 import org.springframework.data.domain.Page

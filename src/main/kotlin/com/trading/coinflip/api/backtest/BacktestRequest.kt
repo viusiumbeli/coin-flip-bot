@@ -6,6 +6,6 @@ import java.time.Instant
 data class BacktestRequest(
     val symbol: String,
     val timeframe: Timeframe,
-    val startDate: Instant? = null,
-    val endDate: Instant? = null,
+    val startDate: Instant,
+    val endDate: Instant,
 )

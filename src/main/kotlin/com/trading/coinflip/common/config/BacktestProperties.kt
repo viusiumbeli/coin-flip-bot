@@ -13,8 +13,7 @@ data class BacktestProperties(
     var symbols: List<String> = listOf("BTCUSDT"),
     var timeframes: List<Timeframe> = listOf(Timeframe.ONE_HOUR),
     var initialCapital: BigDecimal = BigDecimal(10000),
-    var startDate: Instant? = null,
-    var endDate: Instant? = null,
+    var startDate: Instant = Instant.parse("2020-01-01T00:00:00Z"),
     @NestedConfigurationProperty
     var trading: TradingConfig = TradingConfig(),
     @NestedConfigurationProperty
