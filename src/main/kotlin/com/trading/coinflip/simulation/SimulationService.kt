@@ -3,17 +3,16 @@ package com.trading.coinflip.simulation
 import com.trading.coinflip.api.simulation.SimulationInitRequest
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.dto.TradeDto
-import com.trading.coinflip.common.model.CandleEntity
-import com.trading.coinflip.common.model.PositionSide
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.engine.TradingProcessor
 import com.trading.coinflip.engine.TradingState
+import com.trading.coinflip.engine.model.PositionSide
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.time.Instant
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
@@ -45,17 +44,13 @@ class SimulationService(
      */
     fun initialize(request: SimulationInitRequest): SimulationStateDto =
         lock.write {
-            log.info { "Initializing simulation for ${request.symbol} ${request.timeframe}" }
-
-            val tf =
-                Timeframe.fromLabel(request.timeframe)
-                    ?: throw IllegalArgumentException("Invalid timeframe: ${request.timeframe}")
+            log.info { "Initializing simulation for ${request.symbol} ${request.timeframe.label}" }
 
             // Load candles from database
             val loadedCandles =
                 candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(
                     request.symbol,
-                    tf,
+                    request.timeframe,
                 )
 
             if (loadedCandles.isEmpty()) {
@@ -63,13 +58,10 @@ class SimulationService(
             }
 
             // Filter candles by date range if specified
-            val startDate = request.startDate?.let { Instant.parse(it) }
-            val endDate = request.endDate?.let { Instant.parse(it) }
-
             val filteredCandles =
                 loadedCandles.filter { candle ->
-                    val afterStart = startDate?.let { candle.openTime >= it } ?: true
-                    val beforeEnd = endDate?.let { candle.openTime <= it } ?: true
+                    val afterStart = request.startDate?.let { candle.openTime >= it } ?: true
+                    val beforeEnd = request.endDate?.let { candle.openTime <= it } ?: true
                     afterStart && beforeEnd
                 }
 
@@ -82,7 +74,7 @@ class SimulationService(
 
             // Reset all state
             symbol = request.symbol
-            timeframe = tf
+            timeframe = request.timeframe
             initialCapital = configInitialCapital
             allCandles = loadedCandles
             candles = filteredCandles
@@ -190,31 +182,7 @@ class SimulationService(
     private fun getCurrentStateInternal(): SimulationStateDto {
         // Handle uninitialized state
         if (!initialized) {
-            return SimulationStateDto(
-                initialized = false,
-                symbol = null,
-                timeframe = null,
-                currentCandleIndex = -1,
-                totalCandles = 0,
-                currentCandle = null,
-                previousCandle = null,
-                metrics =
-                    SimulationMetricsDto(
-                        accountBalance = BigDecimal.ZERO,
-                        peakBalance = BigDecimal.ZERO,
-                        drawdown = BigDecimal.ZERO,
-                        drawdownPercent = BigDecimal.ZERO,
-                        totalTrades = 0,
-                        winningTrades = 0,
-                        losingTrades = 0,
-                        winRate = BigDecimal.ZERO,
-                        openPositions = 0,
-                        allocatedCapital = BigDecimal.ZERO,
-                        availableCapital = BigDecimal.ZERO,
-                    ),
-                openPositions = emptyList(),
-                closedTrades = emptyList(),
-            )
+            return SimulationStateDto()
         }
 
         val currentCandle =

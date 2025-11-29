@@ -5,7 +5,6 @@ import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.dto.BacktestResultWithRunNumber
 import com.trading.coinflip.common.model.BacktestConfig
 import com.trading.coinflip.common.model.ExperimentStatus
-import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.DataService
 import com.trading.coinflip.data.ExperimentRepository
 import jakarta.annotation.PreDestroy
@@ -95,15 +94,9 @@ class AsyncExperimentExecutor(
         experimentId: Long,
         request: CreateExperimentRequest,
     ) {
-        val timeframe =
-            Timeframe.fromLabel(request.timeframe)
-                ?: throw IllegalArgumentException("Invalid timeframe: ${request.timeframe}")
-
-        val startDate = Instant.parse(request.startDate)
-        val endDate = Instant.parse(request.endDate)
         val numBacktests = request.numBacktests.coerceIn(1, properties.experiment.asyncBacktestLimit)
 
-        log.info { "Starting experiment $experimentId: ${request.symbol} ${timeframe.label} with $numBacktests backtests" }
+        log.info { "Starting experiment $experimentId: ${request.symbol} ${request.timeframe.label} with $numBacktests backtests" }
 
         // Update experiment status to RUNNING
         updateExperimentStatus(experimentId, ExperimentStatus.RUNNING)
@@ -115,8 +108,8 @@ class AsyncExperimentExecutor(
         withContext(Dispatchers.IO) {
             dataService.loadHistoricalData(
                 symbol = request.symbol,
-                timeframe = timeframe,
-                startDate = startDate,
+                timeframe = request.timeframe,
+                startDate = request.startDate,
             )
         }
 
@@ -124,9 +117,9 @@ class AsyncExperimentExecutor(
             withContext(Dispatchers.IO) {
                 dataService.getCandlesForBacktest(
                     symbol = request.symbol,
-                    timeframe = timeframe,
-                    startDate = startDate,
-                    endDate = endDate,
+                    timeframe = request.timeframe,
+                    startDate = request.startDate,
+                    endDate = request.endDate,
                 )
             }
 
@@ -134,18 +127,18 @@ class AsyncExperimentExecutor(
         log.info { "Loaded ${candles.size} candles in ${loadTime}ms for experiment $experimentId" }
 
         if (candles.isEmpty()) {
-            throw IllegalArgumentException("No candles available for ${request.symbol} ${timeframe.label}")
+            throw IllegalArgumentException("No candles available for ${request.symbol} ${request.timeframe.label}")
         }
 
         // Step 2: Create backtest config
         val config =
             BacktestConfig(
                 symbol = request.symbol,
-                timeframe = timeframe,
+                timeframe = request.timeframe,
                 initialCapital = properties.initialCapital,
                 trading = properties.trading,
-                startDate = startDate,
-                endDate = endDate,
+                startDate = request.startDate,
+                endDate = request.endDate,
             )
 
         // Step 3: Create result channel and aggregator

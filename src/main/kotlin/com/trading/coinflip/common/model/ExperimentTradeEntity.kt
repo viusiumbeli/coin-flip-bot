@@ -1,5 +1,6 @@
 package com.trading.coinflip.common.model
 
+import com.trading.coinflip.engine.model.PositionSide
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

@@ -3,7 +3,7 @@ package com.trading.coinflip.backtest
 import com.trading.coinflip.analytics.PerformanceAnalytics
 import com.trading.coinflip.common.model.BacktestConfig
 import com.trading.coinflip.common.model.BacktestResult
-import com.trading.coinflip.common.model.CandleEntity
+import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.engine.TradingProcessor
 import com.trading.coinflip.engine.TradingState
 import mu.KotlinLogging

@@ -1,6 +1,5 @@
 package com.trading.coinflip.data
 
-import com.trading.coinflip.common.model.CandleEntity
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.engine.ATRCalculator
 import kotlinx.coroutines.runBlocking

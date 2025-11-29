@@ -1,6 +1,9 @@
 package com.trading.coinflip.common.config
 
 import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.DeserializationContext
+import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializerProvider
@@ -19,6 +22,7 @@ class JacksonConfig {
         val mapper = builder.build<ObjectMapper>()
         val module = SimpleModule()
         module.addSerializer(Instant::class.java, InstantSerializer())
+        module.addDeserializer(Instant::class.java, InstantDeserializer())
         mapper.registerModule(module)
         return mapper
     }
@@ -38,5 +42,12 @@ class JacksonConfig {
                 gen.writeString(formatter.format(value))
             }
         }
+    }
+
+    class InstantDeserializer : JsonDeserializer<Instant>() {
+        override fun deserialize(
+            p: JsonParser,
+            ctxt: DeserializationContext,
+        ): Instant = Instant.parse(p.text)
     }
 }

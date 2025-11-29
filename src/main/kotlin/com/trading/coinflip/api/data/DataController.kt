@@ -1,7 +1,6 @@
 package com.trading.coinflip.api.data
 
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.data.DataService
 import mu.KotlinLogging
@@ -69,45 +68,32 @@ class DataController(
     @PostMapping("/sync")
     fun syncData(
         @RequestBody request: SyncRequest,
-    ): ResponseEntity<SyncResponse> {
-        return try {
-            log.info { "Sync request for ${request.symbol} ${request.timeframe}" }
+    ): ResponseEntity<SyncResponse> =
+        try {
+            log.info { "Sync request for ${request.symbol} ${request.timeframe.label}" }
 
-            val timeframe =
-                Timeframe.fromLabel(request.timeframe)
-                    ?: return ResponseEntity.badRequest().body(
-                        SyncResponse(
-                            symbol = request.symbol,
-                            timeframe = request.timeframe,
-                            newCandlesAdded = 0,
-                            success = false,
-                            error = "Invalid timeframe: ${request.timeframe}",
-                        ),
-                    )
-
-            val newCandlesAdded = dataService.syncMissingData(request.symbol, timeframe)
+            val newCandlesAdded = dataService.syncMissingData(request.symbol, request.timeframe)
 
             ResponseEntity.ok(
                 SyncResponse(
                     symbol = request.symbol,
-                    timeframe = request.timeframe,
+                    timeframe = request.timeframe.label,
                     newCandlesAdded = newCandlesAdded,
                     success = true,
                 ),
             )
         } catch (e: Exception) {
-            log.error(e) { "Error syncing data for ${request.symbol} ${request.timeframe}" }
+            log.error(e) { "Error syncing data for ${request.symbol} ${request.timeframe.label}" }
             ResponseEntity.ok(
                 SyncResponse(
                     symbol = request.symbol,
-                    timeframe = request.timeframe,
+                    timeframe = request.timeframe.label,
                     newCandlesAdded = 0,
                     success = false,
                     error = e.message ?: "Unknown error",
                 ),
             )
         }
-    }
 
     @PostMapping("/sync-all")
     fun syncAllData(): ResponseEntity<List<SyncResponse>> {

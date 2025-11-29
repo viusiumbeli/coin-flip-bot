@@ -1,5 +1,6 @@
-package com.trading.coinflip.common.model
+package com.trading.coinflip.data
 
+import com.trading.coinflip.common.model.Timeframe
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

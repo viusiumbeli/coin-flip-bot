@@ -7,7 +7,6 @@ import com.trading.coinflip.common.model.Timeframe
 import mu.KotlinLogging
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import java.time.Instant
 
 @RestController
 @RequestMapping("/api/backtest")
@@ -21,23 +20,16 @@ class BacktestController(
     @PostMapping("/run")
     fun runBacktest(
         @RequestBody request: BacktestRequest,
-    ): ResponseEntity<BacktestResponse> {
-        return try {
-            log.info { "Received backtest request for ${request.symbol} ${request.timeframe}" }
-
-            val timeframe =
-                Timeframe.fromLabel(request.timeframe)
-                    ?: return ResponseEntity.badRequest().build()
-
-            val startDate = request.startDate?.let { Instant.parse(it) }
-            val endDate = request.endDate?.let { Instant.parse(it) }
+    ): ResponseEntity<BacktestResponse> =
+        try {
+            log.info { "Received backtest request for ${request.symbol} ${request.timeframe.label}" }
 
             val result =
                 backtestService.runBacktestForSymbol(
                     symbol = request.symbol,
-                    timeframe = timeframe,
-                    startDate = startDate,
-                    endDate = endDate,
+                    timeframe = request.timeframe,
+                    startDate = request.startDate,
+                    endDate = request.endDate,
                 )
 
             ResponseEntity.ok(result.toResponse())
@@ -45,7 +37,6 @@ class BacktestController(
             log.error(e) { "Error running backtest: ${e.message}" }
             ResponseEntity.internalServerError().build()
         }
-    }
 
     @PostMapping("/run-all")
     fun runAllBacktests(): ResponseEntity<List<BacktestResponse>> =

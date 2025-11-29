@@ -1,14 +1,16 @@
 package com.trading.coinflip.engine
 
 import com.trading.coinflip.common.config.TradingConfig
-import com.trading.coinflip.common.model.CandleEntity
-import com.trading.coinflip.common.model.Position
-import com.trading.coinflip.common.model.PositionSide
-import com.trading.coinflip.common.model.PositionStatus
 import com.trading.coinflip.common.model.Trade
+import com.trading.coinflip.data.CandleEntity
+import com.trading.coinflip.engine.model.Position
+import com.trading.coinflip.engine.model.PositionSide
+import com.trading.coinflip.engine.model.PositionStatus
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
+import java.time.Instant
+import kotlin.random.Random
 
 /**
  * Core trading logic processor.
@@ -32,9 +34,8 @@ class TradingProcessor(
         config: TradingConfig,
     ) {
         // Update existing positions and check for stops
-        val positionsToClose = mutableListOf<Position>()
-        for (position in state.openPositions) {
-            val shouldClose =
+        val positionsToClose =
+            state.openPositions.filter { position ->
                 strategy.updatePosition(
                     position = position,
                     candle = candle,
@@ -42,16 +43,10 @@ class TradingProcessor(
                     candleIndex = candleIndex,
                     atrMultiplier = config.atrMultiplier,
                 )
-
-            if (shouldClose) {
-                positionsToClose.add(position)
             }
-        }
 
         // Close positions and update balance
-        for (position in positionsToClose) {
-            closePosition(state, position, config.transactionCostPercent)
-        }
+        positionsToClose.forEach { closePosition(state, it, config.transactionCostPercent) }
 
         // Consider opening new position if we have capacity
         if (state.openPositions.size < config.maxConcurrentPositions &&
@@ -65,7 +60,7 @@ class TradingProcessor(
             // Only try to open if we have available capital
             if (availableBalance > BigDecimal.ZERO) {
                 // Random entry frequency based on config
-                if (kotlin.random.Random.nextDouble() < config.entryFrequency) {
+                if (Random.nextDouble() < config.entryFrequency) {
                     val newPosition =
                         strategy.createPosition(
                             candle = candle,
@@ -78,9 +73,9 @@ class TradingProcessor(
                             positionId = ++state.positionIdCounter,
                         )
 
-                    if (newPosition != null) {
-                        state.openPositions.add(newPosition)
-                        log.debug { "Opened new ${newPosition.side} position at ${newPosition.entryPrice}" }
+                    newPosition?.let {
+                        state.openPositions.add(it)
+                        log.debug { "Opened new ${it.side} position at ${it.entryPrice}" }
                     }
                 }
             }
@@ -122,13 +117,8 @@ class TradingProcessor(
         }
 
         // Track drawdown
-        if (state.accountBalance > state.peakBalance) {
-            state.peakBalance = state.accountBalance
-        }
-        val currentDrawdown = state.peakBalance - state.accountBalance
-        if (currentDrawdown > state.maxDrawdown) {
-            state.maxDrawdown = currentDrawdown
-        }
+        state.peakBalance = maxOf(state.peakBalance, state.accountBalance)
+        state.maxDrawdown = maxOf(state.maxDrawdown, state.peakBalance - state.accountBalance)
 
         return trade
     }
@@ -140,7 +130,7 @@ class TradingProcessor(
         state: TradingState,
         position: Position,
         exitPrice: BigDecimal,
-        exitTime: java.time.Instant,
+        exitTime: Instant,
         exitReason: String,
         transactionCostPercent: BigDecimal,
     ): Trade {

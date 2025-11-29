@@ -1,5 +1,6 @@
 package com.trading.coinflip.common.model
 
+import com.trading.coinflip.engine.model.PositionSide
 import java.math.BigDecimal
 import java.time.Instant
 
