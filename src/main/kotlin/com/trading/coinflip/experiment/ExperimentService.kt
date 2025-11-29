@@ -1,12 +1,18 @@
 package com.trading.coinflip.experiment
 
+import com.trading.coinflip.api.exception.BadRequestException
+import com.trading.coinflip.api.exception.NotFoundException
 import com.trading.coinflip.api.experiment.ComparisonMetricResponse
 import com.trading.coinflip.api.experiment.ExperimentComparisonResponse
 import com.trading.coinflip.api.experiment.ExperimentStatusResponse
 import com.trading.coinflip.api.experiment.ExperimentSummaryResponse
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.dto.BacktestRunDetailDto
-import com.trading.coinflip.common.model.*
+import com.trading.coinflip.common.model.ExperimentEntity
+import com.trading.coinflip.common.model.ExperimentStatus
+import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.common.model.toExperimentDetailResponse
+import com.trading.coinflip.common.model.toExperimentSummaryResponse
 import com.trading.coinflip.data.BacktestRunRepository
 import com.trading.coinflip.data.ExperimentRepository
 import com.trading.coinflip.data.ExperimentTradeRepository
@@ -44,7 +50,7 @@ class ExperimentService(
         val experiment =
             experimentRepository
                 .findById(id)
-                .orElseThrow { IllegalArgumentException("Experiment not found: $id") }
+                .orElseThrow { NotFoundException("Experiment not found: $id") }
 
         // Don't load all runs - frontend will fetch them via paginated endpoint
         return experiment.toExperimentDetailResponse(emptyList())
@@ -58,7 +64,7 @@ class ExperimentService(
         sortDir: String,
     ): PaginatedRunsDto {
         if (!experimentRepository.existsById(id)) {
-            throw IllegalArgumentException("Experiment not found: $id")
+            throw NotFoundException("Experiment not found: $id")
         }
 
         // Validate sortBy field to prevent invalid column names
@@ -95,7 +101,7 @@ class ExperimentService(
         val run =
             backtestRunRepository
                 .findById(runId)
-                .orElseThrow { IllegalArgumentException("Backtest run not found: $runId") }
+                .orElseThrow { NotFoundException("Backtest run not found: $runId") }
 
         val trades = experimentTradeRepository.findByBacktestRunIdOrderByTradeNumberAsc(runId)
 
@@ -106,7 +112,7 @@ class ExperimentService(
         val experiments = experimentRepository.findByIdIn(experimentIds)
 
         if (experiments.size != experimentIds.size) {
-            throw IllegalArgumentException("Some experiments not found")
+            throw NotFoundException("Some experiments not found")
         }
 
         val summaries = experiments.map { it.toExperimentSummaryResponse() }
@@ -150,7 +156,7 @@ class ExperimentService(
     @Transactional
     fun deleteExperiment(id: Long) {
         if (!experimentRepository.existsById(id)) {
-            throw IllegalArgumentException("Experiment not found: $id")
+            throw NotFoundException("Experiment not found: $id")
         }
         experimentRepository.deleteById(id)
         log.info { "Deleted experiment $id" }
@@ -232,7 +238,7 @@ class ExperimentService(
         val experiment =
             experimentRepository
                 .findById(id)
-                .orElseThrow { IllegalArgumentException("Experiment not found: $id") }
+                .orElseThrow { NotFoundException("Experiment not found: $id") }
 
         return ExperimentStatusResponse(
             id = experiment.id!!,
@@ -259,10 +265,10 @@ class ExperimentService(
         val experiment =
             experimentRepository
                 .findById(id)
-                .orElseThrow { IllegalArgumentException("Experiment not found: $id") }
+                .orElseThrow { NotFoundException("Experiment not found: $id") }
 
         if (experiment.status != ExperimentStatus.RUNNING && experiment.status != ExperimentStatus.PENDING) {
-            throw IllegalArgumentException("Cannot cancel experiment in ${experiment.status} status")
+            throw BadRequestException("Cannot cancel experiment in ${experiment.status} status")
         }
 
         asyncExperimentExecutor.cancel(id)

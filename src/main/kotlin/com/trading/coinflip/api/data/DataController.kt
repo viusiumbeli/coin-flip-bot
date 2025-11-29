@@ -4,7 +4,6 @@ import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.data.DataService
 import mu.KotlinLogging
-import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
@@ -25,7 +24,7 @@ class DataController(
     private val log = KotlinLogging.logger {}
 
     @GetMapping("/status")
-    fun getDataStatus(): ResponseEntity<List<DataStatusResponse>> {
+    fun getDataStatus(): List<DataStatusResponse> {
         val statusList = mutableListOf<DataStatusResponse>()
         val now = Instant.now()
 
@@ -62,41 +61,37 @@ class DataController(
             }
         }
 
-        return ResponseEntity.ok(statusList)
+        return statusList
     }
 
     @PostMapping("/sync")
     fun syncData(
         @RequestBody request: SyncRequest,
-    ): ResponseEntity<SyncResponse> =
+    ): SyncResponse =
         try {
             log.info { "Sync request for ${request.symbol} ${request.timeframe.label}" }
 
             val newCandlesAdded = dataService.syncMissingData(request.symbol, request.timeframe)
 
-            ResponseEntity.ok(
-                SyncResponse(
-                    symbol = request.symbol,
-                    timeframe = request.timeframe.label,
-                    newCandlesAdded = newCandlesAdded,
-                    success = true,
-                ),
+            SyncResponse(
+                symbol = request.symbol,
+                timeframe = request.timeframe.label,
+                newCandlesAdded = newCandlesAdded,
+                success = true,
             )
         } catch (e: Exception) {
             log.error(e) { "Error syncing data for ${request.symbol} ${request.timeframe.label}" }
-            ResponseEntity.ok(
-                SyncResponse(
-                    symbol = request.symbol,
-                    timeframe = request.timeframe.label,
-                    newCandlesAdded = 0,
-                    success = false,
-                    error = e.message ?: "Unknown error",
-                ),
+            SyncResponse(
+                symbol = request.symbol,
+                timeframe = request.timeframe.label,
+                newCandlesAdded = 0,
+                success = false,
+                error = e.message ?: "Unknown error",
             )
         }
 
     @PostMapping("/sync-all")
-    fun syncAllData(): ResponseEntity<List<SyncResponse>> {
+    fun syncAllData(): List<SyncResponse> {
         val results = mutableListOf<SyncResponse>()
 
         for (symbol in properties.symbols) {
@@ -127,6 +122,6 @@ class DataController(
             }
         }
 
-        return ResponseEntity.ok(results)
+        return results
     }
 }
