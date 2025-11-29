@@ -2,6 +2,7 @@ package com.trading.coinflip.data
 
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
+import kotlinx.coroutines.flow.toList
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -43,25 +44,26 @@ class DataService(
         candlePersistenceService.calculateAndSaveATR(symbol, timeframe)
     }
 
-    fun getCandlesForBacktest(
+    suspend fun getCandlesForBacktest(
         symbol: String,
         timeframe: Timeframe,
         startDate: Instant,
         endDate: Instant,
     ): List<CandleEntity> =
-        candleRepository.findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc(
-            symbol,
-            timeframe,
-            startDate,
-            endDate,
-        )
+        candleRepository
+            .findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc(
+                symbol,
+                timeframe,
+                startDate,
+                endDate,
+            ).toList()
 
-    fun getDataSummary(
+    suspend fun getDataSummary(
         symbol: String,
         timeframe: Timeframe,
     ): String {
-        val earliest = candleRepository.findEarliestCandleTime(symbol, timeframe)
-        val latest = candleRepository.findLatestCandleTime(symbol, timeframe)
+        val earliest = candleRepository.findEarliestCandle(symbol, timeframe)?.openTime
+        val latest = candleRepository.findLatestCandle(symbol, timeframe)?.openTime
         val count = candleRepository.countBySymbolAndTimeframe(symbol, timeframe)
 
         return """
@@ -76,7 +78,7 @@ class DataService(
         symbol: String,
         timeframe: Timeframe,
     ): Int {
-        val latestCandleTime = candleRepository.findLatestCandleTime(symbol, timeframe)
+        val latestCandleTime = candleRepository.findLatestCandle(symbol, timeframe)?.openTime
 
         val startTime =
             if (latestCandleTime != null) {

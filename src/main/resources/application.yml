@@ -4,24 +4,22 @@ server:
 spring:
   application:
     name: coin-flip-bot
+  # JDBC datasource for Flyway migrations only
   datasource:
     url: jdbc:postgresql://localhost:5432/coinflipbot
     driver-class-name: org.postgresql.Driver
     username: coinflipuser
     password: coinflippass
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: false
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        jdbc:
-          batch_size: 1000
-        order_inserts: true
-        order_updates: true
-        batch_versioned_data: true
+  # R2DBC for application
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/coinflipbot
+    username: coinflipuser
+    password: coinflippass
+    pool:
+      enabled: true
+      initial-size: 10
+      max-size: 50
+      max-idle-time: 30m
 
 logging:
   level:

@@ -41,7 +41,8 @@ class BacktestService(
                         startDate = properties.startDate,
                     )
 
-                    log.info { dataService.getDataSummary(symbol, timeframe) }
+                    val dataSummary = dataService.getDataSummary(symbol, timeframe)
+                    log.info { dataSummary }
 
                     // Get candles for backtest
                     val candles =
@@ -111,7 +112,8 @@ class BacktestService(
             startDate = startDate ?: properties.startDate,
         )
 
-        log.debug { dataService.getDataSummary(symbol, timeframe) }
+        val dataSummary = dataService.getDataSummary(symbol, timeframe)
+        log.debug { dataSummary }
 
         // Get candles for backtest
         val candles =

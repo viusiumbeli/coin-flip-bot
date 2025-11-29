@@ -21,7 +21,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
@@ -111,15 +110,14 @@ class AsyncExperimentExecutor(
             startDate = request.startDate,
         )
 
+        // R2DBC is already async - no Dispatchers.IO needed
         val candles =
-            withContext(Dispatchers.IO) {
-                dataService.getCandlesForBacktest(
-                    symbol = request.symbol,
-                    timeframe = request.timeframe,
-                    startDate = request.startDate,
-                    endDate = request.endDate,
-                )
-            }
+            dataService.getCandlesForBacktest(
+                symbol = request.symbol,
+                timeframe = request.timeframe,
+                startDate = request.startDate,
+                endDate = request.endDate,
+            )
 
         val loadTime = System.currentTimeMillis() - loadStartTime
         log.info { "Loaded ${candles.size} candles in ${loadTime}ms for experiment $experimentId" }
@@ -207,11 +205,11 @@ class AsyncExperimentExecutor(
         log.info { "Experiment $experimentId completed successfully" }
     }
 
-    private fun updateExperimentStatus(
+    private suspend fun updateExperimentStatus(
         experimentId: Long,
         status: ExperimentStatus,
     ) {
-        val experiment = experimentRepository.findById(experimentId).orElse(null)
+        val experiment = experimentRepository.findById(experimentId)
         if (experiment != null) {
             experiment.status = status
             if (status == ExperimentStatus.RUNNING) {
@@ -244,8 +242,10 @@ class AsyncExperimentExecutor(
         log.info { "Shutting down AsyncExperimentExecutor... (${activeJobs.size} active jobs)" }
 
         // Mark all running experiments as failed due to shutdown
-        activeJobs.keys.forEach { experimentId ->
-            batchPersistenceService.markExperimentFailed(experimentId, "Server shutdown")
+        runBlocking {
+            activeJobs.keys.forEach { experimentId ->
+                batchPersistenceService.markExperimentFailed(experimentId, "Server shutdown")
+            }
         }
 
         // Cancel scope and wait for jobs to complete

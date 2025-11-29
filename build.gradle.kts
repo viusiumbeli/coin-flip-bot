@@ -3,7 +3,6 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     kotlin("jvm") version "1.9.23"
     kotlin("plugin.spring") version "1.9.23"
-    kotlin("plugin.jpa") version "1.9.23"
     id("org.springframework.boot") version "3.2.0"
     id("io.spring.dependency-management") version "1.1.4"
     id("org.jlleitschuh.gradle.ktlint") version "12.1.1"
@@ -29,7 +28,7 @@ dependencies {
     // Spring Boot
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
 
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")
@@ -37,10 +36,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.7.3")
 
-    // Database
-    runtimeOnly("com.h2database:h2")
+    // Database - R2DBC for app, JDBC for Flyway
+    implementation("org.postgresql:r2dbc-postgresql:1.0.4.RELEASE")
     runtimeOnly("org.postgresql:postgresql")
     implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-database-postgresql:10.4.1")
 
     // HTTP Client
     implementation("io.ktor:ktor-client-core:2.3.7")

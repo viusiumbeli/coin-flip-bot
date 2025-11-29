@@ -1,74 +1,109 @@
 package com.trading.coinflip.data
 
 import com.trading.coinflip.common.model.Timeframe
-import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Query
+import kotlinx.coroutines.flow.Flow
+import org.springframework.data.annotation.Id
+import org.springframework.data.r2dbc.repository.Query
+import org.springframework.data.relational.core.mapping.Column
+import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Repository
 import java.time.Instant
 
+// Projection class for scalar open_time queries
+data class OpenTimeProjection(
+    @Id
+    @Column("open_time")
+    val openTime: Instant,
+)
+
 @Repository
-interface CandleRepository : JpaRepository<CandleEntity, Long> {
+interface CandleRepository : CoroutineCrudRepository<CandleEntity, Long> {
     fun findBySymbolAndTimeframeOrderByOpenTimeAsc(
         symbol: String,
         timeframe: Timeframe,
-    ): List<CandleEntity>
+    ): Flow<CandleEntity>
 
+    @Query(
+        """
+        SELECT * FROM candles
+        WHERE symbol = :symbol AND timeframe = :timeframe
+        AND open_time BETWEEN :startTime AND :endTime
+        ORDER BY open_time ASC
+        """,
+    )
     fun findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc(
         symbol: String,
         timeframe: Timeframe,
         startTime: Instant,
         endTime: Instant,
-    ): List<CandleEntity>
-
-    @Query("SELECT MIN(c.openTime) FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe")
-    fun findEarliestCandleTime(
-        symbol: String,
-        timeframe: Timeframe,
-    ): Instant?
-
-    @Query("SELECT MAX(c.openTime) FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe")
-    fun findLatestCandleTime(
-        symbol: String,
-        timeframe: Timeframe,
-    ): Instant?
-
-    // Count queries (avoid loading all entities just to count)
-    @Query("SELECT COUNT(c) FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe")
-    fun countBySymbolAndTimeframe(
-        symbol: String,
-        timeframe: Timeframe,
-    ): Long
+    ): Flow<CandleEntity>
 
     @Query(
-        "SELECT COUNT(c) FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe AND c.openTime >= :startTime",
+        """
+        SELECT * FROM candles
+        WHERE symbol = :symbol AND timeframe = :timeframe
+        ORDER BY open_time ASC LIMIT 1
+        """,
     )
-    fun countBySymbolAndTimeframeFromDate(
-        symbol: String,
-        timeframe: Timeframe,
-        startTime: Instant,
-    ): Long
-
-    // Projection query for deduplication (only load openTime, not full entities)
-    @Query("SELECT c.openTime FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe")
-    fun findOpenTimesBySymbolAndTimeframe(
-        symbol: String,
-        timeframe: Timeframe,
-    ): List<Instant>
-
-    // For incremental ATR calculation
-    @Query(
-        "SELECT c FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe AND c.atr IS NOT NULL ORDER BY c.openTime DESC LIMIT 1",
-    )
-    fun findLastCandleWithATR(
+    suspend fun findEarliestCandle(
         symbol: String,
         timeframe: Timeframe,
     ): CandleEntity?
 
     @Query(
-        "SELECT c FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe AND c.atr IS NULL ORDER BY c.openTime ASC",
+        """
+        SELECT * FROM candles
+        WHERE symbol = :symbol AND timeframe = :timeframe
+        ORDER BY open_time DESC LIMIT 1
+        """,
+    )
+    suspend fun findLatestCandle(
+        symbol: String,
+        timeframe: Timeframe,
+    ): CandleEntity?
+
+    @Query("SELECT COUNT(*) FROM candles WHERE symbol = :symbol AND timeframe = :timeframe")
+    suspend fun countBySymbolAndTimeframe(
+        symbol: String,
+        timeframe: Timeframe,
+    ): Long
+
+    @Query(
+        "SELECT COUNT(*) FROM candles WHERE symbol = :symbol AND timeframe = :timeframe AND open_time >= :startTime",
+    )
+    suspend fun countBySymbolAndTimeframeFromDate(
+        symbol: String,
+        timeframe: Timeframe,
+        startTime: Instant,
+    ): Long
+
+    @Query("SELECT open_time FROM candles WHERE symbol = :symbol AND timeframe = :timeframe")
+    fun findOpenTimesBySymbolAndTimeframe(
+        symbol: String,
+        timeframe: Timeframe,
+    ): Flow<OpenTimeProjection>
+
+    @Query(
+        """
+        SELECT * FROM candles
+        WHERE symbol = :symbol AND timeframe = :timeframe AND atr IS NOT NULL
+        ORDER BY open_time DESC LIMIT 1
+        """,
+    )
+    suspend fun findLastCandleWithATR(
+        symbol: String,
+        timeframe: Timeframe,
+    ): CandleEntity?
+
+    @Query(
+        """
+        SELECT * FROM candles
+        WHERE symbol = :symbol AND timeframe = :timeframe AND atr IS NULL
+        ORDER BY open_time ASC
+        """,
     )
     fun findCandlesWithoutATR(
         symbol: String,
         timeframe: Timeframe,
-    ): List<CandleEntity>
+    ): Flow<CandleEntity>
 }

@@ -149,5 +149,45 @@ fun getExperiment(@PathVariable id: Long): ResponseEntity<ExperimentDetailRespon
 - `BadRequestException` - Returns 400 Bad Request
 - `IllegalArgumentException`/`IllegalStateException` - Also return 400
 
+## Coroutines Architecture
+The codebase uses Kotlin coroutines throughout with Spring WebFlux for non-blocking HTTP handling.
+
+**Key patterns:**
+- Controllers use `suspend fun` for async endpoints (enabled by `spring-boot-starter-webflux`)
+- Services use `suspend fun` for operations involving I/O or async calls
+- Use `Mutex.withLock {}` instead of `@Synchronized` for coroutine-safe locking
+- Use `Channel<T>` for producer-consumer patterns (e.g., backtest results streaming)
+- Use `Semaphore` with `withPermit` for parallelism control
+
+**Coroutine components:**
+- `AsyncExperimentExecutor` - Uses `CoroutineScope` with `SupervisorJob` for parallel backtest execution
+- `BatchPersistenceService` - Consumes from `Channel` using suspend functions
+- `RunningAggregator` - Uses `Mutex` for thread-safe statistics aggregation
+- `SimulationService` - Uses `Mutex` for state synchronization
+- `BinanceClient` - Uses Ktor's suspend-based HTTP client
+- `DataService` - Native suspend functions for data fetching
+
+**Guidelines:**
+```kotlin
+// Good - suspend function with Mutex
+suspend fun add(result: BacktestResult) = mutex.withLock {
+    // thread-safe operations
+}
+
+// Bad - blocking @Synchronized in coroutine context
+@Synchronized
+fun add(result: BacktestResult) { ... }
+
+// Good - call suspend functions directly
+suspend fun loadData() {
+    val data = binanceClient.fetchData() // suspend call
+}
+
+// Bad - wrapping suspend in runBlocking
+fun loadData() = runBlocking {
+    binanceClient.fetchData()
+}
+```
+
 ## Summary
-This codebase follows strict conventions: one class per file, feature-based package organization, and consistent naming (`*Request`, `*Response`, `*Entity`, `*Config`, `*Dto`). All configuration is centralized in `BacktestProperties`, ktlint enforces code style, and `TradingProcessor` is the single source of truth for trading logic. When adding new features, place classes in the appropriate feature package and follow existing patterns.
+This codebase follows strict conventions: one class per file, feature-based package organization, and consistent naming (`*Request`, `*Response`, `*Entity`, `*Config`, `*Dto`). All configuration is centralized in `BacktestProperties`, ktlint enforces code style, and `TradingProcessor` is the single source of truth for trading logic. The async layer uses Kotlin coroutines with Spring WebFlux, `Mutex` for synchronization, and `Channel` for streaming. When adding new features, place classes in the appropriate feature package and follow existing patterns.
