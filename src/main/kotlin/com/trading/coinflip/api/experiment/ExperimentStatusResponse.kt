@@ -1,9 +1,9 @@
-package com.trading.coinflip.experiment
+package com.trading.coinflip.api.experiment
 
 import com.trading.coinflip.common.model.ExperimentStatus
 import java.time.Instant
 
-data class ExperimentStatusDto(
+data class ExperimentStatusResponse(
     val id: Long,
     val status: ExperimentStatus,
     val totalRuns: Int,

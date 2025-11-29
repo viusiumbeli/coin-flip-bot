@@ -1,10 +1,10 @@
-package com.trading.coinflip.experiment
+package com.trading.coinflip.api.experiment
 
 import com.trading.coinflip.common.model.ExperimentStatus
 import java.math.BigDecimal
 import java.time.Instant
 
-data class ExperimentSummaryDto(
+data class ExperimentSummaryResponse(
     val id: Long,
     val name: String,
     val customName: String?,
