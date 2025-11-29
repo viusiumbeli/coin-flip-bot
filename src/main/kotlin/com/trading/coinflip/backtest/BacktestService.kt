@@ -19,7 +19,7 @@ class BacktestService(
 ) {
     private val log = KotlinLogging.logger {}
 
-    fun runBacktest(): List<BacktestResult> {
+    suspend fun runBacktest(): List<BacktestResult> {
         log.info { "=".repeat(80) }
         log.info { "Van Tharp Coin-Flip Trading Bot - Backtest System" }
         log.info { "=".repeat(80) }
@@ -96,7 +96,7 @@ class BacktestService(
         return allResults
     }
 
-    fun runBacktestForSymbol(
+    suspend fun runBacktestForSymbol(
         symbol: String,
         timeframe: Timeframe,
         startDate: Instant? = null,

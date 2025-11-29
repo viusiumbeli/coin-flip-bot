@@ -1,11 +1,11 @@
 package com.trading.coinflip.experiment
 
+import com.trading.coinflip.backtest.BacktestRunRepository
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.dto.BacktestResultWithRunNumber
 import com.trading.coinflip.common.model.BacktestRunEntity
 import com.trading.coinflip.common.model.ExperimentStatus
 import com.trading.coinflip.common.model.ExperimentTradeEntity
-import com.trading.coinflip.backtest.BacktestRunRepository
 import com.trading.coinflip.data.ExperimentRepository
 import com.trading.coinflip.data.ExperimentTradeRepository
 import kotlinx.coroutines.channels.ReceiveChannel
@@ -166,19 +166,20 @@ class BatchPersistenceService(
     /**
      * Finalizes the experiment with aggregated statistics.
      */
-    fun finalizeExperiment(
+    suspend fun finalizeExperiment(
         experimentId: Long,
         aggregator: RunningAggregator,
         startDate: Instant,
         endDate: Instant,
     ) {
+        // Compute averages outside of transaction (suspend function)
+        val stats = aggregator.computeAverages()
+
         transactionTemplate.execute {
             val experiment =
                 experimentRepository
                     .findById(experimentId)
                     .orElseThrow { IllegalArgumentException("Experiment not found: $experimentId") }
-
-            val stats = aggregator.computeAverages()
 
             experiment.apply {
                 finalCapital = stats.finalCapital

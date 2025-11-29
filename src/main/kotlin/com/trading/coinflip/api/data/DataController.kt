@@ -65,7 +65,7 @@ class DataController(
     }
 
     @PostMapping("/sync")
-    fun syncData(
+    suspend fun syncData(
         @RequestBody request: SyncRequest,
     ): SyncResponse =
         try {
@@ -91,7 +91,7 @@ class DataController(
         }
 
     @PostMapping("/sync-all")
-    fun syncAllData(): List<SyncResponse> {
+    suspend fun syncAllData(): List<SyncResponse> {
         val results = mutableListOf<SyncResponse>()
 
         for (symbol in properties.symbols) {

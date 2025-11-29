@@ -105,13 +105,11 @@ class AsyncExperimentExecutor(
         log.info { "Loading candles for experiment $experimentId..." }
         val loadStartTime = System.currentTimeMillis()
 
-        withContext(Dispatchers.IO) {
-            dataService.loadHistoricalData(
-                symbol = request.symbol,
-                timeframe = request.timeframe,
-                startDate = request.startDate,
-            )
-        }
+        dataService.loadHistoricalData(
+            symbol = request.symbol,
+            timeframe = request.timeframe,
+            startDate = request.startDate,
+        )
 
         val candles =
             withContext(Dispatchers.IO) {

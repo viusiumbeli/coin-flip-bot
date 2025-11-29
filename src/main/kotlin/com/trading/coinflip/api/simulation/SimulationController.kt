@@ -19,7 +19,7 @@ class SimulationController(
     private val log = KotlinLogging.logger {}
 
     @PostMapping("/init")
-    fun initialize(
+    suspend fun initialize(
         @RequestBody request: SimulationInitRequest,
     ): SimulationStateDto {
         log.info { "Initializing simulation for ${request.symbol} ${request.timeframe}" }
@@ -27,14 +27,14 @@ class SimulationController(
     }
 
     @PostMapping("/next")
-    fun advanceCandle(): SimulationStateDto = simulationService.advanceCandle()
+    suspend fun advanceCandle(): SimulationStateDto = simulationService.advanceCandle()
 
     @PostMapping("/previous")
-    fun previousCandle(): SimulationStateDto = simulationService.previousCandle()
+    suspend fun previousCandle(): SimulationStateDto = simulationService.previousCandle()
 
     @PostMapping("/reset")
-    fun reset(): SimulationStateDto = simulationService.reset()
+    suspend fun reset(): SimulationStateDto = simulationService.reset()
 
     @GetMapping("/state")
-    fun getCurrentState(): SimulationStateDto = simulationService.getCurrentState()
+    suspend fun getCurrentState(): SimulationStateDto = simulationService.getCurrentState()
 }

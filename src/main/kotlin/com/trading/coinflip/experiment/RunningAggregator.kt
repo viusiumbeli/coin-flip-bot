@@ -2,6 +2,8 @@ package com.trading.coinflip.experiment
 
 import com.tdunning.math.stats.TDigest
 import com.trading.coinflip.common.model.BacktestResult
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.util.concurrent.atomic.AtomicInteger
@@ -12,6 +14,7 @@ import kotlin.math.sqrt
  * Uses running sums to avoid storing all results in memory.
  */
 class RunningAggregator {
+    private val mutex = Mutex()
     private val count = AtomicInteger(0)
 
     // Running sums for BigDecimal fields
@@ -52,102 +55,102 @@ class RunningAggregator {
     // T-Digest for percentiles (compression=100 uses ~2KB memory)
     private val returnTDigest: TDigest = TDigest.createMergingDigest(100.0)
 
-    @Synchronized
-    fun add(result: BacktestResult) {
-        count.incrementAndGet()
+    suspend fun add(result: BacktestResult) =
+        mutex.withLock {
+            count.incrementAndGet()
 
-        sumFinalCapital += result.finalCapital
-        sumTotalReturn += result.totalReturn
-        sumTotalReturnPercent += result.totalReturnPercent
-        sumMaxDrawdown += result.maxDrawdown
-        sumMaxDrawdownPercent += result.maxDrawdownPercent
-        sumWinRate += result.winRate
-        sumProfitFactor += result.profitFactor
-        sumSharpeRatio += result.sharpeRatio
-        sumAverageWin += result.averageWin
-        sumAverageLoss += result.averageLoss
-        sumLargestWin += result.largestWin
-        sumLargestLoss += result.largestLoss
+            sumFinalCapital += result.finalCapital
+            sumTotalReturn += result.totalReturn
+            sumTotalReturnPercent += result.totalReturnPercent
+            sumMaxDrawdown += result.maxDrawdown
+            sumMaxDrawdownPercent += result.maxDrawdownPercent
+            sumWinRate += result.winRate
+            sumProfitFactor += result.profitFactor
+            sumSharpeRatio += result.sharpeRatio
+            sumAverageWin += result.averageWin
+            sumAverageLoss += result.averageLoss
+            sumLargestWin += result.largestWin
+            sumLargestLoss += result.largestLoss
 
-        sumTotalTrades += result.totalTrades
-        sumWinningTrades += result.winningTrades
-        sumLosingTrades += result.losingTrades
-        sumAverageTradeDuration += result.averageTradeDuration
+            sumTotalTrades += result.totalTrades
+            sumWinningTrades += result.winningTrades
+            sumLosingTrades += result.losingTrades
+            sumAverageTradeDuration += result.averageTradeDuration
 
-        // Buy & hold is the same for all runs (same candle data)
-        if (buyAndHoldReturn == null) {
-            buyAndHoldReturn = result.buyAndHoldReturn
-            buyAndHoldReturnPercent = result.buyAndHoldReturnPercent
+            // Buy & hold is the same for all runs (same candle data)
+            if (buyAndHoldReturn == null) {
+                buyAndHoldReturn = result.buyAndHoldReturn
+                buyAndHoldReturnPercent = result.buyAndHoldReturnPercent
+            }
+
+            // Count runs that beat buy & hold
+            if (result.totalReturnPercent >= result.buyAndHoldReturnPercent) {
+                runsBeatBuyHold++
+            }
+
+            // Welford's online algorithm for variance
+            val returnValue = result.totalReturnPercent.toDouble()
+            val n = count.get()
+            val delta = returnValue - returnMean
+            returnMean += delta / n
+            val delta2 = returnValue - returnMean
+            returnM2 += delta * delta2
+
+            // Min/Max tracking
+            val returnPercent = result.totalReturnPercent
+            if (returnMin == null || returnPercent < returnMin!!) {
+                returnMin = returnPercent
+            }
+            if (returnMax == null || returnPercent > returnMax!!) {
+                returnMax = returnPercent
+            }
+
+            // T-Digest for percentiles
+            returnTDigest.add(returnValue)
         }
-
-        // Count runs that beat buy & hold
-        if (result.totalReturnPercent >= result.buyAndHoldReturnPercent) {
-            runsBeatBuyHold++
-        }
-
-        // Welford's online algorithm for variance
-        val returnValue = result.totalReturnPercent.toDouble()
-        val n = count.get()
-        val delta = returnValue - returnMean
-        returnMean += delta / n
-        val delta2 = returnValue - returnMean
-        returnM2 += delta * delta2
-
-        // Min/Max tracking
-        val returnPercent = result.totalReturnPercent
-        if (returnMin == null || returnPercent < returnMin!!) {
-            returnMin = returnPercent
-        }
-        if (returnMax == null || returnPercent > returnMax!!) {
-            returnMax = returnPercent
-        }
-
-        // T-Digest for percentiles
-        returnTDigest.add(returnValue)
-    }
 
     fun getCount(): Int = count.get()
 
-    @Synchronized
-    fun computeAverages(): AggregatedStats {
-        val n = count.get()
-        if (n == 0) {
-            return AggregatedStats.empty()
+    suspend fun computeAverages(): AggregatedStats =
+        mutex.withLock {
+            val n = count.get()
+            if (n == 0) {
+                return@withLock AggregatedStats.empty()
+            }
+
+            val divisor = BigDecimal(n)
+
+            AggregatedStats(
+                finalCapital = sumFinalCapital.divide(divisor, 8, RoundingMode.HALF_UP),
+                totalReturn = sumTotalReturn.divide(divisor, 8, RoundingMode.HALF_UP),
+                totalReturnPercent = sumTotalReturnPercent.divide(divisor, 8, RoundingMode.HALF_UP),
+                maxDrawdown = sumMaxDrawdown.divide(divisor, 8, RoundingMode.HALF_UP),
+                maxDrawdownPercent = sumMaxDrawdownPercent.divide(divisor, 8, RoundingMode.HALF_UP),
+                winRate = sumWinRate.divide(divisor, 8, RoundingMode.HALF_UP),
+                profitFactor = sumProfitFactor.divide(divisor, 8, RoundingMode.HALF_UP),
+                sharpeRatio = sumSharpeRatio.divide(divisor, 8, RoundingMode.HALF_UP),
+                totalTrades = (sumTotalTrades.toDouble() / n).toInt(),
+                winningTrades = (sumWinningTrades.toDouble() / n).toInt(),
+                losingTrades = (sumLosingTrades.toDouble() / n).toInt(),
+                averageWin = sumAverageWin.divide(divisor, 8, RoundingMode.HALF_UP),
+                averageLoss = sumAverageLoss.divide(divisor, 8, RoundingMode.HALF_UP),
+                largestWin = sumLargestWin.divide(divisor, 8, RoundingMode.HALF_UP),
+                largestLoss = sumLargestLoss.divide(divisor, 8, RoundingMode.HALF_UP),
+                averageTradeDuration = (sumAverageTradeDuration.toDouble() / n).toLong(),
+                buyAndHoldReturn = buyAndHoldReturn ?: BigDecimal.ZERO,
+                buyAndHoldReturnPercent = buyAndHoldReturnPercent ?: BigDecimal.ZERO,
+                runsBeatBuyHold = runsBeatBuyHold,
+                // Variance metrics
+                returnStdDev = calculateStdDev(n),
+                returnMin = returnMin ?: BigDecimal.ZERO,
+                returnMax = returnMax ?: BigDecimal.ZERO,
+                returnP5 = BigDecimal(returnTDigest.quantile(0.05)).setScale(8, RoundingMode.HALF_UP),
+                returnP25 = BigDecimal(returnTDigest.quantile(0.25)).setScale(8, RoundingMode.HALF_UP),
+                returnP50 = BigDecimal(returnTDigest.quantile(0.50)).setScale(8, RoundingMode.HALF_UP),
+                returnP75 = BigDecimal(returnTDigest.quantile(0.75)).setScale(8, RoundingMode.HALF_UP),
+                returnP95 = BigDecimal(returnTDigest.quantile(0.95)).setScale(8, RoundingMode.HALF_UP),
+            )
         }
-
-        val divisor = BigDecimal(n)
-
-        return AggregatedStats(
-            finalCapital = sumFinalCapital.divide(divisor, 8, RoundingMode.HALF_UP),
-            totalReturn = sumTotalReturn.divide(divisor, 8, RoundingMode.HALF_UP),
-            totalReturnPercent = sumTotalReturnPercent.divide(divisor, 8, RoundingMode.HALF_UP),
-            maxDrawdown = sumMaxDrawdown.divide(divisor, 8, RoundingMode.HALF_UP),
-            maxDrawdownPercent = sumMaxDrawdownPercent.divide(divisor, 8, RoundingMode.HALF_UP),
-            winRate = sumWinRate.divide(divisor, 8, RoundingMode.HALF_UP),
-            profitFactor = sumProfitFactor.divide(divisor, 8, RoundingMode.HALF_UP),
-            sharpeRatio = sumSharpeRatio.divide(divisor, 8, RoundingMode.HALF_UP),
-            totalTrades = (sumTotalTrades.toDouble() / n).toInt(),
-            winningTrades = (sumWinningTrades.toDouble() / n).toInt(),
-            losingTrades = (sumLosingTrades.toDouble() / n).toInt(),
-            averageWin = sumAverageWin.divide(divisor, 8, RoundingMode.HALF_UP),
-            averageLoss = sumAverageLoss.divide(divisor, 8, RoundingMode.HALF_UP),
-            largestWin = sumLargestWin.divide(divisor, 8, RoundingMode.HALF_UP),
-            largestLoss = sumLargestLoss.divide(divisor, 8, RoundingMode.HALF_UP),
-            averageTradeDuration = (sumAverageTradeDuration.toDouble() / n).toLong(),
-            buyAndHoldReturn = buyAndHoldReturn ?: BigDecimal.ZERO,
-            buyAndHoldReturnPercent = buyAndHoldReturnPercent ?: BigDecimal.ZERO,
-            runsBeatBuyHold = runsBeatBuyHold,
-            // Variance metrics
-            returnStdDev = calculateStdDev(n),
-            returnMin = returnMin ?: BigDecimal.ZERO,
-            returnMax = returnMax ?: BigDecimal.ZERO,
-            returnP5 = BigDecimal(returnTDigest.quantile(0.05)).setScale(8, RoundingMode.HALF_UP),
-            returnP25 = BigDecimal(returnTDigest.quantile(0.25)).setScale(8, RoundingMode.HALF_UP),
-            returnP50 = BigDecimal(returnTDigest.quantile(0.50)).setScale(8, RoundingMode.HALF_UP),
-            returnP75 = BigDecimal(returnTDigest.quantile(0.75)).setScale(8, RoundingMode.HALF_UP),
-            returnP95 = BigDecimal(returnTDigest.quantile(0.95)).setScale(8, RoundingMode.HALF_UP),
-        )
-    }
 
     private fun calculateStdDev(n: Int): BigDecimal {
         if (n < 2) return BigDecimal.ZERO
