@@ -1,6 +1,6 @@
 package com.trading.coinflip.data
 
-data class SyncResult(
+data class SyncResponse(
     val symbol: String,
     val timeframe: String,
     val newCandlesAdded: Int,

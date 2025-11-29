@@ -40,7 +40,6 @@ bin/
 .DS_Store
 
 # Database
-data/
 *.db
 *.h2.db
 

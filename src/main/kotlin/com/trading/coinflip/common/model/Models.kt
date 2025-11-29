@@ -43,7 +43,7 @@ enum class PositionStatus {
         Index(name = "idx_candles_symbol_timeframe_time", columnList = "symbol,timeframe,openTime", unique = true),
     ],
 )
-data class Candle(
+data class CandleEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,

@@ -2,10 +2,10 @@ package com.trading.coinflip.experiment
 
 import com.trading.coinflip.backtest.BacktestService
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.common.model.BacktestRun
-import com.trading.coinflip.common.model.Experiment
+import com.trading.coinflip.common.model.BacktestRunEntity
+import com.trading.coinflip.common.model.ExperimentEntity
 import com.trading.coinflip.common.model.ExperimentStatus
-import com.trading.coinflip.common.model.ExperimentTrade
+import com.trading.coinflip.common.model.ExperimentTradeEntity
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.BacktestRunRepository
 import com.trading.coinflip.data.ExperimentRepository
@@ -96,7 +96,7 @@ class ExperimentService(
 
         // Create experiment entity with aggregated stats
         val experiment =
-            Experiment(
+            ExperimentEntity(
                 name = autoName,
                 customName = request.customName?.takeIf { it.isNotBlank() },
                 notes = request.notes?.takeIf { it.isNotBlank() },
@@ -147,7 +147,7 @@ class ExperimentService(
         val savedRuns =
             results.mapIndexed { index, result ->
                 val run =
-                    BacktestRun(
+                    BacktestRunEntity(
                         experiment = savedExperiment,
                         runNumber = index + 1,
                         finalCapital = result.finalCapital,
@@ -175,7 +175,7 @@ class ExperimentService(
                 // Save trades for this run
                 val trades =
                     result.trades.mapIndexed { tradeIndex, trade ->
-                        ExperimentTrade(
+                        ExperimentTradeEntity(
                             backtestRun = savedRun,
                             tradeNumber = tradeIndex + 1,
                             symbol = trade.symbol,
@@ -328,7 +328,7 @@ class ExperimentService(
      * Returns immediately without waiting for backtests to complete.
      */
     @Transactional
-    fun initiateExperiment(request: CreateExperimentRequest): Experiment {
+    fun initiateExperiment(request: CreateExperimentRequest): ExperimentEntity {
         val numBacktests = request.numBacktests.coerceIn(1, properties.experiment.asyncBacktestLimit)
         log.info { "Initiating async experiment for ${request.symbol} ${request.timeframe} with $numBacktests backtests" }
 
@@ -344,7 +344,7 @@ class ExperimentService(
 
         // Create experiment with PENDING status and placeholder values for aggregated stats
         val experiment =
-            Experiment(
+            ExperimentEntity(
                 name = autoName,
                 customName = request.customName?.takeIf { it.isNotBlank() },
                 notes = request.notes?.takeIf { it.isNotBlank() },
@@ -456,8 +456,8 @@ class ExperimentService(
 
     private fun buildMetric(
         label: String,
-        experiments: List<Experiment>,
-        extractor: (Experiment) -> String,
+        experiments: List<ExperimentEntity>,
+        extractor: (ExperimentEntity) -> String,
     ): ComparisonMetricDto =
         ComparisonMetricDto(
             label = label,

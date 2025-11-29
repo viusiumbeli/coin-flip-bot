@@ -1,6 +1,6 @@
 package com.trading.coinflip.engine
 
-import com.trading.coinflip.common.model.Candle
+import com.trading.coinflip.common.model.CandleEntity
 import com.trading.coinflip.common.model.Position
 import com.trading.coinflip.common.model.PositionSide
 import com.trading.coinflip.common.model.PositionStatus
@@ -52,8 +52,8 @@ class CoinFlipStrategy(
      * Create a new position with coin flip entry
      */
     fun createPosition(
-        candle: Candle,
-        candles: List<Candle>,
+        candle: CandleEntity,
+        candles: List<CandleEntity>,
         candleIndex: Int,
         accountBalance: BigDecimal,
         riskPercent: BigDecimal,
@@ -156,8 +156,8 @@ class CoinFlipStrategy(
      */
     fun updatePosition(
         position: Position,
-        candle: Candle,
-        candles: List<Candle>,
+        candle: CandleEntity,
+        candles: List<CandleEntity>,
         candleIndex: Int,
         atrMultiplier: BigDecimal,
     ): Boolean {

@@ -1,7 +1,7 @@
 package com.trading.coinflip.engine
 
 import com.trading.coinflip.common.config.TradingConfig
-import com.trading.coinflip.common.model.Candle
+import com.trading.coinflip.common.model.CandleEntity
 import com.trading.coinflip.common.model.Position
 import com.trading.coinflip.common.model.PositionSide
 import com.trading.coinflip.common.model.PositionStatus
@@ -26,8 +26,8 @@ class TradingProcessor(
      */
     fun processCandle(
         state: TradingState,
-        candle: Candle,
-        candles: List<Candle>,
+        candle: CandleEntity,
+        candles: List<CandleEntity>,
         candleIndex: Int,
         config: TradingConfig,
     ) {

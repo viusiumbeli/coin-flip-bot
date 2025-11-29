@@ -2,9 +2,9 @@ package com.trading.coinflip.experiment
 
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.BacktestResult
-import com.trading.coinflip.common.model.BacktestRun
+import com.trading.coinflip.common.model.BacktestRunEntity
 import com.trading.coinflip.common.model.ExperimentStatus
-import com.trading.coinflip.common.model.ExperimentTrade
+import com.trading.coinflip.common.model.ExperimentTradeEntity
 import com.trading.coinflip.data.BacktestRunRepository
 import com.trading.coinflip.data.ExperimentRepository
 import com.trading.coinflip.data.ExperimentTradeRepository
@@ -87,7 +87,7 @@ class BatchPersistenceService(
 
             val runs =
                 batch.map { (result, runNumber) ->
-                    BacktestRun(
+                    BacktestRunEntity(
                         experiment = experiment,
                         runNumber = runNumber,
                         finalCapital = result.finalCapital,
@@ -116,13 +116,13 @@ class BatchPersistenceService(
 
             // Save trades only for small experiments
             if (numBacktests <= properties.experiment.tradesThreshold) {
-                val allTrades = mutableListOf<ExperimentTrade>()
+                val allTrades = mutableListOf<ExperimentTradeEntity>()
 
                 savedRuns.forEachIndexed { index, savedRun ->
                     val result = batch[index].result
                     val trades =
                         result.trades.mapIndexed { tradeIndex, trade ->
-                            ExperimentTrade(
+                            ExperimentTradeEntity(
                                 backtestRun = savedRun,
                                 tradeNumber = tradeIndex + 1,
                                 symbol = trade.symbol,

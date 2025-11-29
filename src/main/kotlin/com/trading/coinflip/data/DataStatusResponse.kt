@@ -2,7 +2,7 @@ package com.trading.coinflip.data
 
 import java.time.Instant
 
-data class DataStatus(
+data class DataStatusResponse(
     val symbol: String,
     val timeframe: String,
     val candleCount: Long,

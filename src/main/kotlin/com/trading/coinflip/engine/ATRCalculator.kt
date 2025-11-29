@@ -1,6 +1,6 @@
 package com.trading.coinflip.engine
 
-import com.trading.coinflip.common.model.Candle
+import com.trading.coinflip.common.model.CandleEntity
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -13,9 +13,9 @@ class ATRCalculator {
      * True Range = max(high - low, abs(high - prevClose), abs(low - prevClose))
      */
     fun calculateATR(
-        candles: List<Candle>,
+        candles: List<CandleEntity>,
         period: Int = 10,
-    ): List<Candle> {
+    ): List<CandleEntity> {
         if (candles.size < period) {
             return candles
         }
@@ -70,7 +70,7 @@ class ATRCalculator {
      * Get ATR value for a specific candle, looking back if current candle doesn't have ATR
      */
     fun getATRForCandle(
-        candles: List<Candle>,
+        candles: List<CandleEntity>,
         index: Int,
     ): BigDecimal? {
         if (index < 0 || index >= candles.size) {
