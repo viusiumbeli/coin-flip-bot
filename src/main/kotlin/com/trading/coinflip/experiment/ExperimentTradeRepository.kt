@@ -1,4 +1,4 @@
-package com.trading.coinflip.data
+package com.trading.coinflip.experiment
 
 import com.trading.coinflip.common.model.ExperimentTradeEntity
 import kotlinx.coroutines.flow.Flow
@@ -9,10 +9,6 @@ import org.springframework.stereotype.Repository
 @Repository
 interface ExperimentTradeRepository : CoroutineCrudRepository<ExperimentTradeEntity, Long> {
     fun findByBacktestRunIdOrderByTradeNumberAsc(backtestRunId: Long): Flow<ExperimentTradeEntity>
-
-    // Manual cascade delete
-    @Query("DELETE FROM experiment_trades WHERE backtest_run_id = :backtestRunId")
-    suspend fun deleteByBacktestRunId(backtestRunId: Long)
 
     @Query(
         """

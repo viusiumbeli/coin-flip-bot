@@ -15,7 +15,7 @@ import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.common.model.toExperimentDetailResponse
 import com.trading.coinflip.common.model.toExperimentSummaryResponse
 import com.trading.coinflip.data.ExperimentRepository
-import com.trading.coinflip.data.ExperimentTradeRepository
+import com.trading.coinflip.experiment.ExperimentTradeRepository
 import kotlinx.coroutines.flow.toList
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
@@ -59,25 +59,10 @@ class ExperimentService(
         id: Long,
         page: Int,
         size: Int,
-        sortBy: String,
-        sortDir: String,
     ): PaginatedRunsDto {
         if (!experimentRepository.existsById(id)) {
             throw NotFoundException("Experiment not found: $id")
         }
-
-        // Validate sortBy field to prevent invalid column names
-        val allowedFields =
-            setOf(
-                "runNumber",
-                "totalReturnPercent",
-                "winRate",
-                "sharpeRatio",
-                "profitFactor",
-                "maxDrawdownPercent",
-                "totalTrades",
-            )
-        val validSortBy = if (sortBy in allowedFields) sortBy else "runNumber"
 
         // R2DBC doesn't support Pageable - use manual pagination
         // Note: sortBy/sortDir would need to be in the SQL query for proper sorting

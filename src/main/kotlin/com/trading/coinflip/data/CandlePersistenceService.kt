@@ -63,15 +63,26 @@ class CandlePersistenceService(
         val lastCandleWithATR = candleRepository.findLastCandleWithATR(symbol, timeframe)
 
         if (lastCandleWithATR != null) {
+            // Filter to only include candles AFTER the last candle with ATR
+            // Early candles (first period-1) should have NULL ATR by design
+            val newCandlesAfterLast = candlesWithoutATR.filter {
+                it.openTime > lastCandleWithATR.openTime
+            }
+
+            if (newCandlesAfterLast.isEmpty()) {
+                log.info { "No new candles after last ATR (${candlesWithoutATR.size} early candles have NULL ATR by design)" }
+                return
+            }
+
             // Incremental mode: only calculate ATR for new candles
             log.info { "Using incremental ATR calculation from last known ATR" }
 
             val calcStartTime = System.currentTimeMillis()
-            atrCalculator.calculateATRIncremental(lastCandleWithATR, candlesWithoutATR, period)
+            atrCalculator.calculateATRIncremental(lastCandleWithATR, newCandlesAfterLast, period)
             val calcTime = System.currentTimeMillis() - calcStartTime
             log.info { "Incremental ATR calculation completed in ${calcTime}ms" }
 
-            saveATRUpdatesInBatches(candlesWithoutATR)
+            saveATRUpdatesInBatches(newCandlesAfterLast)
             return
         }
 
