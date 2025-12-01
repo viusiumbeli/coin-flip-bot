@@ -5,6 +5,18 @@ import com.trading.coinflip.common.model.Trade
 import java.math.BigDecimal
 import java.time.Instant
 
+/**
+ * Result of calculating a trailing stop update.
+ */
+data class TrailingStopUpdate(
+    val newTrailingStop: BigDecimal,
+    val newHighestFavorablePrice: BigDecimal,
+)
+
+/**
+ * Immutable position data.
+ * Use copy() to create modified versions.
+ */
 data class Position(
     val id: Long,
     val symbol: String,
@@ -14,47 +26,54 @@ data class Position(
     val entryPrice: BigDecimal,
     val positionSize: BigDecimal,
     val initialStopLoss: BigDecimal,
-    var trailingStop: BigDecimal,
-    var highestFavorablePrice: BigDecimal,
-    var status: PositionStatus,
+    val trailingStop: BigDecimal,
+    val highestFavorablePrice: BigDecimal,
+    val status: PositionStatus,
     val balanceBeforeOpen: BigDecimal,
     val balanceAfterOpen: BigDecimal,
-    val allocatedCapital: BigDecimal, // Capital locked up for this position
-    var exitTime: Instant? = null,
-    var exitPrice: BigDecimal? = null,
-    var exitReason: String? = null,
+    val allocatedCapital: BigDecimal,
+    val exitTime: Instant? = null,
+    val exitPrice: BigDecimal? = null,
+    val exitReason: String? = null,
 ) {
-    fun updateTrailingStop(
+    /**
+     * Calculate new trailing stop values if an update is needed.
+     * Returns null if no update is required.
+     */
+    fun calculateTrailingStopUpdate(
         currentPrice: BigDecimal,
         atr: BigDecimal,
         atrMultiplier: BigDecimal,
-    ): Boolean {
+    ): TrailingStopUpdate? {
         val isFavorableMove =
             when (side) {
                 PositionSide.LONG -> currentPrice > highestFavorablePrice
                 PositionSide.SHORT -> currentPrice < highestFavorablePrice
             }
 
-        if (isFavorableMove) {
-            highestFavorablePrice = currentPrice
-            val newStop =
-                when (side) {
-                    PositionSide.LONG -> currentPrice - (atr * atrMultiplier)
-                    PositionSide.SHORT -> currentPrice + (atr * atrMultiplier)
-                }
-
-            val shouldUpdate =
-                when (side) {
-                    PositionSide.LONG -> newStop > trailingStop
-                    PositionSide.SHORT -> newStop < trailingStop
-                }
-
-            if (shouldUpdate) {
-                trailingStop = newStop
-                return true
-            }
+        if (!isFavorableMove) {
+            return null
         }
-        return false
+
+        val newHighest = currentPrice
+        val newStop =
+            when (side) {
+                PositionSide.LONG -> currentPrice - (atr * atrMultiplier)
+                PositionSide.SHORT -> currentPrice + (atr * atrMultiplier)
+            }
+
+        val shouldUpdate =
+            when (side) {
+                PositionSide.LONG -> newStop > trailingStop
+                PositionSide.SHORT -> newStop < trailingStop
+            }
+
+        return if (shouldUpdate) {
+            TrailingStopUpdate(newStop, newHighest)
+        } else {
+            // Still update highest favorable price even if stop doesn't move
+            TrailingStopUpdate(trailingStop, newHighest)
+        }
     }
 
     fun isStopHit(currentPrice: BigDecimal): Boolean =
@@ -69,12 +88,14 @@ data class Position(
         balanceAfterClose: BigDecimal,
     ): Trade {
         require(status == PositionStatus.CLOSED) { "Position must be closed to convert to trade" }
-        require(exitPrice != null && exitTime != null) { "Exit price and time must be set" }
+
+        val finalExitPrice = checkNotNull(exitPrice) { "Exit price must be set" }
+        val finalExitTime = checkNotNull(exitTime) { "Exit time must be set" }
 
         val pnl =
             when (side) {
-                PositionSide.LONG -> (exitPrice!! - entryPrice) * positionSize
-                PositionSide.SHORT -> (entryPrice - exitPrice!!) * positionSize
+                PositionSide.LONG -> (finalExitPrice - entryPrice) * positionSize
+                PositionSide.SHORT -> (entryPrice - finalExitPrice) * positionSize
             }
 
         val positionValue = entryPrice * positionSize
@@ -92,8 +113,8 @@ data class Position(
             side = side,
             entryTime = entryTime,
             entryPrice = entryPrice,
-            exitTime = exitTime!!,
-            exitPrice = exitPrice!!,
+            exitTime = finalExitTime,
+            exitPrice = finalExitPrice,
             positionSize = positionSize,
             initialStopLoss = initialStopLoss,
             trailingStop = trailingStop,

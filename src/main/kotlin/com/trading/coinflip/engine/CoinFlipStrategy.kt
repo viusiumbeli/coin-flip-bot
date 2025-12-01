@@ -4,10 +4,12 @@ import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.engine.model.Position
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionStatus
+import com.trading.coinflip.engine.model.PositionUpdateResult
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.Instant
 import kotlin.random.Random
 
 @Component
@@ -150,31 +152,50 @@ class CoinFlipStrategy {
     }
 
     /**
-     * Update position trailing stop and check if position should be closed
+     * Evaluate position against current candle and return the result.
+     * Does not mutate position - returns what changes should be made.
      */
     fun updatePosition(
         position: Position,
         candle: CandleEntity,
         atrMultiplier: BigDecimal,
-    ): Boolean {
+    ): PositionUpdateResult {
         val atr =
             candle.atr
                 ?: throw IllegalStateException("ATR not calculated for candle ${candle.symbol} at ${candle.openTime}")
         if (atr <= BigDecimal.ZERO) {
-            return false
+            return PositionUpdateResult.NoChange
         }
 
-        // Update trailing stop
-        position.updateTrailingStop(candle.close, atr, atrMultiplier)
+        // Calculate potential trailing stop update
+        val update = position.calculateTrailingStopUpdate(candle.close, atr, atrMultiplier)
 
-        // Check if stop is hit
-        if (position.isStopHit(candle.close)) {
-            position.exitPrice = position.trailingStop
-            position.exitTime = candle.openTime
-            position.exitReason = "Trailing stop hit"
-            return true
+        // Determine current trailing stop and highest price (may be updated)
+        val currentTrailingStop = update?.newTrailingStop ?: position.trailingStop
+        val currentHighestPrice = update?.newHighestFavorablePrice ?: position.highestFavorablePrice
+
+        // Check if stop is hit using potentially updated trailing stop
+        val isStopHit =
+            when (position.side) {
+                PositionSide.LONG -> candle.close <= currentTrailingStop
+                PositionSide.SHORT -> candle.close >= currentTrailingStop
+            }
+
+        return if (isStopHit) {
+            PositionUpdateResult.StopHit(
+                exitPrice = currentTrailingStop,
+                exitTime = candle.openTime,
+                exitReason = "Trailing stop hit",
+                newTrailingStop = currentTrailingStop,
+                newHighestFavorablePrice = currentHighestPrice,
+            )
+        } else if (update != null) {
+            PositionUpdateResult.Updated(
+                newTrailingStop = update.newTrailingStop,
+                newHighestFavorablePrice = update.newHighestFavorablePrice,
+            )
+        } else {
+            PositionUpdateResult.NoChange
         }
-
-        return false
     }
 }

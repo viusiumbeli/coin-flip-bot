@@ -7,7 +7,7 @@ import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.engine.TradingProcessor
-import com.trading.coinflip.engine.TradingState
+import com.trading.coinflip.engine.model.TradingState
 import com.trading.coinflip.engine.model.PositionSide
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
@@ -134,7 +134,7 @@ class SimulationService(
             checkInitialized()
 
             currentCandleIndex = -1
-            tradingState.reset(initialCapital)
+            tradingState = TradingState.create(initialCapital)
 
             log.info { "Simulation reset" }
             getCurrentStateInternal()
@@ -157,7 +157,8 @@ class SimulationService(
         }
 
         val candle = candles[currentCandleIndex]
-        tradingProcessor.processCandle(tradingState, candle)
+        val events = tradingProcessor.processCandle(tradingState, candle)
+        tradingState = tradingState.applyEvents(events)
     }
 
     /**
@@ -166,14 +167,14 @@ class SimulationService(
      */
     private fun replayToCurrentIndex() {
         // Reset state
-        tradingState.reset(initialCapital)
+        tradingState = TradingState.create(initialCapital)
 
         // Replay all candles up to current index
-        for (i in 0..currentCandleIndex) {
-            val savedIndex = currentCandleIndex
-            currentCandleIndex = i
-            processCurrentCandle()
-            currentCandleIndex = savedIndex
+        val targetIndex = currentCandleIndex
+        for (i in 0..targetIndex) {
+            val candle = candles[i]
+            val events = tradingProcessor.processCandle(tradingState, candle)
+            tradingState = tradingState.applyEvents(events)
         }
     }
 
