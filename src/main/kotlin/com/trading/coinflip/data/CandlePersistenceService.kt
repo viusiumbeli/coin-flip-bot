@@ -65,9 +65,10 @@ class CandlePersistenceService(
         if (lastCandleWithATR != null) {
             // Filter to only include candles AFTER the last candle with ATR
             // Early candles (first period-1) should have NULL ATR by design
-            val newCandlesAfterLast = candlesWithoutATR.filter {
-                it.openTime > lastCandleWithATR.openTime
-            }
+            val newCandlesAfterLast =
+                candlesWithoutATR.filter {
+                    it.openTime > lastCandleWithATR.openTime
+                }
 
             if (newCandlesAfterLast.isEmpty()) {
                 log.info { "No new candles after last ATR (${candlesWithoutATR.size} early candles have NULL ATR by design)" }

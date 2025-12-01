@@ -5,11 +5,12 @@ import com.trading.coinflip.common.model.BacktestConfig
 import com.trading.coinflip.common.model.BacktestResult
 import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.engine.TradingProcessor
-import com.trading.coinflip.engine.model.TradingState
+import com.trading.coinflip.engine.model.MutableTradingState
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
+import kotlin.random.Random
 
 @Component
 class BacktestEngine(
@@ -25,7 +26,8 @@ class BacktestEngine(
         log.debug { "Starting backtest for ${config.symbol} ${config.timeframe.label}" }
         log.debug { "Initial capital: ${config.initialCapital}, Risk per trade: ${config.trading.riskPerTrade}%" }
 
-        var state = TradingState.create(config.initialCapital)
+        // Use MutableTradingState for high-performance backtest execution
+        val state = MutableTradingState.create(config.initialCapital)
 
         // Filter candles by date range if specified
         val backtestCandles =
@@ -44,25 +46,27 @@ class BacktestEngine(
             "Backtesting ${backtestCandles.size} candles from ${backtestCandles.first().openTime} to ${backtestCandles.last().openTime}"
         }
 
-        // Walk through each candle
+        // Use direct mutation for maximum performance (no event allocations)
+        val random = Random.Default
+        val tradingConfig = config.trading
+        // Walk through each candle - direct mutation, zero per-candle allocations!
         for (candle in backtestCandles) {
-            val events = processor.processCandle(state, candle)
-            state = state.applyEvents(events)
+            state.processCandleDirect(candle, tradingConfig, random)
         }
 
         // Close any remaining open positions at the last candle price
         val lastCandle = backtestCandles.last()
-        for (position in state.openPositions) {
-            val event =
-                processor.forceClosePosition(
-                    state = state,
-                    position = position,
-                    exitPrice = lastCandle.close,
-                    exitTime = lastCandle.openTime,
-                    exitReason = "End of backtest period",
-                )
-            state = state.applyEvent(event)
+        val openPositions = state.getMutableOpenPositions()
+        for (position in openPositions.toList()) {
+            state.closePositionDirect(
+                position = position,
+                exitPrice = lastCandle.close,
+                exitTime = lastCandle.openTime,
+                exitReason = "End of backtest period",
+                config = tradingConfig,
+            )
         }
+        openPositions.clear()
 
         log.debug { "Backtest completed. Closed ${state.closedTrades.size} trades" }
         log.debug {

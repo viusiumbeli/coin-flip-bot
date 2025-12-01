@@ -15,7 +15,6 @@ import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.common.model.toExperimentDetailResponse
 import com.trading.coinflip.common.model.toExperimentSummaryResponse
 import com.trading.coinflip.data.ExperimentRepository
-import com.trading.coinflip.experiment.ExperimentTradeRepository
 import kotlinx.coroutines.flow.toList
 import mu.KotlinLogging
 import org.springframework.stereotype.Service

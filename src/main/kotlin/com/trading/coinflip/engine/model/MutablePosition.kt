@@ -6,19 +6,11 @@ import java.math.BigDecimal
 import java.time.Instant
 
 /**
- * Result of calculating a trailing stop update.
- */
-data class TrailingStopUpdate(
-    val newTrailingStop: BigDecimal,
-    val newHighestFavorablePrice: BigDecimal,
-)
-
-/**
- * Immutable position data.
- * Use copy() to create modified versions.
+ * Mutable position for high-performance backtest execution.
+ * Avoids object allocation by mutating in place.
  * Implements PositionView for compatibility with TradingProcessor.
  */
-data class Position(
+class MutablePosition(
     override val id: Long,
     override val symbol: String,
     override val timeframe: Timeframe,
@@ -27,18 +19,49 @@ data class Position(
     override val entryPrice: BigDecimal,
     override val positionSize: BigDecimal,
     override val initialStopLoss: BigDecimal,
-    override val trailingStop: BigDecimal,
-    override val highestFavorablePrice: BigDecimal,
-    override val status: PositionStatus,
+    override var trailingStop: BigDecimal,
+    override var highestFavorablePrice: BigDecimal,
+    override var status: PositionStatus,
     override val balanceBeforeOpen: BigDecimal,
     override val balanceAfterOpen: BigDecimal,
     override val allocatedCapital: BigDecimal,
-    override val exitTime: Instant? = null,
-    override val exitPrice: BigDecimal? = null,
-    override val exitReason: String? = null,
+    override var exitTime: Instant? = null,
+    override var exitPrice: BigDecimal? = null,
+    override var exitReason: String? = null,
 ) : PositionView {
+    companion object {
+        private val HUNDRED = BigDecimal(100)
+    }
+
     // calculateTrailingStopUpdate and isStopHit are inherited from PositionView
 
+    /**
+     * Convert to immutable Position (only used at end of backtest or for closed positions).
+     */
+    fun toImmutable(): Position =
+        Position(
+            id = id,
+            symbol = symbol,
+            timeframe = timeframe,
+            side = side,
+            entryTime = entryTime,
+            entryPrice = entryPrice,
+            positionSize = positionSize,
+            initialStopLoss = initialStopLoss,
+            trailingStop = trailingStop,
+            highestFavorablePrice = highestFavorablePrice,
+            status = status,
+            balanceBeforeOpen = balanceBeforeOpen,
+            balanceAfterOpen = balanceAfterOpen,
+            allocatedCapital = allocatedCapital,
+            exitTime = exitTime,
+            exitPrice = exitPrice,
+            exitReason = exitReason,
+        )
+
+    /**
+     * Convert to Trade (used when position is closed).
+     */
     fun toTrade(
         tradeId: Long,
         balanceBeforeClose: BigDecimal,
@@ -58,7 +81,7 @@ data class Position(
         val positionValue = entryPrice * positionSize
         val pnlPercent =
             if (positionValue > BigDecimal.ZERO) {
-                (pnl / positionValue) * BigDecimal(100)
+                (pnl / positionValue) * HUNDRED
             } else {
                 BigDecimal.ZERO
             }
@@ -85,3 +108,27 @@ data class Position(
         )
     }
 }
+
+/**
+ * Convert immutable Position to MutablePosition.
+ */
+fun Position.toMutable(): MutablePosition =
+    MutablePosition(
+        id = id,
+        symbol = symbol,
+        timeframe = timeframe,
+        side = side,
+        entryTime = entryTime,
+        entryPrice = entryPrice,
+        positionSize = positionSize,
+        initialStopLoss = initialStopLoss,
+        trailingStop = trailingStop,
+        highestFavorablePrice = highestFavorablePrice,
+        status = status,
+        balanceBeforeOpen = balanceBeforeOpen,
+        balanceAfterOpen = balanceAfterOpen,
+        allocatedCapital = allocatedCapital,
+        exitTime = exitTime,
+        exitPrice = exitPrice,
+        exitReason = exitReason,
+    )

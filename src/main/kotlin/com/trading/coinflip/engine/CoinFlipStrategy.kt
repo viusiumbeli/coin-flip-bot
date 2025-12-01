@@ -5,11 +5,11 @@ import com.trading.coinflip.engine.model.Position
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionStatus
 import com.trading.coinflip.engine.model.PositionUpdateResult
+import com.trading.coinflip.engine.model.PositionView
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.time.Instant
 import kotlin.random.Random
 
 @Component
@@ -156,7 +156,7 @@ class CoinFlipStrategy {
      * Does not mutate position - returns what changes should be made.
      */
     fun updatePosition(
-        position: Position,
+        position: PositionView,
         candle: CandleEntity,
         atrMultiplier: BigDecimal,
     ): PositionUpdateResult {
