@@ -45,9 +45,8 @@ class BacktestEngine(
         }
 
         // Walk through each candle
-        for (i in backtestCandles.indices) {
-            val candle = backtestCandles[i]
-            processor.processCandle(state, candle, backtestCandles, i, config.trading)
+        for (candle in backtestCandles) {
+            processor.processCandle(state, candle)
         }
 
         // Close any remaining open positions at the last candle price
@@ -60,7 +59,6 @@ class BacktestEngine(
                 exitPrice = lastCandle.close,
                 exitTime = lastCandle.openTime,
                 exitReason = "End of backtest period",
-                transactionCostPercent = config.trading.transactionCostPercent,
             )
         }
 
