@@ -9,6 +9,8 @@ import org.springframework.stereotype.Repository
 interface LiveBalanceSnapshotRepository : CoroutineCrudRepository<LiveBalanceSnapshotEntity, Long> {
     fun findBySessionIdOrderByCandleTimeDesc(sessionId: Long): Flow<LiveBalanceSnapshotEntity>
 
+    fun findBySessionIdOrderByCandleTimeAsc(sessionId: Long): Flow<LiveBalanceSnapshotEntity>
+
     @Query(
         """
         SELECT * FROM live_balance_snapshots

@@ -1,0 +1,31 @@
+package com.trading.coinflip.live.model
+
+import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.live.LiveSessionStatus
+import java.math.BigDecimal
+import java.time.Instant
+
+data class LiveSessionDetailDto(
+    val id: Long,
+    val symbol: String,
+    val timeframe: Timeframe,
+    val status: LiveSessionStatus,
+    val initialCapital: BigDecimal,
+    val currentBalance: BigDecimal,
+    val peakBalance: BigDecimal,
+    val profitLoss: BigDecimal,
+    val profitLossPercent: BigDecimal,
+    val maxDrawdown: BigDecimal,
+    val maxDrawdownPercent: BigDecimal,
+    val lastAtr: BigDecimal?,
+    val lastCandleClose: BigDecimal?,
+    val lastCandleTime: Instant?,
+    val startedAt: Instant,
+    val lastUpdateAt: Instant,
+    val stoppedAt: Instant?,
+    val errorMessage: String?,
+    val reconnectCount: Int,
+    val openPositions: List<LivePositionDto>,
+    val openPositionsCount: Int,
+    val totalTradesCount: Long,
+)

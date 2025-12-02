@@ -7,6 +7,7 @@ function initHeader(activePage) {
         backtest: { url: 'index.html', label: 'Backtest' },
         simulation: { url: 'simulation.html', label: 'Simulation' },
         experiments: { url: 'experiments.html', label: 'Experiments' },
+        live: { url: 'live.html', label: 'Live' },
         data: { url: 'data.html', label: 'Data' }
     };
 
@@ -14,6 +15,7 @@ function initHeader(activePage) {
         backtest: 'Backtest System - Web Interface',
         simulation: 'Live Candle-by-Candle Simulation',
         experiments: 'Experiments - Run and Compare Multiple Backtests',
+        live: 'Live Trading - Real-time Binance WebSocket Trading',
         data: 'Manage historical candle data from Binance'
     };
 

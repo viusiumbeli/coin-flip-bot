@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coin Flip Trading Bot - Live Trading</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div id="app-header"></div>
+
+        <!-- Config Info Card -->
+        <div class="card">
+            <h2>Live Trading Configuration</h2>
+            <div class="config-info" id="configInfo">
+                Loading configuration...
+            </div>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <!-- Sessions List -->
+        <div class="card" id="sessionsListCard">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2>Trading Sessions</h2>
+                <div class="button-group">
+                    <select id="startSymbol" style="margin-right: 10px;">
+                        <option value="">Select symbol...</option>
+                    </select>
+                    <button class="btn-success" onclick="startSession()" id="startBtn">Start Session</button>
+                    <button class="btn-secondary" onclick="loadSessions()" style="margin-left: 10px;">Refresh</button>
+                </div>
+            </div>
+            <div class="trades-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Symbol</th>
+                            <th>Status</th>
+                            <th>Balance</th>
+                            <th>P&L</th>
+                            <th>P&L %</th>
+                            <th>Max Drawdown</th>
+                            <th>Started</th>
+                            <th>Last Update</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessionsBody">
+                        <tr>
+                            <td colspan="10" style="text-align: center; color: var(--text-muted);">Loading sessions...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Session Detail View -->
+        <div id="sessionDetailView" style="display: none;">
+            <div class="nav-bar">
+                <button class="btn-secondary" onclick="hideSessionDetail()">
+                    &larr; Back to Sessions
+                </button>
+            </div>
+
+            <!-- Session Info Card -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 id="sessionTitle">Session Details</h2>
+                    <div class="button-group">
+                        <span id="sessionStatus" class="status-badge"></span>
+                        <button class="btn-danger" onclick="confirmStopSession()" id="stopBtn" style="margin-left: 15px;">Stop Session</button>
+                    </div>
+                </div>
+                <div class="metrics-grid" style="margin-top: 15px;">
+                    <div class="metric-card">
+                        <div class="metric-label">Current Balance</div>
+                        <div class="metric-value" id="currentBalance">$0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Peak Balance</div>
+                        <div class="metric-value" id="peakBalance">$0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Profit/Loss</div>
+                        <div class="metric-value" id="profitLoss">$0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">P&L %</div>
+                        <div class="metric-value" id="profitLossPercent">0%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Max Drawdown</div>
+                        <div class="metric-value negative" id="maxDrawdown">$0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Drawdown %</div>
+                        <div class="metric-value negative" id="maxDrawdownPercent">0%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Open Positions</div>
+                        <div class="metric-value" id="openPositionsCount">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Total Trades</div>
+                        <div class="metric-value" id="totalTrades">0</div>
+                    </div>
+                </div>
+                <div style="margin-top: 15px; color: var(--text-secondary); font-size: 14px;">
+                    <span>Last ATR: <strong id="lastAtr">-</strong></span>
+                    <span style="margin-left: 20px;">Last Price: <strong id="lastPrice">-</strong></span>
+                    <span style="margin-left: 20px;">Last Candle: <strong id="lastCandleTime">-</strong></span>
+                    <span style="margin-left: 20px;">Reconnects: <strong id="reconnectCount">0</strong></span>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="card">
+                <h2>Performance Charts</h2>
+                <div class="grid-2">
+                    <div>
+                        <h3 style="font-size: 16px; margin-bottom: 10px;">Balance History</h3>
+                        <canvas id="balanceChart"></canvas>
+                    </div>
+                    <div>
+                        <h3 style="font-size: 16px; margin-bottom: 10px;">Trade P&L</h3>
+                        <canvas id="pnlChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Open Positions -->
+            <div class="card">
+                <h2>Open Positions (<span id="openPositionsTitle">0</span>)</h2>
+                <div class="trades-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Side</th>
+                                <th>Entry Time</th>
+                                <th>Entry Price</th>
+                                <th>Current Price</th>
+                                <th>Size</th>
+                                <th>Trailing Stop</th>
+                                <th>Unrealized P&L</th>
+                                <th>P&L %</th>
+                                <th>Allocated</th>
+                            </tr>
+                        </thead>
+                        <tbody id="openPositionsBody">
+                            <tr>
+                                <td colspan="10" style="text-align: center; color: var(--text-muted);">No open positions</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent Trades -->
+            <div class="card">
+                <h2>Recent Trades (<span id="recentTradesTitle">0</span>)</h2>
+                <div class="trades-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Side</th>
+                                <th>Entry Time</th>
+                                <th>Entry Price</th>
+                                <th>Exit Time</th>
+                                <th>Exit Price</th>
+                                <th>Size</th>
+                                <th>P&L</th>
+                                <th>P&L %</th>
+                                <th>Exit Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentTradesBody">
+                            <tr>
+                                <td colspan="10" style="text-align: center; color: var(--text-muted);">No trades yet</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/components/theme.js"></script>
+    <script src="js/components/header.js"></script>
+    <script src="js/components/loading.js"></script>
+    <script src="js/components/modal.js"></script>
+    <script src="js/formatters.js"></script>
+    <script>
+        initHeader('live');
+
+        const API_BASE = '/api/live';
+        let currentSessionId = null;
+        let pollingInterval = null;
+        let balanceChart = null;
+        let pnlChart = null;
+        let configData = null;
+
+        // Status badge colors
+        const statusColors = {
+            RUNNING: 'status-running',
+            PAUSED: 'status-warning',
+            STOPPED: 'status-stopped',
+            ERROR: 'status-error'
+        };
+
+        // Load config and sessions on page load
+        async function initialize() {
+            await loadConfig();
+            await loadSessions();
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch(`${API_BASE}/config`);
+                configData = await response.json();
+
+                const enabledText = configData.enabled
+                    ? '<span class="positive">Enabled</span>'
+                    : '<span class="negative">Disabled</span>';
+
+                document.getElementById('configInfo').innerHTML = `
+                    <strong>Status:</strong> ${enabledText} |
+                    <strong>Symbols:</strong> ${configData.symbols.join(', ')} |
+                    <strong>Initial Capital:</strong> $${formatNumber(configData.initialCapital)}
+                `;
+
+                // Populate symbol dropdown
+                const symbolSelect = document.getElementById('startSymbol');
+                symbolSelect.innerHTML = '<option value="">Select symbol...</option>' +
+                    configData.symbols.map(s => `<option value="${s}">${s}</option>`).join('');
+
+            } catch (error) {
+                showError('Failed to load config: ' + error.message);
+            }
+        }
+
+        async function loadSessions() {
+            try {
+                const response = await fetch(`${API_BASE}/sessions`);
+                const sessions = await response.json();
+
+                const tbody = document.getElementById('sessionsBody');
+                if (sessions.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="10" style="text-align: center; color: var(--text-muted);">No sessions found. Start a new session above.</td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                tbody.innerHTML = sessions.map(session => `
+                    <tr>
+                        <td>${session.id}</td>
+                        <td>${session.symbol}</td>
+                        <td><span class="status-badge ${statusColors[session.status]}">${session.status}</span></td>
+                        <td>$${formatNumber(session.currentBalance)}</td>
+                        <td class="${session.profitLoss >= 0 ? 'positive' : 'negative'}">
+                            $${formatNumber(session.profitLoss)}
+                        </td>
+                        <td class="${session.profitLossPercent >= 0 ? 'positive' : 'negative'}">
+                            ${formatNumber(session.profitLossPercent)}%
+                        </td>
+                        <td class="negative">$${formatNumber(session.maxDrawdown)}</td>
+                        <td>${formatDateTime(session.startedAt)}</td>
+                        <td>${formatDateTime(session.lastUpdateAt)}</td>
+                        <td>
+                            <button class="btn-info btn-sm" onclick="viewSession(${session.id})">View</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                showError('Failed to load sessions: ' + error.message);
+            }
+        }
+
+        async function startSession() {
+            const symbol = document.getElementById('startSymbol').value;
+            if (!symbol) {
+                showError('Please select a symbol');
+                return;
+            }
+
+            if (!configData?.enabled) {
+                showError('Live trading is disabled in configuration');
+                return;
+            }
+
+            hideError();
+            setButtonLoading('startBtn', true, 'Starting...');
+
+            try {
+                const response = await fetch(`${API_BASE}/sessions/${symbol}/start`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || `Server returned ${response.status}`);
+                }
+
+                const session = await response.json();
+                await loadSessions();
+                viewSession(session.id);
+            } catch (error) {
+                showError('Failed to start session: ' + error.message);
+            } finally {
+                setButtonLoading('startBtn', false);
+            }
+        }
+
+        async function viewSession(sessionId) {
+            currentSessionId = sessionId;
+            document.getElementById('sessionsListCard').style.display = 'none';
+            document.getElementById('sessionDetailView').style.display = 'block';
+
+            await loadSessionDetail();
+            await loadSessionTrades();
+            await loadSessionSnapshots();
+
+            // Start polling
+            startPolling();
+        }
+
+        function hideSessionDetail() {
+            stopPolling();
+            currentSessionId = null;
+            document.getElementById('sessionDetailView').style.display = 'none';
+            document.getElementById('sessionsListCard').style.display = 'block';
+            loadSessions();
+        }
+
+        async function loadSessionDetail() {
+            if (!currentSessionId) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/sessions/${currentSessionId}`);
+                if (!response.ok) throw new Error(`Server returned ${response.status}`);
+
+                const session = await response.json();
+                updateSessionUI(session);
+            } catch (error) {
+                showError('Failed to load session detail: ' + error.message);
+            }
+        }
+
+        function updateSessionUI(session) {
+            document.getElementById('sessionTitle').textContent = `${session.symbol} - ${session.timeframe}`;
+
+            const statusBadge = document.getElementById('sessionStatus');
+            statusBadge.textContent = session.status;
+            statusBadge.className = `status-badge ${statusColors[session.status]}`;
+
+            // Enable/disable stop button based on status
+            document.getElementById('stopBtn').disabled = session.status !== 'RUNNING';
+
+            // Update metrics
+            document.getElementById('currentBalance').textContent = '$' + formatNumber(session.currentBalance);
+            document.getElementById('peakBalance').textContent = '$' + formatNumber(session.peakBalance);
+
+            const pnlEl = document.getElementById('profitLoss');
+            pnlEl.textContent = '$' + formatNumber(session.profitLoss);
+            pnlEl.className = 'metric-value ' + (session.profitLoss >= 0 ? 'positive' : 'negative');
+
+            const pnlPctEl = document.getElementById('profitLossPercent');
+            pnlPctEl.textContent = formatNumber(session.profitLossPercent) + '%';
+            pnlPctEl.className = 'metric-value ' + (session.profitLossPercent >= 0 ? 'positive' : 'negative');
+
+            document.getElementById('maxDrawdown').textContent = '$' + formatNumber(session.maxDrawdown);
+            document.getElementById('maxDrawdownPercent').textContent = formatNumber(session.maxDrawdownPercent) + '%';
+            document.getElementById('openPositionsCount').textContent = session.openPositionsCount;
+            document.getElementById('totalTrades').textContent = session.totalTradesCount;
+
+            // Additional info
+            document.getElementById('lastAtr').textContent = session.lastAtr ? '$' + formatNumber(session.lastAtr) : '-';
+            document.getElementById('lastPrice').textContent = session.lastCandleClose ? '$' + formatNumber(session.lastCandleClose) : '-';
+            document.getElementById('lastCandleTime').textContent = session.lastCandleTime ? formatDateTime(session.lastCandleTime) : '-';
+            document.getElementById('reconnectCount').textContent = session.reconnectCount;
+
+            // Update open positions table
+            document.getElementById('openPositionsTitle').textContent = session.openPositions.length;
+            const positionsBody = document.getElementById('openPositionsBody');
+            if (session.openPositions.length === 0) {
+                positionsBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" style="text-align: center; color: var(--text-muted);">No open positions</td>
+                    </tr>
+                `;
+            } else {
+                positionsBody.innerHTML = session.openPositions.map(pos => `
+                    <tr>
+                        <td>${pos.positionId}</td>
+                        <td>${pos.side}</td>
+                        <td>${formatDateTime(pos.entryTime)}</td>
+                        <td>$${formatNumber(pos.entryPrice)}</td>
+                        <td>${pos.currentPrice ? '$' + formatNumber(pos.currentPrice) : '-'}</td>
+                        <td>${formatNumber(pos.positionSize)}</td>
+                        <td>$${formatNumber(pos.trailingStop)}</td>
+                        <td class="${(pos.unrealizedPnl || 0) >= 0 ? 'positive' : 'negative'}">
+                            ${pos.unrealizedPnl ? '$' + formatNumber(pos.unrealizedPnl) : '-'}
+                        </td>
+                        <td class="${(pos.unrealizedPnlPercent || 0) >= 0 ? 'positive' : 'negative'}">
+                            ${pos.unrealizedPnlPercent ? formatNumber(pos.unrealizedPnlPercent) + '%' : '-'}
+                        </td>
+                        <td>$${formatNumber(pos.allocatedCapital)}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        async function loadSessionTrades() {
+            if (!currentSessionId) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/sessions/${currentSessionId}/trades?limit=20`);
+                if (!response.ok) throw new Error(`Server returned ${response.status}`);
+
+                const data = await response.json();
+                document.getElementById('recentTradesTitle').textContent = data.totalCount;
+
+                const tbody = document.getElementById('recentTradesBody');
+                if (data.trades.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="10" style="text-align: center; color: var(--text-muted);">No trades yet</td>
+                        </tr>
+                    `;
+                } else {
+                    tbody.innerHTML = data.trades.map(trade => `
+                        <tr>
+                            <td>${trade.tradeId}</td>
+                            <td>${trade.side}</td>
+                            <td>${formatDateTime(trade.entryTime)}</td>
+                            <td>$${formatNumber(trade.entryPrice)}</td>
+                            <td>${formatDateTime(trade.exitTime)}</td>
+                            <td>$${formatNumber(trade.exitPrice)}</td>
+                            <td>${formatNumber(trade.positionSize)}</td>
+                            <td class="${trade.profitLoss >= 0 ? 'positive' : 'negative'}">
+                                $${formatNumber(trade.profitLoss)}
+                            </td>
+                            <td class="${trade.profitLossPercent >= 0 ? 'positive' : 'negative'}">
+                                ${formatNumber(trade.profitLossPercent)}%
+                            </td>
+                            <td>${trade.exitReason}</td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Update P&L chart with trades
+                updatePnlChart(data.trades);
+            } catch (error) {
+                console.error('Failed to load trades:', error);
+            }
+        }
+
+        async function loadSessionSnapshots() {
+            if (!currentSessionId) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/sessions/${currentSessionId}/snapshots`);
+                if (!response.ok) throw new Error(`Server returned ${response.status}`);
+
+                const data = await response.json();
+                updateBalanceChart(data.snapshots);
+            } catch (error) {
+                console.error('Failed to load snapshots:', error);
+            }
+        }
+
+        function updateBalanceChart(snapshots) {
+            const ctx = document.getElementById('balanceChart').getContext('2d');
+
+            if (balanceChart) {
+                balanceChart.destroy();
+            }
+
+            if (snapshots.length === 0) {
+                // Show empty chart with message
+                balanceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: [], datasets: [] },
+                    options: {
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'No balance history yet',
+                                color: '#6b7280'
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+
+            const labels = snapshots.map(s => formatDateTime(s.candleTime));
+            const balances = snapshots.map(s => parseFloat(s.balance));
+
+            balanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Balance',
+                        data: balances,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            ticks: { maxTicksLimit: 8 }
+                        },
+                        y: {
+                            display: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + formatNumber(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updatePnlChart(trades) {
+            const ctx = document.getElementById('pnlChart').getContext('2d');
+
+            if (pnlChart) {
+                pnlChart.destroy();
+            }
+
+            if (trades.length === 0) {
+                pnlChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: [], datasets: [] },
+                    options: {
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'No trades yet',
+                                color: '#6b7280'
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+
+            // Reverse to show chronologically
+            const reversedTrades = [...trades].reverse();
+            const labels = reversedTrades.map(t => `#${t.tradeId}`);
+            const pnls = reversedTrades.map(t => parseFloat(t.profitLoss));
+            const colors = pnls.map(p => p >= 0 ? '#10b981' : '#ef4444');
+
+            pnlChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'P&L',
+                        data: pnls,
+                        backgroundColor: colors,
+                        borderColor: colors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            display: true
+                        },
+                        y: {
+                            display: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + formatNumber(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function confirmStopSession() {
+            showConfirmModal(
+                'Stop Session',
+                'Are you sure you want to stop this live trading session? This will close the WebSocket connection and stop processing new candles.',
+                'Stop Session',
+                async () => {
+                    await stopSession();
+                },
+                true
+            );
+        }
+
+        async function stopSession() {
+            if (!currentSessionId) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/sessions/${currentSessionId}/stop`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || `Server returned ${response.status}`);
+                }
+
+                stopPolling();
+                await loadSessionDetail();
+            } catch (error) {
+                showError('Failed to stop session: ' + error.message);
+            }
+        }
+
+        function startPolling() {
+            stopPolling();
+            pollingInterval = setInterval(async () => {
+                await loadSessionDetail();
+                await loadSessionTrades();
+                await loadSessionSnapshots();
+            }, 10000); // 10 seconds
+        }
+
+        function stopPolling() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+        }
+
+        // Initialize on page load
+        initialize();
+    </script>
+
+    <style>
+        /* Status badge styles */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-running {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .status-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .status-stopped {
+            background: rgba(107, 114, 128, 0.2);
+            color: #6b7280;
+        }
+
+        .status-error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+
+        .positive {
+            color: #10b981;
+        }
+
+        .negative {
+            color: #ef4444;
+        }
+
+        .nav-bar {
+            margin-bottom: 15px;
+        }
+
+        /* Responsive grid for charts */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</body>
+</html>
