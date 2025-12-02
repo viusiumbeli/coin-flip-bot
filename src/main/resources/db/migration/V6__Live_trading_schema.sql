@@ -63,6 +63,15 @@ CREATE TABLE live_positions (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
+    -- Exit data (populated when position closes)
+    exit_time TIMESTAMP,
+    exit_price NUMERIC(20, 8),
+    exit_reason VARCHAR(100),
+    profit_loss NUMERIC(20, 8),
+    profit_loss_percent NUMERIC(20, 8),
+    balance_before_close NUMERIC(20, 8),
+    balance_after_close NUMERIC(20, 8),
+
     CONSTRAINT unique_position_in_session UNIQUE (session_id, position_id)
 );
 
