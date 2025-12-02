@@ -3,6 +3,8 @@ package com.trading.coinflip.common.config
 import com.trading.coinflip.common.model.ExperimentStatus
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.engine.model.PositionSide
+import com.trading.coinflip.engine.model.PositionStatus
+import com.trading.coinflip.live.LiveSessionStatus
 import io.r2dbc.spi.ConnectionFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -27,6 +29,10 @@ class R2dbcConfig {
                 ExperimentStatusReadConverter(),
                 PositionSideWriteConverter(),
                 PositionSideReadConverter(),
+                PositionStatusWriteConverter(),
+                PositionStatusReadConverter(),
+                LiveSessionStatusWriteConverter(),
+                LiveSessionStatusReadConverter(),
             )
         return R2dbcCustomConversions.of(dialect, converters)
     }
@@ -60,4 +66,24 @@ class PositionSideWriteConverter : Converter<PositionSide, String> {
 @ReadingConverter
 class PositionSideReadConverter : Converter<String, PositionSide> {
     override fun convert(source: String): PositionSide = PositionSide.valueOf(source)
+}
+
+@WritingConverter
+class PositionStatusWriteConverter : Converter<PositionStatus, String> {
+    override fun convert(source: PositionStatus): String = source.name
+}
+
+@ReadingConverter
+class PositionStatusReadConverter : Converter<String, PositionStatus> {
+    override fun convert(source: String): PositionStatus = PositionStatus.valueOf(source)
+}
+
+@WritingConverter
+class LiveSessionStatusWriteConverter : Converter<LiveSessionStatus, String> {
+    override fun convert(source: LiveSessionStatus): String = source.name
+}
+
+@ReadingConverter
+class LiveSessionStatusReadConverter : Converter<String, LiveSessionStatus> {
+    override fun convert(source: String): LiveSessionStatus = LiveSessionStatus.valueOf(source)
 }

@@ -29,6 +29,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
+    implementation("org.springframework.boot:spring-boot-starter-jdbc")
 
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")
@@ -40,13 +41,13 @@ dependencies {
     implementation("org.postgresql:r2dbc-postgresql:1.0.4.RELEASE")
     runtimeOnly("org.postgresql:postgresql")
     implementation("org.flywaydb:flyway-core")
-    implementation("org.flywaydb:flyway-database-postgresql:10.4.1")
 
     // HTTP Client
     implementation("io.ktor:ktor-client-core:2.3.7")
     implementation("io.ktor:ktor-client-cio:2.3.7")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
     implementation("io.ktor:ktor-serialization-jackson:2.3.7")
+    implementation("io.ktor:ktor-client-websockets:2.3.7")
 
     // JSON
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")

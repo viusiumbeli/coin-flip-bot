@@ -4,11 +4,10 @@ server:
 spring:
   application:
     name: coin-flip-bot
-  # JDBC datasource for Flyway migrations only
-  datasource:
+  # Flyway uses its own JDBC URL (DataSource auto-config is disabled when R2DBC is present)
+  flyway:
     url: jdbc:postgresql://localhost:5432/coinflipbot
-    driver-class-name: org.postgresql.Driver
-    username: coinflipuser
+    user: coinflipuser
     password: coinflippass
   # R2DBC for application
   r2dbc:
@@ -64,3 +63,14 @@ backtest:
     max-page-size: 1000
     http-timeout-ms: 30000
     rate-limit-delay-ms: 100
+
+live:
+  enabled: true
+  symbols:
+    - BTCUSDT
+  initial-capital: 10000
+  reconnect-delay-ms: 5000
+  max-reconnect-attempts: 10
+  balance-snapshot-interval-minutes: 60
+  heartbeat-interval-ms: 30000
+  websocket-url: wss://stream.binance.com:9443/ws
