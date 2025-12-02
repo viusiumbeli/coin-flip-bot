@@ -1,4 +1,4 @@
-package com.trading.coinflip.live.model
+package com.trading.coinflip.api.live
 
 import java.math.BigDecimal
 

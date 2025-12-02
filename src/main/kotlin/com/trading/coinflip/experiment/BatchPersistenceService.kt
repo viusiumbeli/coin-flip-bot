@@ -1,9 +1,9 @@
 package com.trading.coinflip.experiment
 
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.common.dto.BacktestResultWithRunNumber
-import com.trading.coinflip.common.model.ExperimentStatus
-import com.trading.coinflip.data.ExperimentRepository
+import com.trading.coinflip.backtest.model.BacktestResultWithRunNumber
+import com.trading.coinflip.experiment.model.ExperimentStatus
+import com.trading.coinflip.experiment.ExperimentRepository
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging

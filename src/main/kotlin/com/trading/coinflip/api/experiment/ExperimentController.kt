@@ -1,7 +1,7 @@
 package com.trading.coinflip.api.experiment
 
 import com.trading.coinflip.api.exception.BadRequestException
-import com.trading.coinflip.common.dto.BacktestRunDetailDto
+import com.trading.coinflip.backtest.model.BacktestRunDetailDto
 import com.trading.coinflip.experiment.CreateExperimentRequest
 import com.trading.coinflip.experiment.ExperimentDetailResponse
 import com.trading.coinflip.experiment.ExperimentService

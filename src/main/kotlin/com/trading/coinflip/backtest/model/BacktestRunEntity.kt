@@ -1,4 +1,4 @@
-package com.trading.coinflip.common.model
+package com.trading.coinflip.backtest.model
 
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Column

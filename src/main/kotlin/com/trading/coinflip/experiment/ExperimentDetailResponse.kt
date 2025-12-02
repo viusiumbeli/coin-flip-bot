@@ -1,6 +1,6 @@
 package com.trading.coinflip.experiment
 
-import com.trading.coinflip.common.dto.BacktestRunSummaryDto
+import com.trading.coinflip.backtest.model.BacktestRunSummaryDto
 import java.math.BigDecimal
 import java.time.Instant
 

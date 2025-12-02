@@ -1,6 +1,6 @@
 package com.trading.coinflip.api.experiment
 
-import com.trading.coinflip.common.model.ExperimentStatus
+import com.trading.coinflip.experiment.model.ExperimentStatus
 import java.time.Instant
 
 data class ExperimentStatusResponse(

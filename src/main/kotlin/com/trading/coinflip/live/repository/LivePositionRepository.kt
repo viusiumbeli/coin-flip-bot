@@ -1,6 +1,7 @@
-package com.trading.coinflip.live
+package com.trading.coinflip.live.repository
 
 import com.trading.coinflip.engine.model.PositionStatus
+import com.trading.coinflip.live.model.LivePositionEntity
 import kotlinx.coroutines.flow.Flow
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Repository
@@ -11,8 +12,6 @@ interface LivePositionRepository : CoroutineCrudRepository<LivePositionEntity, L
         sessionId: Long,
         status: PositionStatus,
     ): Flow<LivePositionEntity>
-
-    fun findBySessionId(sessionId: Long): Flow<LivePositionEntity>
 
     suspend fun findBySessionIdAndPositionId(
         sessionId: Long,

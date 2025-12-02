@@ -1,4 +1,4 @@
-package com.trading.coinflip.common.dto
+package com.trading.coinflip.backtest.model
 
 import com.trading.coinflip.experiment.ExperimentTradeDto
 import java.math.BigDecimal

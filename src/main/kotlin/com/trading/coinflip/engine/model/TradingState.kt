@@ -1,6 +1,6 @@
 package com.trading.coinflip.engine.model
 
-import com.trading.coinflip.common.model.Trade
+import com.trading.coinflip.engine.model.Trade
 import java.math.BigDecimal
 
 /**

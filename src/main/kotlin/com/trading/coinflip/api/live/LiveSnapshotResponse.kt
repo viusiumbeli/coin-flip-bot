@@ -1,9 +1,9 @@
-package com.trading.coinflip.live.model
+package com.trading.coinflip.api.live
 
 import java.math.BigDecimal
 import java.time.Instant
 
-data class LiveSnapshotDto(
+data class LiveSnapshotResponse(
     val id: Long,
     val balance: BigDecimal,
     val openPositionsCount: Int,

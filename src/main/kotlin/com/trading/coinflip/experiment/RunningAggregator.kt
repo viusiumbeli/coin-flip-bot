@@ -1,7 +1,7 @@
 package com.trading.coinflip.experiment
 
 import com.tdunning.math.stats.TDigest
-import com.trading.coinflip.common.model.BacktestResult
+import com.trading.coinflip.backtest.model.BacktestResult
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.math.BigDecimal

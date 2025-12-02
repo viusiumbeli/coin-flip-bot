@@ -1,5 +1,6 @@
-package com.trading.coinflip.common.model
+package com.trading.coinflip.experiment.model
 
+import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.engine.model.PositionSide
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Column

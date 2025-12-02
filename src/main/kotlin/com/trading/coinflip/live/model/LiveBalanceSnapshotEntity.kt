@@ -1,4 +1,4 @@
-package com.trading.coinflip.live
+package com.trading.coinflip.live.model
 
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Column

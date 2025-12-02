@@ -1,6 +1,7 @@
 package com.trading.coinflip.live
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.trading.coinflip.common.config.LiveProperties
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.CandleEntity
 import io.ktor.client.HttpClient

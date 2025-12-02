@@ -1,6 +1,6 @@
-package com.trading.coinflip.data
+package com.trading.coinflip.experiment
 
-import com.trading.coinflip.common.model.ExperimentEntity
+import com.trading.coinflip.experiment.model.ExperimentEntity
 import kotlinx.coroutines.flow.Flow
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository

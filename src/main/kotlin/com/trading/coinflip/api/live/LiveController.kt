@@ -2,17 +2,12 @@ package com.trading.coinflip.api.live
 
 import com.trading.coinflip.api.exception.NotFoundException
 import com.trading.coinflip.engine.model.PositionStatus
-import com.trading.coinflip.live.LiveBalanceSnapshotRepository
-import com.trading.coinflip.live.LivePositionRepository
-import com.trading.coinflip.live.LiveProperties
-import com.trading.coinflip.live.LiveSessionRepository
-import com.trading.coinflip.live.LiveTradeRepository
+import com.trading.coinflip.live.repository.LiveBalanceSnapshotRepository
+import com.trading.coinflip.live.repository.LivePositionRepository
+import com.trading.coinflip.common.config.LiveProperties
+import com.trading.coinflip.live.repository.LiveSessionRepository
+import com.trading.coinflip.live.repository.LiveTradeRepository
 import com.trading.coinflip.live.LiveTradingService
-import com.trading.coinflip.live.model.LiveConfigResponse
-import com.trading.coinflip.live.model.LiveSessionDetailDto
-import com.trading.coinflip.live.model.LiveSessionSummaryDto
-import com.trading.coinflip.live.model.LiveSnapshotsResponse
-import com.trading.coinflip.live.model.LiveTradesResponse
 import com.trading.coinflip.live.toDetailDto
 import com.trading.coinflip.live.toDto
 import com.trading.coinflip.live.toSummaryDto
@@ -50,7 +45,7 @@ class LiveController(
         )
 
     @GetMapping("/sessions")
-    suspend fun getAllSessions(): List<LiveSessionSummaryDto> =
+    suspend fun getAllSessions(): List<LiveSessionSummaryResponse> =
         sessionRepository
             .findAllByOrderByStartedAtDesc()
             .map { it.toSummaryDto() }
@@ -59,7 +54,7 @@ class LiveController(
     @GetMapping("/sessions/{id}")
     suspend fun getSession(
         @PathVariable id: Long,
-    ): LiveSessionDetailDto {
+    ): LiveSessionDetailResponse {
         val session = sessionRepository.findById(id)
             ?: throw NotFoundException("Session not found: $id")
 
@@ -112,7 +107,7 @@ class LiveController(
     @ResponseStatus(HttpStatus.ACCEPTED)
     suspend fun startSession(
         @PathVariable symbol: String,
-    ): LiveSessionSummaryDto {
+    ): LiveSessionSummaryResponse {
         log.info { "Starting live trading session for $symbol" }
 
         if (!liveProperties.enabled) {
