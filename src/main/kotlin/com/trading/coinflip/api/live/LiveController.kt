@@ -2,6 +2,7 @@ package com.trading.coinflip.api.live
 
 import com.trading.coinflip.api.exception.NotFoundException
 import com.trading.coinflip.common.config.LiveProperties
+import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.engine.model.PositionStatus
 import com.trading.coinflip.live.LiveTradingService
@@ -19,6 +20,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
@@ -42,6 +44,7 @@ class LiveController(
         LiveConfigResponse(
             enabled = liveProperties.enabled,
             symbols = liveProperties.symbols,
+            timeframes = Timeframe.entries.map { it.label },
             initialCapital = liveProperties.initialCapital,
             websocketUrl = liveProperties.websocketUrl,
         )
@@ -112,22 +115,22 @@ class LiveController(
         return LiveSnapshotsResponse(snapshots = snapshots)
     }
 
-    @PostMapping("/sessions/{symbol}/start")
+    @PostMapping("/sessions/start")
     @ResponseStatus(HttpStatus.ACCEPTED)
     suspend fun startSession(
-        @PathVariable symbol: String,
+        @RequestBody request: StartSessionRequest,
     ): LiveSessionSummaryResponse {
-        log.info { "Starting live trading session for $symbol" }
+        log.info { "Starting live trading session for ${request.symbol} with timeframe ${request.timeframe}" }
 
         if (!liveProperties.enabled) {
             throw IllegalStateException("Live trading is disabled")
         }
 
-        if (symbol !in liveProperties.symbols) {
-            throw IllegalArgumentException("Symbol $symbol is not in configured symbols: ${liveProperties.symbols}")
+        if (request.symbol !in liveProperties.symbols) {
+            throw IllegalArgumentException("Symbol ${request.symbol} is not in configured symbols: ${liveProperties.symbols}")
         }
 
-        val session = liveTradingService.startSession(symbol)
+        val session = liveTradingService.startSession(request.symbol, request.timeframe)
         return session.toSummaryDto()
     }
 

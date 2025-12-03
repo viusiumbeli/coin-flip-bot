@@ -12,7 +12,7 @@ data class LiveSessionEntity(
     @Id
     val id: Long? = null,
     val symbol: String,
-    val timeframe: Timeframe = Timeframe.ONE_HOUR,
+    val timeframe: Timeframe,
     var status: LiveSessionStatus = LiveSessionStatus.RUNNING,
     @Column("initial_capital")
     val initialCapital: BigDecimal,

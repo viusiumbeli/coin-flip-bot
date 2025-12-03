@@ -76,19 +76,8 @@ class LiveTradingService(
             // Resume any running sessions from previous run
             val runningSessions = recoveryService.findRunningSessions()
             for (session in runningSessions) {
-                log.info { "Resuming session for ${session.symbol}" }
+                log.info { "Resuming session for ${session.symbol} ${session.timeframe.label}" }
                 resumeSession(session)
-            }
-
-            // Start new sessions for configured symbols not already running
-            for (symbol in liveProperties.symbols) {
-                if (!sessionJobs.containsKey(symbol)) {
-                    try {
-                        startSession(symbol)
-                    } catch (e: Exception) {
-                        log.error(e) { "Failed to start session for $symbol" }
-                    }
-                }
             }
         }
     }
@@ -103,7 +92,10 @@ class LiveTradingService(
     /**
      * Start a new live trading session for a symbol.
      */
-    suspend fun startSession(symbol: String): LiveSessionEntity =
+    suspend fun startSession(
+        symbol: String,
+        timeframe: Timeframe,
+    ): LiveSessionEntity =
         mutex.withLock {
             if (sessionJobs.containsKey(symbol)) {
                 throw IllegalStateException("Session already running for $symbol")
@@ -114,7 +106,7 @@ class LiveTradingService(
                 sessionRepository.save(
                     LiveSessionEntity(
                         symbol = symbol,
-                        timeframe = Timeframe.ONE_HOUR,
+                        timeframe = timeframe,
                         initialCapital = liveProperties.initialCapital,
                         currentBalance = liveProperties.initialCapital,
                         peakBalance = liveProperties.initialCapital,
@@ -126,21 +118,22 @@ class LiveTradingService(
                 LiveTradingStateHolder(
                     sessionId = session.id!!,
                     symbol = symbol,
+                    timeframe = timeframe,
                     initialState = TradingState.create(liveProperties.initialCapital),
                 )
             stateHolders[symbol] = stateHolder
 
             // Initialize ATR from historical data
-            initializeAtrFromHistory(symbol, stateHolder)
+            initializeAtrFromHistory(stateHolder)
 
             // Start WebSocket streaming
             val job =
                 scope.launch {
-                    runSession(symbol, stateHolder)
+                    runSession(stateHolder)
                 }
             sessionJobs[symbol] = job
 
-            log.info { "Started live trading session for $symbol (id=${session.id})" }
+            log.info { "Started live trading session for $symbol ${timeframe.label} (id=${session.id})" }
             session
         }
 
@@ -161,11 +154,11 @@ class LiveTradingService(
 
             val job =
                 scope.launch {
-                    runSession(symbol, stateHolder)
+                    runSession(stateHolder)
                 }
             sessionJobs[symbol] = job
 
-            log.info { "Resumed session for $symbol (id=${session.id})" }
+            log.info { "Resumed session for $symbol ${session.timeframe.label} (id=${session.id})" }
         }
 
     /**
@@ -196,16 +189,13 @@ class LiveTradingService(
     /**
      * Main session loop - connects to WebSocket and processes candles.
      */
-    private suspend fun runSession(
-        symbol: String,
-        stateHolder: LiveTradingStateHolder,
-    ) {
+    private suspend fun runSession(stateHolder: LiveTradingStateHolder) {
         webSocketClient
-            .connectAndStream(symbol, Timeframe.ONE_HOUR, scope)
+            .connectAndStream(stateHolder.symbol, stateHolder.timeframe, scope)
             .onEach { rawCandle ->
                 processCompletedCandle(stateHolder, rawCandle)
             }.catch { e ->
-                log.error(e) { "Session error for $symbol" }
+                log.error(e) { "Session error for ${stateHolder.symbol}" }
                 handleSessionError(stateHolder, e)
             }.collect()
     }
@@ -268,16 +258,13 @@ class LiveTradingService(
     /**
      * Initialize ATR from historical candle data.
      */
-    private suspend fun initializeAtrFromHistory(
-        symbol: String,
-        stateHolder: LiveTradingStateHolder,
-    ) {
-        val lastCandle = candleRepository.findLastCandleWithATR(symbol, Timeframe.ONE_HOUR)
+    private suspend fun initializeAtrFromHistory(stateHolder: LiveTradingStateHolder) {
+        val lastCandle = candleRepository.findLastCandleWithATR(stateHolder.symbol, stateHolder.timeframe)
         if (lastCandle != null) {
             stateHolder.lastCandle = lastCandle
             log.info { "Initialized ATR from history: ${lastCandle.atr} at ${lastCandle.openTime}" }
         } else {
-            log.warn { "No historical ATR found for $symbol, will need to build from stream" }
+            log.warn { "No historical ATR found for ${stateHolder.symbol} ${stateHolder.timeframe.label}, will need to build from stream" }
         }
     }
 
@@ -325,7 +312,7 @@ class LiveTradingService(
                     tradeRepository.save(tradeEntity)
                     log.info {
                         "Closed position ${event.positionId}: " +
-                                "P&L=${event.pnl}, Reason=${event.exitReason}"
+                            "P&L=${event.pnl}, Reason=${event.exitReason}"
                     }
                 }
             }
@@ -435,8 +422,7 @@ class LiveTradingService(
     /**
      * Get current status for all sessions.
      */
-    suspend fun getAllSessionStatus(): List<LiveSessionEntity> =
-        sessionRepository.findAllByOrderByStartedAtDesc().toList()
+    suspend fun getAllSessionStatus(): List<LiveSessionEntity> = sessionRepository.findAllByOrderByStartedAtDesc().toList()
 
     /**
      * Get state for a specific symbol.

@@ -48,7 +48,7 @@ class BinanceWebSocketClient(
      */
     fun connectAndStream(
         symbol: String,
-        timeframe: Timeframe = Timeframe.ONE_HOUR,
+        timeframe: Timeframe,
         scope: CoroutineScope,
     ): Flow<CandleEntity> =
         channelFlow {
