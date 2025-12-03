@@ -7,6 +7,5 @@ import org.springframework.stereotype.Repository
 
 @Repository
 interface LiveBalanceSnapshotRepository : CoroutineCrudRepository<LiveBalanceSnapshotEntity, Long> {
-
     fun findBySessionIdOrderByCandleTimeAsc(sessionId: Long): Flow<LiveBalanceSnapshotEntity>
 }

@@ -1,5 +1,6 @@
 package com.trading.coinflip.live
 
+import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.engine.model.PositionStatus
 import com.trading.coinflip.engine.model.TradingState
 import com.trading.coinflip.live.model.LiveSessionEntity
@@ -16,6 +17,7 @@ class LiveStateRecoveryService(
     private val sessionRepository: LiveSessionRepository,
     private val positionRepository: LivePositionRepository,
     private val tradeRepository: LiveTradeRepository,
+    private val candleRepository: CandleRepository,
 ) {
     private val log = KotlinLogging.logger {}
 
@@ -46,6 +48,9 @@ class LiveStateRecoveryService(
                 positionIdCounter = session.positionIdCounter,
             )
 
+        // Load last candle by ID
+        val lastCandle = session.lastCandleId?.let { candleRepository.findById(it) }
+
         log.info {
             "Recovered state: balance=${session.currentBalance}, " +
                 "openPositions=${openPositions.size}, " +
@@ -56,9 +61,7 @@ class LiveStateRecoveryService(
             sessionId = session.id,
             symbol = session.symbol,
             initialState = tradingState,
-            lastAtr = session.lastAtr,
-            lastCandleClose = session.lastCandleClose,
-            lastCandleTime = session.lastCandleTime,
+            lastCandle = lastCandle,
         )
     }
 

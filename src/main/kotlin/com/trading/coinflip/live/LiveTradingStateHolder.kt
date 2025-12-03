@@ -4,8 +4,6 @@ import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.engine.model.TradingState
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.math.BigDecimal
-import java.time.Instant
 
 /**
  * Thread-safe state holder for a single live trading session.
@@ -15,9 +13,7 @@ class LiveTradingStateHolder(
     val sessionId: Long,
     val symbol: String,
     initialState: TradingState,
-    var lastAtr: BigDecimal? = null,
-    var lastCandleClose: BigDecimal? = null,
-    var lastCandleTime: Instant? = null,
+    var lastCandle: CandleEntity? = null,
 ) {
     private val mutex = Mutex()
     private var _state: TradingState = initialState
@@ -32,9 +28,7 @@ class LiveTradingStateHolder(
 
     suspend fun updateLastCandle(candle: CandleEntity) =
         mutex.withLock {
-            lastAtr = candle.atr
-            lastCandleClose = candle.close
-            lastCandleTime = candle.openTime
+            lastCandle = candle
         }
 
     suspend fun <T> withState(block: suspend (TradingState) -> T): T =

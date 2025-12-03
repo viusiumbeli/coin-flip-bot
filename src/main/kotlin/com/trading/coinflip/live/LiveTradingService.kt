@@ -221,31 +221,18 @@ class LiveTradingService(
         log.info { "Processing candle for $symbol at ${rawCandle.openTime}" }
 
         // Calculate ATR incrementally
-        val candleWithAtr =
-            if (stateHolder.lastAtr != null && stateHolder.lastCandleClose != null) {
-                val previousCandle =
-                    CandleEntity(
-                        symbol = symbol,
-                        timeframe = Timeframe.ONE_HOUR,
-                        openTime = stateHolder.lastCandleTime ?: rawCandle.openTime,
-                        open = stateHolder.lastCandleClose!!,
-                        high = stateHolder.lastCandleClose!!,
-                        low = stateHolder.lastCandleClose!!,
-                        close = stateHolder.lastCandleClose!!,
-                        volume = BigDecimal.ZERO,
-                        atr = stateHolder.lastAtr,
-                    )
-                atrCalculator
-                    .calculateATRIncremental(
-                        previousCandle = previousCandle,
-                        newCandles = listOf(rawCandle),
-                        period = tradingConfig.atrPeriod,
-                    ).first()
-            } else {
-                // No previous ATR - try to get from history or skip
-                log.warn { "No ATR available for $symbol, skipping candle" }
-                return
-            }
+        val previousCandle = stateHolder.lastCandle
+        if (previousCandle?.atr == null) {
+            log.warn { "No ATR available for $symbol, skipping candle" }
+            return
+        }
+
+        val candleWithAtr = atrCalculator
+            .calculateATRIncremental(
+                previousCandle = previousCandle,
+                newCandles = listOf(rawCandle),
+                period = tradingConfig.atrPeriod,
+            ).first()
 
         // Process candle through trading processor
         stateHolder.withState { currentState ->
@@ -265,11 +252,9 @@ class LiveTradingService(
             }
         }
 
-        // Update last candle info
-        stateHolder.updateLastCandle(candleWithAtr)
-
-        // Persist candle to database (reuse existing candle table)
-        persistCandle(candleWithAtr)
+        // Save candle to database and update state holder with saved version (has ID)
+        val savedCandle = persistCandle(candleWithAtr)
+        stateHolder.updateLastCandle(savedCandle)
 
         // Take balance snapshot if needed
         maybeCreateBalanceSnapshot(stateHolder, candleWithAtr)
@@ -284,9 +269,7 @@ class LiveTradingService(
     ) {
         val lastCandle = candleRepository.findLastCandleWithATR(symbol, Timeframe.ONE_HOUR)
         if (lastCandle != null) {
-            stateHolder.lastAtr = lastCandle.atr
-            stateHolder.lastCandleClose = lastCandle.close
-            stateHolder.lastCandleTime = lastCandle.openTime
+            stateHolder.lastCandle = lastCandle
             log.info { "Initialized ATR from history: ${lastCandle.atr} at ${lastCandle.openTime}" }
         } else {
             log.warn { "No historical ATR found for $symbol, will need to build from stream" }
@@ -347,7 +330,7 @@ class LiveTradingService(
                     tradeRepository.save(tradeEntity)
                     log.info {
                         "Closed position ${event.positionId}: " +
-                            "P&L=${event.pnl}, Reason=${event.exitReason}"
+                                "P&L=${event.pnl}, Reason=${event.exitReason}"
                     }
                 }
             }
@@ -368,24 +351,26 @@ class LiveTradingService(
         session.maxDrawdown = state.maxDrawdown
         session.positionIdCounter = state.positionIdCounter
         session.tradeIdCounter = state.tradeIdCounter
-        session.lastAtr = candle.atr
-        session.lastCandleClose = candle.close
-        session.lastCandleTime = candle.openTime
+        session.lastCandleId = candle.id
         session.lastUpdateAt = Instant.now()
         sessionRepository.save(session)
     }
 
     /**
-     * Persist candle to database.
+     * Persist candle to database and return the saved entity with ID.
      */
-    private suspend fun persistCandle(candle: CandleEntity) {
+    private suspend fun persistCandle(candle: CandleEntity): CandleEntity =
         try {
             candleRepository.save(candle)
         } catch (e: Exception) {
-            // Likely duplicate - ignore
+            // Likely duplicate - find existing candle
             log.debug { "Candle already exists: ${candle.symbol} ${candle.openTime}" }
+            candleRepository.findBySymbolAndTimeframeAndOpenTime(
+                candle.symbol,
+                candle.timeframe,
+                candle.openTime,
+            ) ?: candle
         }
-    }
 
     /**
      * Create balance snapshot at configured intervals.
@@ -430,6 +415,7 @@ class LiveTradingService(
                 when (position.side) {
                     PositionSide.LONG ->
                         (currentPrice - position.entryPrice) * position.positionSize
+
                     PositionSide.SHORT ->
                         (position.entryPrice - currentPrice) * position.positionSize
                 }
@@ -454,7 +440,8 @@ class LiveTradingService(
     /**
      * Get current status for all sessions.
      */
-    suspend fun getAllSessionStatus(): List<LiveSessionEntity> = sessionRepository.findAllByOrderByStartedAtDesc().toList()
+    suspend fun getAllSessionStatus(): List<LiveSessionEntity> =
+        sessionRepository.findAllByOrderByStartedAtDesc().toList()
 
     /**
      * Get state for a specific symbol.

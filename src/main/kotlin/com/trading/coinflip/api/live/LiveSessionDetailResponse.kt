@@ -1,7 +1,6 @@
 package com.trading.coinflip.api.live
 
 import com.trading.coinflip.common.model.Timeframe
-import com.trading.coinflip.api.live.LivePositionResponse
 import com.trading.coinflip.live.model.LiveSessionStatus
 import java.math.BigDecimal
 import java.time.Instant

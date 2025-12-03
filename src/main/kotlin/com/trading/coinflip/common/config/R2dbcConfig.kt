@@ -1,9 +1,9 @@
 package com.trading.coinflip.common.config
 
-import com.trading.coinflip.experiment.model.ExperimentStatus
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionStatus
+import com.trading.coinflip.experiment.model.ExperimentStatus
 import com.trading.coinflip.live.model.LiveSessionStatus
 import io.r2dbc.spi.ConnectionFactory
 import org.springframework.context.annotation.Bean

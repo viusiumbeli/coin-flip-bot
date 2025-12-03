@@ -26,12 +26,8 @@ data class LiveSessionEntity(
     var positionIdCounter: Long = 0,
     @Column("trade_id_counter")
     var tradeIdCounter: Long = 0,
-    @Column("last_atr")
-    var lastAtr: BigDecimal? = null,
-    @Column("last_candle_close")
-    var lastCandleClose: BigDecimal? = null,
-    @Column("last_candle_time")
-    var lastCandleTime: Instant? = null,
+    @Column("last_candle_id")
+    var lastCandleId: Long? = null,
     @Column("started_at")
     val startedAt: Instant = Instant.now(),
     @Column("last_update_at")

@@ -106,4 +106,17 @@ interface CandleRepository : CoroutineCrudRepository<CandleEntity, Long> {
         symbol: String,
         timeframe: Timeframe,
     ): Flow<CandleEntity>
+
+    @Query(
+        """
+        SELECT * FROM candles
+        WHERE symbol = :symbol AND timeframe = :timeframe AND open_time = :openTime
+        LIMIT 1
+        """,
+    )
+    suspend fun findBySymbolAndTimeframeAndOpenTime(
+        symbol: String,
+        timeframe: Timeframe,
+        openTime: Instant,
+    ): CandleEntity?
 }
