@@ -115,6 +115,18 @@ class BinanceClient(
         }
 
         log.info { "Completed fetching ${allCandles.size} candles for $symbol $timeframe" }
-        return allCandles
+
+        // Filter out incomplete candle (current candle that hasn't closed yet)
+        val closedCandles =
+            allCandles.filter { candle ->
+                val candleCloseTime = candle.openTime.plusMillis(timeframe.minutes * 60 * 1000L)
+                !candleCloseTime.isAfter(now)
+            }
+
+        if (closedCandles.size < allCandles.size) {
+            log.info { "Filtered out ${allCandles.size - closedCandles.size} incomplete candle(s)" }
+        }
+
+        return closedCandles
     }
 }

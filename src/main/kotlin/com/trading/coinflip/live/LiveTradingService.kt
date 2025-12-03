@@ -311,31 +311,21 @@ class LiveTradingService(
                 }
 
                 is TradingEvent.PositionClosed -> {
-                    // Update position with exit data and close status
+                    // Update position status to closed
                     val entity =
-                        positionRepository.findBySessionIdAndPositionId(
-                            sessionId,
-                            event.positionId,
-                        )
+                        positionRepository.findBySessionIdAndPositionId(sessionId, event.positionId)
                     if (entity != null) {
                         entity.status = PositionStatus.CLOSED
-                        entity.exitTime = event.exitTime
-                        entity.exitPrice = event.exitPrice
-                        entity.exitReason = event.exitReason
-                        entity.profitLoss = event.pnl
-                        entity.profitLossPercent = event.trade.profitLossPercent
-                        entity.balanceBeforeClose = event.trade.balanceBeforeClose
-                        entity.balanceAfterClose = event.newBalance
                         entity.updatedAt = Instant.now()
                         positionRepository.save(entity)
                     }
 
-                    // Save to trades
+                    // Save to trades (source of truth for exit data)
                     val tradeEntity = LiveTradeEntity.fromTrade(event.trade, sessionId)
                     tradeRepository.save(tradeEntity)
                     log.info {
                         "Closed position ${event.positionId}: " +
-                            "P&L=${event.pnl}, Reason=${event.exitReason}"
+                                "P&L=${event.pnl}, Reason=${event.exitReason}"
                     }
                 }
             }
@@ -445,7 +435,8 @@ class LiveTradingService(
     /**
      * Get current status for all sessions.
      */
-    suspend fun getAllSessionStatus(): List<LiveSessionEntity> = sessionRepository.findAllByOrderByStartedAtDesc().toList()
+    suspend fun getAllSessionStatus(): List<LiveSessionEntity> =
+        sessionRepository.findAllByOrderByStartedAtDesc().toList()
 
     /**
      * Get state for a specific symbol.
