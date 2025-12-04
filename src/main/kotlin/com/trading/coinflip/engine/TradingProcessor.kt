@@ -119,6 +119,7 @@ class TradingProcessor(
                             accountBalance = availableBalance,
                             riskPercent = config.riskPerTrade,
                             atrMultiplier = config.atrMultiplier,
+                            maxPositionSizeRate = config.maxPositionSizeRate,
                             balanceBeforeOpen = availableBalance,
                             positionId = newPositionId,
                         )
