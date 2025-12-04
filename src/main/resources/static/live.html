@@ -25,17 +25,21 @@
 
         <!-- Sessions List -->
         <div class="card" id="sessionsListCard">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;" >
                 <h2>Trading Sessions</h2>
                 <div class="button-group">
-                    <select id="startSymbol" style="margin-right: 10px;">
+                    <select id="startSymbol" style="flex: 1; min-width: 350px;">
                         <option value="">Select symbol...</option>
                     </select>
-                    <select id="startTimeframe" style="margin-right: 10px;">
+                    <select id="startTimeframe" style="flex: 1; min-width: 350px;">
                         <option value="">Select timeframe...</option>
                     </select>
-                    <button class="btn-success" onclick="startSession()" id="startBtn">Start Session</button>
-                    <button class="btn-secondary" onclick="loadSessions()" style="margin-left: 10px;">Refresh</button>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+                <div class="button-group">
+                    <button class="btn-success" style="flex: 1; min-width: 350px;" onclick="startSession()" id="startBtn">Start Session</button>
+                    <button class="btn-secondary"style="flex: 1; min-width: 350px;"  onclick="loadSessions()">Refresh</button>
                 </div>
             </div>
             <div class="trades-table">
@@ -44,6 +48,7 @@
                         <tr>
                             <th>ID</th>
                             <th>Symbol</th>
+                            <th>Timeframe</th>
                             <th>Status</th>
                             <th>Balance</th>
                             <th>P&L</th>
@@ -56,7 +61,7 @@
                     </thead>
                     <tbody id="sessionsBody">
                         <tr>
-                            <td colspan="10" style="text-align: center; color: var(--text-muted);">Loading sessions...</td>
+                            <td colspan="11" style="text-align: center; color: var(--text-muted);">Loading sessions...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -263,7 +268,7 @@
                 if (sessions.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="10" style="text-align: center; color: var(--text-muted);">No sessions found. Start a new session above.</td>
+                            <td colspan="11" style="text-align: center; color: var(--text-muted);">No sessions found. Start a new session above.</td>
                         </tr>
                     `;
                     return;
@@ -273,6 +278,7 @@
                     <tr>
                         <td>${session.id}</td>
                         <td>${session.symbol}</td>
+                        <td>${session.timeframe}</td>
                         <td><span class="status-badge ${statusColors[session.status]}">${session.status}</span></td>
                         <td>$${formatNumber(session.currentBalance)}</td>
                         <td class="${session.profitLoss >= 0 ? 'positive' : 'negative'}">
