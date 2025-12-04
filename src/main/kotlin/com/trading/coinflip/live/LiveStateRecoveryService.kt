@@ -25,7 +25,7 @@ class LiveStateRecoveryService(
      * Recover trading state from a persisted session.
      */
     suspend fun recoverState(session: LiveSessionEntity): LiveTradingStateHolder {
-        log.info { "Recovering state for session ${session.id} (${session.symbol})" }
+        log.info { "[#${session.id} ${session.symbol}/${session.timeframe.label}] Recovering state" }
 
         // Load open positions
         val openPositions =
@@ -52,9 +52,8 @@ class LiveStateRecoveryService(
         val lastCandle = session.lastCandleId?.let { candleRepository.findById(it) }
 
         log.info {
-            "Recovered state: balance=${session.currentBalance}, " +
-                "openPositions=${openPositions.size}, " +
-                "closedTrades=$tradeCount"
+            "[#${session.id} ${session.symbol}/${session.timeframe.label}] Recovered state: " +
+                "balance=${session.currentBalance}, openPositions=${openPositions.size}, closedTrades=$tradeCount"
         }
 
         return LiveTradingStateHolder(

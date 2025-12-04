@@ -63,7 +63,10 @@ class LiveTradingService(
     private val stateHolders = ConcurrentHashMap<String, LiveTradingStateHolder>()
     private val mutex = Mutex()
 
-    private fun sessionKey(symbol: String, timeframe: Timeframe): String = "${symbol}_${timeframe.label}"
+    private fun sessionKey(
+        symbol: String,
+        timeframe: Timeframe,
+    ): String = "${symbol}_${timeframe.label}"
 
     @PostConstruct
     fun initialize() {
@@ -136,7 +139,7 @@ class LiveTradingService(
                 }
             sessionJobs[key] = job
 
-            log.info { "Started live trading session for $symbol ${timeframe.label} (id=${session.id})" }
+            log.info { "[#${session.id} $symbol/${timeframe.label}] Started live trading session" }
             session
         }
 
@@ -161,34 +164,36 @@ class LiveTradingService(
                 }
             sessionJobs[key] = job
 
-            log.info { "Resumed session for ${session.symbol} ${session.timeframe.label} (id=${session.id})" }
+            log.info { "[#${session.id} ${session.symbol}/${session.timeframe.label}] Resumed session" }
         }
 
     /**
      * Stop a running session.
      */
-    suspend fun stopSession(symbol: String, timeframe: Timeframe) =
-        mutex.withLock {
-            val key = sessionKey(symbol, timeframe)
-            val job = sessionJobs.remove(key)
-            val stateHolder = stateHolders.remove(key)
+    suspend fun stopSession(
+        symbol: String,
+        timeframe: Timeframe,
+    ) = mutex.withLock {
+        val key = sessionKey(symbol, timeframe)
+        val job = sessionJobs.remove(key)
+        val stateHolder = stateHolders.remove(key)
 
-            if (job == null || stateHolder == null) {
-                throw IllegalStateException("No running session for $symbol ${timeframe.label}")
-            }
-
-            job.cancel()
-
-            // Update session status in database
-            val session = sessionRepository.findById(stateHolder.sessionId)
-            if (session != null) {
-                session.status = LiveSessionStatus.STOPPED
-                session.stoppedAt = Instant.now()
-                sessionRepository.save(session)
-            }
-
-            log.info { "Stopped session for $symbol ${timeframe.label}" }
+        if (job == null || stateHolder == null) {
+            throw IllegalStateException("No running session for $symbol ${timeframe.label}")
         }
+
+        job.cancel()
+
+        // Update session status in database
+        val session = sessionRepository.findById(stateHolder.sessionId)
+        if (session != null) {
+            session.status = LiveSessionStatus.STOPPED
+            session.stoppedAt = Instant.now()
+            sessionRepository.save(session)
+        }
+
+        log.info { "[#${stateHolder.sessionId} $symbol/${timeframe.label}] Stopped session" }
+    }
 
     /**
      * Main session loop - connects to WebSocket and processes candles.
@@ -199,7 +204,7 @@ class LiveTradingService(
             .onEach { rawCandle ->
                 processCompletedCandle(stateHolder, rawCandle)
             }.catch { e ->
-                log.error(e) { "Session error for ${stateHolder.symbol}" }
+                log.error(e) { "${stateHolder.logPrefix} Session error" }
                 handleSessionError(stateHolder, e)
             }.collect()
     }
@@ -211,13 +216,12 @@ class LiveTradingService(
         stateHolder: LiveTradingStateHolder,
         rawCandle: CandleEntity,
     ) {
-        val symbol = stateHolder.symbol
-        log.info { "Processing candle for $symbol at ${rawCandle.openTime}" }
+        log.info { "${stateHolder.logPrefix} Processing candle at ${rawCandle.openTime}" }
 
         // Calculate ATR incrementally
         val previousCandle = stateHolder.lastCandle
         if (previousCandle?.atr == null) {
-            log.warn { "No ATR available for $symbol, skipping candle" }
+            log.warn { "${stateHolder.logPrefix} No ATR available, skipping candle" }
             return
         }
 
@@ -243,24 +247,27 @@ class LiveTradingService(
                     stateHolder.updateState(newState)
 
                     // Persist events
-                    persistEvents(stateHolder.sessionId, events)
+                    persistEvents(stateHolder, events)
 
                     for (event in events) {
                         when (event) {
-                            is TradingEvent.PositionOpened -> log.info {
-                                "Opened ${event.position.side} #${event.position.id} at ${event.position.entryPrice} for $symbol"
-                            }
-                            is TradingEvent.PositionUpdated -> log.info {
-                                "Updated trailing stop #${event.positionId} to ${event.newTrailingStop} for $symbol"
-                            }
-                            is TradingEvent.PositionClosed -> log.info {
-                                "Closed #${event.positionId} P&L=${event.pnl} (${event.exitReason}) for $symbol"
-                            }
+                            is TradingEvent.PositionOpened ->
+                                log.info {
+                                    "${stateHolder.logPrefix} Opened ${event.position.side} #${event.position.id} at ${event.position.entryPrice}"
+                                }
+                            is TradingEvent.PositionUpdated ->
+                                log.info {
+                                    "${stateHolder.logPrefix} Updated trailing stop #${event.positionId} to ${event.newTrailingStop}"
+                                }
+                            is TradingEvent.PositionClosed ->
+                                log.info {
+                                    "${stateHolder.logPrefix} Closed #${event.positionId} P&L=${event.pnl} (${event.exitReason})"
+                                }
                         }
                     }
                     newState
                 } else {
-                    log.info { "Processed candle for $symbol, no position changes" }
+                    log.info { "${stateHolder.logPrefix} Processed candle, no position changes" }
                     currentState
                 }
 
@@ -279,9 +286,9 @@ class LiveTradingService(
         val lastCandle = candleRepository.findLastCandleWithATR(stateHolder.symbol, stateHolder.timeframe)
         if (lastCandle != null) {
             stateHolder.lastCandle = lastCandle
-            log.info { "Initialized ATR from history: ${lastCandle.atr} at ${lastCandle.openTime}" }
+            log.info { "${stateHolder.logPrefix} Initialized ATR from history: ${lastCandle.atr} at ${lastCandle.openTime}" }
         } else {
-            log.warn { "No historical ATR found for ${stateHolder.symbol} ${stateHolder.timeframe.label}, will need to build from stream" }
+            log.warn { "${stateHolder.logPrefix} No historical ATR found, will need to build from stream" }
         }
     }
 
@@ -289,15 +296,16 @@ class LiveTradingService(
      * Persist trading events to database.
      */
     private suspend fun persistEvents(
-        sessionId: Long,
+        stateHolder: LiveTradingStateHolder,
         events: List<TradingEvent>,
     ) {
+        val sessionId = stateHolder.sessionId
         for (event in events) {
             when (event) {
                 is TradingEvent.PositionOpened -> {
                     val entity = LivePositionEntity.fromPosition(event.position, sessionId)
                     positionRepository.save(entity)
-                    log.info { "Persisted new position: ${event.position.id} ${event.position.side}" }
+                    log.info { "${stateHolder.logPrefix} Persisted new position: ${event.position.id} ${event.position.side}" }
                 }
 
                 is TradingEvent.PositionUpdated -> {
@@ -328,8 +336,7 @@ class LiveTradingService(
                     val tradeEntity = LiveTradeEntity.fromTrade(event.trade, sessionId)
                     tradeRepository.save(tradeEntity)
                     log.info {
-                        "Closed position ${event.positionId}: " +
-                            "P&L=${event.pnl}, Reason=${event.exitReason}"
+                        "${stateHolder.logPrefix} Closed position ${event.positionId}: P&L=${event.pnl}, Reason=${event.exitReason}"
                     }
                 }
             }
@@ -444,12 +451,16 @@ class LiveTradingService(
     /**
      * Get state for a specific symbol and timeframe.
      */
-    fun getStateHolder(symbol: String, timeframe: Timeframe): LiveTradingStateHolder? =
-        stateHolders[sessionKey(symbol, timeframe)]
+    fun getStateHolder(
+        symbol: String,
+        timeframe: Timeframe,
+    ): LiveTradingStateHolder? = stateHolders[sessionKey(symbol, timeframe)]
 
     /**
      * Check if a symbol and timeframe has an active session.
      */
-    fun isSessionActive(symbol: String, timeframe: Timeframe): Boolean =
-        sessionJobs.containsKey(sessionKey(symbol, timeframe))
+    fun isSessionActive(
+        symbol: String,
+        timeframe: Timeframe,
+    ): Boolean = sessionJobs.containsKey(sessionKey(symbol, timeframe))
 }
