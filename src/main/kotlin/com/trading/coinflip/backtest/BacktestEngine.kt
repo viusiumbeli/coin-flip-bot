@@ -10,7 +10,6 @@ import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
-import kotlin.random.Random
 
 @Component
 class BacktestEngine(
@@ -46,27 +45,25 @@ class BacktestEngine(
             "Backtesting ${backtestCandles.size} candles from ${backtestCandles.first().openTime} to ${backtestCandles.last().openTime}"
         }
 
-        // Use direct mutation for maximum performance (no event allocations)
-        val random = Random.Default
-        val tradingConfig = config.trading
-        // Walk through each candle - direct mutation, zero per-candle allocations!
+        // Single source of truth - TradingProcessor handles ALL trading logic
         for (candle in backtestCandles) {
-            state.processCandleDirect(candle, tradingConfig, random)
+            val events = processor.processCandle(state, candle)
+            state.applyEvents(events)
         }
 
         // Close any remaining open positions at the last candle price
         val lastCandle = backtestCandles.last()
-        val openPositions = state.getMutableOpenPositions()
-        for (position in openPositions.toList()) {
-            state.closePositionDirect(
-                position = position,
-                exitPrice = lastCandle.close,
-                exitTime = lastCandle.openTime,
-                exitReason = "End of backtest period",
-                config = tradingConfig,
-            )
+        for (position in state.openPositions.toList()) {
+            val closeEvent =
+                processor.forceClosePosition(
+                    state = state,
+                    position = position,
+                    exitPrice = lastCandle.close,
+                    exitTime = lastCandle.openTime,
+                    exitReason = "End of backtest period",
+                )
+            state.applyEvent(closeEvent)
         }
-        openPositions.clear()
 
         log.debug { "Backtest completed. Closed ${state.closedTrades.size} trades" }
         log.debug {
