@@ -13,11 +13,8 @@
 
 /* Header */
 .header {
-    background: var(--bg-card);
     padding: var(--spacing-xxl);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-card);
-    margin-bottom: var(--spacing-xxl);
+    margin-bottom: var(--spacing-lg);
     text-align: center;
 }
 

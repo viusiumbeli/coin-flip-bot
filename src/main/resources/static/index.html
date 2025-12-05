@@ -36,12 +36,12 @@
 
                 <div class="form-group">
                     <label for="startDate">Start Date</label>
-                    <input type="datetime-local" id="startDate" required>
+                    <input type="datetime-local" id="startDate" max="9999-12-31T23:59" required>
                 </div>
 
                 <div class="form-group">
                     <label for="endDate">End Date</label>
-                    <input type="datetime-local" id="endDate" required>
+                    <input type="datetime-local" id="endDate" max="9999-12-31T23:59" required>
                 </div>
             </div>
 
@@ -145,8 +145,8 @@
                     body: JSON.stringify({
                         symbol,
                         timeframe,
-                        startDate: new Date(startDate).toISOString(),
-                        endDate: new Date(endDate).toISOString()
+                        startDate: toUTCISOString(startDate),
+                        endDate: toUTCISOString(endDate)
                     })
                 });
 
@@ -311,7 +311,7 @@
                                         <td>${trade.entryTime}</td>
                                         <td>$${formatNumber(trade.entryPrice)}</td>
                                         <td title="$${formatNumber(trade.balanceBeforeOpen)}">$${formatNumber(trade.balanceBeforeOpen)}</td>
-                                        <td>${formatNumber(trade.positionSize)}</td>
+                                        <td>${formatSize(trade.positionSize)}</td>
                                         <td title="$${formatNumber(trade.balanceAfterOpen)}">$${formatNumber(trade.balanceAfterOpen)}</td>
                                         <td>${trade.exitTime}</td>
                                         <td>$${formatNumber(trade.exitPrice)}</td>

@@ -130,8 +130,8 @@ async function createExperiment() {
             body: JSON.stringify({
                 symbol,
                 timeframe,
-                startDate: new Date(startDate).toISOString(),
-                endDate: new Date(endDate).toISOString(),
+                startDate: toUTCISOString(startDate),
+                endDate: toUTCISOString(endDate),
                 numBacktests,
                 customName: customName || null,
                 notes: notes || null
@@ -540,7 +540,7 @@ function displayRunDetail(run) {
             <td>${formatDateTime(trade.entryTime)}</td>
             <td>$${formatNumber(trade.entryPrice)}</td>
             <td>$${formatNumber(trade.balanceBeforeOpen)}</td>
-            <td>${formatNumber(trade.positionSize)}</td>
+            <td>${formatSize(trade.positionSize)}</td>
             <td>$${formatNumber(trade.balanceAfterOpen)}</td>
             <td>${formatDateTime(trade.exitTime)}</td>
             <td>$${formatNumber(trade.exitPrice)}</td>

@@ -1,3 +1,111 @@
+# Van Tharp Coin-Flip Trading Bot
+
+## Project Overview
+This application implements **Van Tharp's coin-flip trading strategy** - an educational system that proves:
+
+> **"Entry timing matters far less than traders believe. Exit strategy and position sizing determine profitability."**
+
+The system uses **random 50/50 coin flips** to decide LONG or SHORT entries, combined with professional risk management (1% risk model) and ATR-based trailing stops. Results are compared against buy-and-hold to validate the strategy.
+
+### Main Features
+1. **Backtesting** (`/api/backtest`) - Run single backtests on historical Binance data
+2. **Experiments** (`/api/experiments`) - Monte Carlo simulations (up to 10M runs) to statistically validate strategy
+3. **Simulation** (`/api/simulation`) - Step-by-step candle-by-candle walkthrough for learning
+4. **Live Trading** (`/api/live`) - Real-time execution against Binance WebSocket feed
+
+## The Coin Flip Strategy
+
+### Entry Logic
+- `CoinFlipStrategy.flipCoin()` returns random LONG/SHORT with 50% probability
+- Entry attempts occur based on `entryFrequency` config (default: every 2 candles)
+- New positions open only when: available capital exists AND position limit not reached
+
+### Exit Logic (ATR Trailing Stop)
+- **Initial Stop**: `entryPrice ± (atrMultiplier × ATR)` based on position side
+  - LONG: `entryPrice - (3 × ATR)`
+  - SHORT: `entryPrice + (3 × ATR)`
+- **Trailing**: Stop follows favorable price movement, never moves closer to entry
+- **Exit**: Position closes when price hits trailing stop
+
+### Position Sizing (1% Risk Model)
+```
+Risk Amount = Account Balance × riskPerTrade (default 1%)
+Position Size = Risk Amount / Stop Distance (entry to stop)
+```
+
+**Example**: Balance=$10,000, risk=1%, ATR=$100, multiplier=3
+- Stop Distance = 3 × $100 = $300
+- Risk Amount = $10,000 × 0.01 = $100
+- Position Size = $100 / $300 = 0.333 units
+
+This ensures **each losing trade loses exactly 1% of capital**.
+
+## Core Business Rules
+- **Risk Management**: Max 1% loss per trade via position sizing formula
+- **Diversification**: Up to `maxConcurrentPositions` (default 5) open trades
+- **Transaction Costs**: 0.1% per side (0.2% round-trip), applied at entry and exit
+- **No Profit Targets**: Trailing stops only - let winners run
+- **Baseline Comparison**: Every backtest includes buy-and-hold return for comparison
+- **Drawdown Tracking**: Peak-to-trough decline tracked for psychology/risk metrics
+
+## Database Schema
+
+### Core Tables
+| Table | Purpose |
+|-------|---------|
+| `candles` | OHLCV data from Binance with pre-calculated ATR |
+| `experiments` | Experiment config + aggregated results across all runs |
+| `backtest_runs` | Individual backtest results within an experiment |
+| `experiment_trades` | Trade details (only saved if ≤`tradesThreshold` runs) |
+
+### Live Trading Tables
+| Table | Purpose |
+|-------|---------|
+| `live_sessions` | Active/historical trading sessions with state |
+| `live_positions` | Open positions for active sessions |
+| `live_trades` | Completed trades from live execution |
+| `live_balance_snapshots` | Point-in-time balance history for charting |
+
+**Key Indexes**: `(symbol, timeframe, open_time)` on candles for fast range queries
+
+## API Endpoints Quick Reference
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/data/status` | GET | Check data availability per symbol/timeframe |
+| `/api/data/sync` | POST | Sync missing candles from Binance |
+| `/api/backtest/run` | POST | Run single backtest, returns immediately |
+| `/api/experiments` | POST | Create async experiment (returns 202) |
+| `/api/experiments/{id}/status` | GET | Poll experiment progress |
+| `/api/simulation/init` | POST | Initialize step-by-step simulation |
+| `/api/simulation/next` | POST | Advance to next candle |
+| `/api/live/sessions/start` | POST | Start live trading session (returns 202) |
+
+## Frontend Pages
+
+| Page | URL | Purpose |
+|------|-----|---------|
+| `index.html` | `/` | Single backtest runner with trade table |
+| `experiments.html` | `/experiments.html` | Create/compare Monte Carlo experiments |
+| `simulation.html` | `/simulation.html` | Interactive candle-by-candle learning |
+| `data.html` | `/data.html` | Sync and manage historical data |
+| `live.html` | `/live.html` | Live trading dashboard |
+
+## Common Mistakes to Avoid
+
+1. **Don't modify TradingProcessor without understanding the full flow** - It's the single source of truth used by backtest, simulation, AND live trading
+2. **Don't create entities without Flyway migration** - All schema changes go through `db/migration/V*.sql`
+3. **Don't add BigDecimal division in hot paths** - Use lazy pre-computed rates in `TradingConfig` (e.g., `riskPerTradeRate`)
+4. **Don't use blocking calls in suspend functions** - No `runBlocking`, use `Mutex.withLock` not `@Synchronized`
+5. **Don't forget async cancellation handling** - Check `isActive` in loops, use `SupervisorJob` for isolation
+6. **Don't save trades for large experiments** - Only saved if `numBacktests ≤ tradesThreshold` (default 100)
+7. **Don't use browser `confirm()`** - Use `showConfirmModal()` from `modal.js`
+8. **Don't apply timezone to dates** - Use `toUTCISOString()` from `formatters.js`, all dates are UTC
+
+---
+
+## Quick Reference
+
 - always add new files to git
 - shared formatting utilities are in `src/main/resources/static/formatters.js` - use `formatNumber()`, `formatDate()`, and `formatDateTime()` across all HTML pages for consistent formatting
 - use `showConfirmModal(title, message, confirmText, callback, isDanger)` from `js/components/modal.js` for confirmation dialogs instead of browser's `confirm()` - supports danger (red) and warning (orange) styles
@@ -189,5 +297,28 @@ fun loadData() = runBlocking {
 }
 ```
 
+## Frontend Patterns
+
+**Date/Time Handling (UTC only):**
+- All `datetime-local` inputs use `max="9999-12-31T23:59"` to limit year to 4 digits
+- Use `toUTCISOString(value)` from `formatters.js` when sending dates to API - treats input as UTC
+- Use `formatDate()` and `formatDateTime()` for displaying ISO strings from backend
+- Never use `new Date(datetimeLocalValue).toISOString()` - causes timezone shift
+
+```javascript
+// Good - treats datetime-local value as UTC
+startDate: toUTCISOString(document.getElementById('startDate').value)
+
+// Bad - applies local timezone offset
+startDate: new Date(startDate).toISOString()
+```
+
 ## Summary
-This codebase follows strict conventions: one class per file, feature-based package organization, and consistent naming (`*Request`, `*Response`, `*Entity`, `*Config`, `*Dto`). All configuration is centralized in `BacktestProperties`, ktlint enforces code style, and `TradingProcessor` is the single source of truth for trading logic. The async layer uses Kotlin coroutines with Spring WebFlux, `Mutex` for synchronization, and `Channel` for streaming. When adding new features, place classes in the appropriate feature package and follow existing patterns.
+This codebase follows strict conventions: one class per file, feature-based package organization, and consistent naming (`*Request`, `*Response`, `*Entity`, `*Config`, `*Dto`). All configuration is centralized in `BacktestProperties`, ktlint enforces code style, and `TradingProcessor` is the single source of truth for trading logic. The async layer uses Kotlin coroutines with Spring WebFlux, `Mutex` for synchronization, and `Channel` for streaming. Frontend uses vanilla JS with UTC-only date handling via `formatters.js` utilities. When adding new features, place classes in the appropriate feature package and follow existing patterns.
+
+## Conclusion
+This project demonstrates Van Tharp's core insight: **you can be profitable with random entries if your risk management is sound**. The coin flip removes all pretense of market prediction, forcing focus on what actually matters - position sizing that limits losses to 1% per trade and trailing stops that let winners run.
+
+The technical implementation prioritizes correctness over cleverness. `TradingProcessor` handles all P&L calculations in one place. BigDecimal ensures no floating-point errors corrupt financial data. Coroutines enable running millions of Monte Carlo simulations without blocking. The result is a system where you can statistically prove whether a risk management approach works, independent of entry strategy.
+
+Use this codebase to experiment with different ATR multipliers, position limits, and risk percentages. The numbers don't lie - and that's the point.
