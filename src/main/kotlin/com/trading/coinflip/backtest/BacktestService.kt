@@ -34,16 +34,6 @@ class BacktestService(
                 log.info { "=".repeat(80) }
 
                 try {
-                    // Load historical data
-                    dataService.loadHistoricalData(
-                        symbol = symbol,
-                        timeframe = timeframe,
-                        startDate = properties.startDate,
-                    )
-
-                    val dataSummary = dataService.getDataSummary(symbol, timeframe)
-                    log.info { dataSummary }
-
                     // Get candles for backtest
                     val candles =
                         dataService.getCandlesForBacktest(
@@ -104,16 +94,6 @@ class BacktestService(
         endDate: Instant? = null,
     ): BacktestResult {
         log.debug { "Processing: $symbol - ${timeframe.label}" }
-
-        // Load historical data
-        dataService.loadHistoricalData(
-            symbol = symbol,
-            timeframe = timeframe,
-            startDate = startDate ?: properties.startDate,
-        )
-
-        val dataSummary = dataService.getDataSummary(symbol, timeframe)
-        log.debug { dataSummary }
 
         // Get candles for backtest
         val candles =

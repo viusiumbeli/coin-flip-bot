@@ -16,34 +16,65 @@ class DataService(
 ) {
     private val log = KotlinLogging.logger {}
 
-    suspend fun loadHistoricalData(
+    /**
+     * Syncs missing data from the latest candle to now.
+     * Downloads and saves page-by-page for crash safety.
+     */
+    suspend fun syncMissingData(
+        symbol: String,
+        timeframe: Timeframe,
+    ): Int {
+        val latestCandleTime = candleRepository.findLatestCandle(symbol, timeframe)?.openTime
+
+        val startTime =
+            if (latestCandleTime != null) {
+                latestCandleTime.plusSeconds(timeframe.minutes * 60L)
+            } else {
+                properties.startDate
+            }
+
+        val now = Instant.now()
+        if (!startTime.isBefore(now)) {
+            log.info { "Data for $symbol ${timeframe.label} is already up to date" }
+            return 0
+        }
+
+        log.info { "Syncing missing data for $symbol ${timeframe.label} from $startTime" }
+        val totalSaved = streamAndSave(symbol, timeframe, startTime)
+
+        if (totalSaved == 0) {
+            log.info { "No new candles for $symbol ${timeframe.label}" }
+            return 0
+        }
+
+        candlePersistenceService.calculateAndSaveATR(symbol, timeframe)
+        log.info { "Synced $totalSaved new candles for $symbol ${timeframe.label}" }
+        return totalSaved
+    }
+
+    private suspend fun streamAndSave(
         symbol: String,
         timeframe: Timeframe,
         startDate: Instant,
-    ) {
-        val existingCount = candleRepository.countBySymbolAndTimeframeFromDate(symbol, timeframe, startDate)
-        if (existingCount > 0) {
-            log.info { "Found $existingCount existing candles for $symbol $timeframe, skipping download" }
-            // Still calculate ATR for any candles that don't have it
-            candlePersistenceService.calculateAndSaveATR(symbol, timeframe)
-            return
-        }
+    ): Int {
+        var totalSaved = 0
+        var pageNum = 0
 
-        log.info { "Loading historical data for $symbol $timeframe from $startDate" }
-        val candles = binanceClient.fetchAllHistoricalData(symbol, timeframe, startDate)
+        binanceClient
+            .streamHistoricalData(symbol, timeframe, startDate)
+            .collect { page ->
+                val saved = candlePersistenceService.saveCandlePage(page)
+                totalSaved += saved
+                pageNum++
+                log.info { "Page $pageNum: saved $saved candles (total: $totalSaved)" }
+            }
 
-        if (candles.isEmpty()) {
-            log.warn { "No candles fetched for $symbol $timeframe" }
-            return
-        }
-
-        // Save candles in a separate transaction
-        candlePersistenceService.saveCandles(symbol, timeframe, candles)
-
-        // Calculate and update ATR in a separate transaction
-        candlePersistenceService.calculateAndSaveATR(symbol, timeframe)
+        return totalSaved
     }
 
+    /**
+     * Fetches candles from database only. No network calls.
+     */
     suspend fun getCandlesForBacktest(
         symbol: String,
         timeframe: Timeframe,
@@ -57,58 +88,4 @@ class DataService(
                 startDate,
                 endDate,
             ).toList()
-
-    suspend fun getDataSummary(
-        symbol: String,
-        timeframe: Timeframe,
-    ): String {
-        val earliest = candleRepository.findEarliestCandle(symbol, timeframe)?.openTime
-        val latest = candleRepository.findLatestCandle(symbol, timeframe)?.openTime
-        val count = candleRepository.countBySymbolAndTimeframe(symbol, timeframe)
-
-        return """
-            Symbol: $symbol
-            Timeframe: ${timeframe.label}
-            Candles: $count
-            Period: $earliest to $latest
-            """.trimIndent()
-    }
-
-    suspend fun syncMissingData(
-        symbol: String,
-        timeframe: Timeframe,
-    ): Int {
-        val latestCandleTime = candleRepository.findLatestCandle(symbol, timeframe)?.openTime
-
-        val startTime =
-            if (latestCandleTime != null) {
-                // Start from the next candle after the latest one
-                latestCandleTime.plusSeconds(timeframe.minutes * 60L)
-            } else {
-                // No data exists, use configured start date
-                properties.startDate
-            }
-
-        val now = Instant.now()
-        if (!startTime.isBefore(now)) {
-            log.info { "Data for $symbol ${timeframe.label} is already up to date" }
-            return 0
-        }
-
-        log.info { "Syncing missing data for $symbol ${timeframe.label} from $startTime" }
-        val candles = binanceClient.fetchAllHistoricalData(symbol, timeframe, startTime)
-
-        if (candles.isEmpty()) {
-            log.info { "No new candles fetched for $symbol ${timeframe.label}" }
-            return 0
-        }
-
-        val newCandlesAdded = candlePersistenceService.saveCandles(symbol, timeframe, candles)
-
-        // Calculate ATR for new candles
-        candlePersistenceService.calculateAndSaveATR(symbol, timeframe)
-
-        log.info { "Synced $newCandlesAdded new candles for $symbol ${timeframe.label}" }
-        return newCandlesAdded
-    }
 }

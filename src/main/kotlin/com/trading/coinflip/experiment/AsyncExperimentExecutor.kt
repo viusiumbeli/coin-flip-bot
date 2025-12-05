@@ -98,17 +98,10 @@ class AsyncExperimentExecutor(
         // Update experiment status to RUNNING
         updateExperimentStatus(experimentId, ExperimentStatus.RUNNING)
 
-        // Step 1: Load candles ONCE (this is the key optimization)
+        // Step 1: Load candles from DB (data must already exist via /api/data/sync)
         log.info { "Loading candles for experiment $experimentId..." }
         val loadStartTime = System.currentTimeMillis()
 
-        dataService.loadHistoricalData(
-            symbol = request.symbol,
-            timeframe = request.timeframe,
-            startDate = request.startDate,
-        )
-
-        // R2DBC is already async - no Dispatchers.IO needed
         val candles =
             dataService.getCandlesForBacktest(
                 symbol = request.symbol,

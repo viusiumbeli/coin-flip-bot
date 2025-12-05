@@ -64,7 +64,7 @@ backtest:
   api:
     max-page-size: 1000
     http-timeout-ms: 30000
-    rate-limit-delay-ms: 100
+    rate-limit-delay-ms: 0
 
 live:
   enabled: true
