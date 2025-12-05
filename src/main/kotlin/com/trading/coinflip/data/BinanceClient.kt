@@ -8,6 +8,7 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -78,8 +79,11 @@ class BinanceClient(
                     volume = BigDecimal(kline[5].toString()),
                 )
             }
+        } catch (e: CancellationException) {
+            log.info { "Klines fetch cancelled for $symbol $timeframe startTime=$startTime" }
+            throw e
         } catch (e: Exception) {
-            log.error(e) { "Failed to fetch klines for $symbol $timeframe" }
+            log.error(e) { "Failed to fetch klines for $symbol $timeframe startTime=$startTime limit=$limit" }
             emptyList()
         }
     }

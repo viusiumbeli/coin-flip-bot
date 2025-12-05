@@ -3,7 +3,9 @@ package com.trading.coinflip.data
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.reactive.awaitSingle
 import mu.KotlinLogging
+import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.stereotype.Service
 import java.time.Instant
 
@@ -12,6 +14,7 @@ class DataService(
     private val candleRepository: CandleRepository,
     private val binanceClient: BinanceClient,
     private val properties: BacktestProperties,
+    private val databaseClient: DatabaseClient,
 ) {
     private val log = KotlinLogging.logger {}
 
@@ -92,12 +95,44 @@ class DataService(
 
     /**
      * Save a page of candles to the database.
+     * Uses multi-row INSERT for efficiency and to avoid R2DBC ByteBuf memory leaks.
      * Candles are sorted by openTime to ensure correct ATR calculation by database trigger.
      */
     private suspend fun saveCandlePage(candles: List<CandleEntity>): Int {
         if (candles.isEmpty()) return 0
         val sortedCandles = candles.sortedBy { it.openTime }
-        candleRepository.saveAll(sortedCandles).toList()
+        val sql = buildCandlesInsert(sortedCandles)
+        databaseClient
+            .sql(sql)
+            .fetch()
+            .rowsUpdated()
+            .awaitSingle()
         return sortedCandles.size
+    }
+
+    /**
+     * Builds a multi-row INSERT statement for candles.
+     * Uses ON CONFLICT DO NOTHING to handle already synced candles gracefully.
+     * ATR column is omitted - calculated by database trigger on INSERT.
+     */
+    private fun buildCandlesInsert(candles: List<CandleEntity>): String {
+        val values =
+            candles.joinToString(", ") { candle ->
+                """
+                (
+                    '${candle.symbol}', '${candle.timeframe.name}',
+                    '${candle.openTime}',
+                    ${candle.open.toPlainString()}, ${candle.high.toPlainString()},
+                    ${candle.low.toPlainString()}, ${candle.close.toPlainString()},
+                    ${candle.volume.toPlainString()}
+                )
+                """.trimIndent().replace("\n", " ")
+            }
+
+        return """
+            INSERT INTO candles (symbol, timeframe, open_time, open, high, low, close, volume)
+            VALUES $values
+            ON CONFLICT (symbol, timeframe, open_time) DO NOTHING
+            """.trimIndent()
     }
 }
