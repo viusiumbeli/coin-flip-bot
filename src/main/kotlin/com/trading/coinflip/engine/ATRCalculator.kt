@@ -5,6 +5,18 @@ import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
 
+/**
+ * ATR Calculator - DEPRECATED
+ *
+ * ATR is now calculated atomically by PostgreSQL BEFORE INSERT trigger on the candles table.
+ * See: V9__ATR_database_trigger.sql
+ *
+ * This class is kept for reference and testing purposes only.
+ */
+@Deprecated(
+    message = "ATR is now calculated by PostgreSQL database trigger. See V9__ATR_database_trigger.sql",
+    level = DeprecationLevel.WARNING,
+)
 @Component
 class ATRCalculator {
     /**

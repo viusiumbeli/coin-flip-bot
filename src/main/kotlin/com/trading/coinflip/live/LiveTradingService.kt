@@ -5,7 +5,6 @@ import com.trading.coinflip.common.config.LiveProperties
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.data.CandleRepository
-import com.trading.coinflip.engine.ATRCalculator
 import com.trading.coinflip.engine.TradingProcessor
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionStatus
@@ -45,7 +44,6 @@ import java.util.concurrent.ConcurrentHashMap
 class LiveTradingService(
     private val webSocketClient: BinanceWebSocketClient,
     private val tradingProcessor: TradingProcessor,
-    private val atrCalculator: ATRCalculator,
     private val recoveryService: LiveStateRecoveryService,
     private val sessionRepository: LiveSessionRepository,
     private val positionRepository: LivePositionRepository,
@@ -56,7 +54,6 @@ class LiveTradingService(
     private val backtestProperties: BacktestProperties,
 ) {
     private val log = KotlinLogging.logger {}
-    private val tradingConfig = backtestProperties.trading
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val sessionJobs = ConcurrentHashMap<String, Job>()
@@ -218,23 +215,16 @@ class LiveTradingService(
     ) {
         log.info { "${stateHolder.logPrefix} Processing candle at ${rawCandle.openTime}" }
 
-        // Calculate ATR incrementally
-        val previousCandle = stateHolder.lastCandle
-        if (previousCandle?.atr == null) {
-            log.warn { "${stateHolder.logPrefix} No ATR available, skipping candle" }
+        // Save candle to database - ATR is calculated atomically by PostgreSQL trigger
+        val savedCandle = persistCandle(rawCandle)
+
+        // Verify ATR was calculated (requires enough historical data)
+        if (savedCandle.atr == null) {
+            log.warn { "${stateHolder.logPrefix} No ATR calculated (not enough history), skipping candle" }
+            stateHolder.updateLastCandle(savedCandle)
             return
         }
 
-        val candleWithAtr =
-            atrCalculator
-                .calculateATRIncremental(
-                    previousCandle = previousCandle,
-                    newCandles = listOf(rawCandle),
-                    period = tradingConfig.atrPeriod,
-                ).first()
-
-        // Save candle to database first to get ID
-        val savedCandle = persistCandle(candleWithAtr)
         stateHolder.updateLastCandle(savedCandle)
 
         // Process candle through trading processor
@@ -363,11 +353,17 @@ class LiveTradingService(
     }
 
     /**
-     * Persist candle to database and return the saved entity with ID.
+     * Persist candle to database and return the saved entity with trigger-calculated ATR.
      */
     private suspend fun persistCandle(candle: CandleEntity): CandleEntity =
         try {
             candleRepository.save(candle)
+            // Re-fetch to get trigger-calculated ATR (save() returns input entity, not DB-modified)
+            candleRepository.findBySymbolAndTimeframeAndOpenTime(
+                candle.symbol,
+                candle.timeframe,
+                candle.openTime,
+            ) ?: candle
         } catch (e: Exception) {
             // Likely duplicate - find existing candle
             log.debug { "Candle already exists: ${candle.symbol} ${candle.openTime}" }

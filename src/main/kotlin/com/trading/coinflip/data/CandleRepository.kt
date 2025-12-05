@@ -74,18 +74,6 @@ interface CandleRepository : CoroutineCrudRepository<CandleEntity, Long> {
     @Query(
         """
         SELECT * FROM candles
-        WHERE symbol = :symbol AND timeframe = :timeframe AND atr IS NULL
-        ORDER BY open_time ASC
-        """,
-    )
-    fun findCandlesWithoutATR(
-        symbol: String,
-        timeframe: Timeframe,
-    ): Flow<CandleEntity>
-
-    @Query(
-        """
-        SELECT * FROM candles
         WHERE symbol = :symbol AND timeframe = :timeframe AND open_time = :openTime
         LIMIT 1
         """,
