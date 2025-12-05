@@ -116,12 +116,13 @@ class TradingProcessor(
                     val newPosition =
                         strategy.createPosition(
                             candle = candle,
-                            accountBalance = availableBalance,
+                            accountBalance = currentBalance,
                             riskPercent = config.riskPerTrade,
                             atrMultiplier = config.atrMultiplier,
                             maxPositionSizeRate = config.maxPositionSizeRate,
-                            balanceBeforeOpen = availableBalance,
+                            balanceBeforeOpen = currentBalance,
                             positionId = newPositionId,
+                            maxAllocation = availableBalance,
                         )
 
                     newPosition?.let {
