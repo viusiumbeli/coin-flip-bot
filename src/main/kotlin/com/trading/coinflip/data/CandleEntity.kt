@@ -21,5 +21,5 @@ data class CandleEntity(
     val low: BigDecimal,
     val close: BigDecimal,
     val volume: BigDecimal,
-    var atr: BigDecimal? = null,
+    val atr: BigDecimal? = null,
 )
