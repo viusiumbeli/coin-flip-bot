@@ -1,4 +1,4 @@
-package com.trading.coinflip.data
+package com.trading.coinflip.candle
 
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
@@ -6,6 +6,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitSingle
 import mu.KotlinLogging
 import org.springframework.r2dbc.core.DatabaseClient
@@ -13,7 +14,7 @@ import org.springframework.stereotype.Service
 import java.time.Instant
 
 @Service
-class DataService(
+class CandleService(
     private val candleRepository: CandleRepository,
     private val binanceClient: BinanceClient,
     private val properties: BacktestProperties,
@@ -171,4 +172,31 @@ class DataService(
             ON CONFLICT (symbol, timeframe, open_time) DO NOTHING
             """.trimIndent()
     }
+
+    /**
+     * Fetches aggregated stats for all symbol/timeframe combinations in a single query.
+     * Returns count, earliest, and latest candle for each combination.
+     */
+    suspend fun getAllCandleStats(): List<CandleStats> =
+        databaseClient
+            .sql(
+                """
+                SELECT symbol, timeframe,
+                       COUNT(*) as candle_count,
+                       MIN(open_time) as earliest,
+                       MAX(open_time) as latest
+                FROM candles
+                GROUP BY symbol, timeframe
+                """,
+            ).map { row, _ ->
+                CandleStats(
+                    symbol = row.get("symbol", String::class.java)!!,
+                    timeframe = row.get("timeframe", String::class.java)!!,
+                    candleCount = row.get("candle_count", Long::class.javaObjectType)!!,
+                    earliest = row.get("earliest", Instant::class.java),
+                    latest = row.get("latest", Instant::class.java),
+                )
+            }.all()
+            .asFlow()
+            .toList()
 }

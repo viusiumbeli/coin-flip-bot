@@ -1,5 +1,7 @@
 package com.trading.coinflip.data
 
+import com.trading.coinflip.candle.CandleEntity
+import com.trading.coinflip.candle.CandleRepository
 import com.trading.coinflip.common.model.Timeframe
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking

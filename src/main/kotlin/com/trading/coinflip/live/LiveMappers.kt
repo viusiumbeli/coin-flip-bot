@@ -5,7 +5,7 @@ import com.trading.coinflip.api.live.LiveSessionDetailResponse
 import com.trading.coinflip.api.live.LiveSessionSummaryResponse
 import com.trading.coinflip.api.live.LiveSnapshotResponse
 import com.trading.coinflip.api.live.LiveTradeResponse
-import com.trading.coinflip.data.CandleEntity
+import com.trading.coinflip.candle.CandleEntity
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.live.model.LiveBalanceSnapshotEntity
 import com.trading.coinflip.live.model.LivePositionEntity

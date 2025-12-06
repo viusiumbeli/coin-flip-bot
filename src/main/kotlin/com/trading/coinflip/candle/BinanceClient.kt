@@ -1,4 +1,4 @@
-package com.trading.coinflip.data
+package com.trading.coinflip.candle
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.trading.coinflip.common.config.BacktestProperties

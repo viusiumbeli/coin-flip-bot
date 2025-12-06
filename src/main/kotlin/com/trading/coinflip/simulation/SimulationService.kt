@@ -1,11 +1,11 @@
 package com.trading.coinflip.simulation
 
 import com.trading.coinflip.api.simulation.SimulationInitRequest
+import com.trading.coinflip.candle.CandleEntity
+import com.trading.coinflip.candle.CandleRepository
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.dto.TradeDto
 import com.trading.coinflip.common.model.Timeframe
-import com.trading.coinflip.data.CandleEntity
-import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.engine.TradingProcessor
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.TradingState
@@ -47,6 +47,7 @@ class SimulationService(
             log.info { "Initializing simulation for ${request.symbol} ${request.timeframe.label}" }
 
             // Load candles from database
+            // todo fix it
             val loadedCandles =
                 candleRepository
                     .findBySymbolAndTimeframeOrderByOpenTimeAsc(

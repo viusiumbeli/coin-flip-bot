@@ -1,4 +1,4 @@
-package com.trading.coinflip.data
+package com.trading.coinflip.candle
 
 import com.trading.coinflip.common.model.Timeframe
 import kotlinx.coroutines.flow.Flow

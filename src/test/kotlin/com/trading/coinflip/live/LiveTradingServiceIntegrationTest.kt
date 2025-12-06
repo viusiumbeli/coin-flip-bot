@@ -1,8 +1,8 @@
 package com.trading.coinflip.live
 
 import com.ninjasquad.springmockk.MockkBean
-import com.trading.coinflip.data.CandleEntity
-import com.trading.coinflip.data.CandleRepository
+import com.trading.coinflip.candle.CandleEntity
+import com.trading.coinflip.candle.CandleRepository
 import com.trading.coinflip.engine.model.PositionStatus
 import com.trading.coinflip.live.model.LiveSessionStatus
 import com.trading.coinflip.live.repository.LiveBalanceSnapshotRepository
