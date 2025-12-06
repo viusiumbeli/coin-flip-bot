@@ -17,7 +17,6 @@ import com.trading.coinflip.experiment.model.toExperimentSummaryResponse
 import kotlinx.coroutines.flow.toList
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.ZoneId
@@ -27,7 +26,6 @@ import java.time.format.DateTimeFormatter
 class ExperimentService(
     private val experimentRepository: ExperimentRepository,
     private val backtestRunRepository: BacktestRunRepository,
-    private val experimentTradeRepository: ExperimentTradeRepository,
     private val asyncExperimentExecutor: AsyncExperimentExecutor,
     private val properties: BacktestProperties,
 ) {
@@ -86,9 +84,7 @@ class ExperimentService(
             backtestRunRepository.findById(runId)
                 ?: throw NotFoundException("Backtest run not found: $runId")
 
-        val trades = experimentTradeRepository.findByBacktestRunIdOrderByTradeNumberAsc(runId).toList()
-
-        return run.toDetailDto(trades)
+        return run.toDetailDto()
     }
 
     suspend fun compareExperiments(experimentIds: List<Long>): ExperimentComparisonResponse {
@@ -136,15 +132,8 @@ class ExperimentService(
         )
     }
 
-    @Transactional
     suspend fun deleteExperiment(id: Long) {
-        if (!experimentRepository.existsById(id)) {
-            throw NotFoundException("Experiment not found: $id")
-        }
-        // Manual cascade delete - R2DBC doesn't honor ON DELETE CASCADE
-        experimentTradeRepository.deleteByExperimentId(id)
-        backtestRunRepository.deleteByExperimentId(id)
-        experimentRepository.deleteById(id)
+        experimentRepository.deleteExperimentById(id)
         log.info { "Deleted experiment $id" }
     }
 
@@ -155,13 +144,13 @@ class ExperimentService(
      * Creates the experiment record with PENDING status and triggers background execution.
      * Returns immediately without waiting for backtests to complete.
      */
-    @Transactional
     suspend fun initiateExperiment(request: CreateExperimentRequest): ExperimentEntity {
         val numBacktests = request.numBacktests.coerceIn(1, properties.experiment.asyncBacktestLimit)
         log.info { "Initiating async experiment for ${request.symbol} ${request.timeframe.label} with $numBacktests backtests" }
 
         // Generate auto name
-        val autoName = generateExperimentName(request.symbol, request.timeframe, request.startDate, request.endDate, numBacktests)
+        val autoName =
+            generateExperimentName(request.symbol, request.timeframe, request.startDate, request.endDate, numBacktests)
 
         // Create experiment with PENDING status and placeholder values for aggregated stats
         val experiment =

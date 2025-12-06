@@ -258,7 +258,6 @@ function displayExperimentDetail(exp) {
     document.getElementById('createForm').classList.add('hidden');
     document.getElementById('historySection').classList.add('hidden');
     document.getElementById('comparisonSection').classList.add('hidden');
-    document.getElementById('runDetailSection').classList.add('hidden');
     document.getElementById('detailSection').classList.remove('hidden');
 
     const isProfit = exp.totalReturnPercent >= 0;
@@ -395,7 +394,7 @@ async function loadExperimentRuns(experimentId, page) {
         if (data.runs.length === 0 && data.page === 0) {
             document.getElementById('runsBody').innerHTML = `
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 20px; color: #666;">
+                    <td colspan="7" style="text-align: center; padding: 20px; color: #666;">
                         No runs available
                     </td>
                 </tr>
@@ -410,9 +409,6 @@ async function loadExperimentRuns(experimentId, page) {
                     <td>${formatNumber(run.profitFactor)}</td>
                     <td class="negative">${formatNumber(run.maxDrawdownPercent)}%</td>
                     <td>${run.totalTrades}</td>
-                    <td>
-                        <button class="btn-info" onclick="viewRun(${run.id})">View Trades</button>
-                    </td>
                 </tr>
             `).join('');
         }
@@ -459,109 +455,9 @@ function renderPaginationControls(experimentId, data) {
     runsTable.parentNode.insertBefore(controls, runsTable.nextSibling);
 }
 
-async function viewRun(runId) {
-    showLoading(true);
-    hideError();
-
-    try {
-        const response = await fetch(`${API_BASE}/experiments/runs/${runId}`);
-        if (!response.ok) {
-            throw new Error(`Server returned ${response.status}`);
-        }
-
-        const run = await response.json();
-        displayRunDetail(run);
-
-    } catch (error) {
-        showError('Failed to load run: ' + error.message);
-    } finally {
-        showLoading(false);
-    }
-}
-
-function displayRunDetail(run) {
-    document.getElementById('detailSection').classList.add('hidden');
-    document.getElementById('runDetailSection').classList.remove('hidden');
-
-    const isProfit = run.totalReturnPercent >= 0;
-
-    document.getElementById('runDetailTitle').innerHTML = `
-        Run #${run.runNumber}
-        <span style="color: ${isProfit ? '#10b981' : '#ef4444'}; font-size: 18px; margin-left: 15px;">
-            ${formatNumber(run.totalReturnPercent)}% Return
-        </span>
-    `;
-
-    document.getElementById('runDetailMeta').innerHTML = `
-        ${run.totalTrades} trades | Win Rate: ${formatNumber(run.winRate)}% | Sharpe: ${formatNumber(run.sharpeRatio)}
-    `;
-
-    // Display run metrics
-    document.getElementById('runMetrics').innerHTML = `
-        <div class="metric-card">
-            <div class="metric-label">Final Capital</div>
-            <div class="metric-value ${isProfit ? 'positive' : 'negative'}">$${formatNumber(run.finalCapital)}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Total Return</div>
-            <div class="metric-value ${isProfit ? 'positive' : 'negative'}">$${formatNumber(run.totalReturn)}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Max Drawdown</div>
-            <div class="metric-value negative">${formatNumber(run.maxDrawdownPercent)}%</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Win Rate</div>
-            <div class="metric-value">${formatNumber(run.winRate)}%</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Profit Factor</div>
-            <div class="metric-value">${formatNumber(run.profitFactor)}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Sharpe Ratio</div>
-            <div class="metric-value">${formatNumber(run.sharpeRatio)}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Winning Trades</div>
-            <div class="metric-value positive">${run.winningTrades}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Losing Trades</div>
-            <div class="metric-value negative">${run.losingTrades}</div>
-        </div>
-    `;
-
-    // Display trades
-    document.getElementById('runTrades').innerHTML = run.trades.map(trade => `
-        <tr>
-            <td>${trade.tradeNumber}</td>
-            <td>${trade.side}</td>
-            <td>${formatDateTime(trade.entryTime)}</td>
-            <td>$${formatNumber(trade.entryPrice)}</td>
-            <td>$${formatNumber(trade.balanceBeforeOpen)}</td>
-            <td>${formatSize(trade.positionSize)}</td>
-            <td>$${formatNumber(trade.balanceAfterOpen)}</td>
-            <td>${formatDateTime(trade.exitTime)}</td>
-            <td>$${formatNumber(trade.exitPrice)}</td>
-            <td>$${formatNumber(trade.balanceBeforeClose)}</td>
-            <td class="${trade.profitLoss >= 0 ? 'positive' : 'negative'}">$${formatNumber(trade.profitLoss)}</td>
-            <td class="${trade.profitLossPercent >= 0 ? 'positive' : 'negative'}">${formatNumber(trade.profitLossPercent)}%</td>
-            <td>$${formatNumber(trade.balanceAfterClose)}</td>
-            <td>${trade.exitReason}</td>
-        </tr>
-    `).join('');
-}
-
-function hideRunDetail() {
-    document.getElementById('runDetailSection').classList.add('hidden');
-    document.getElementById('detailSection').classList.remove('hidden');
-}
-
 function hideDetail() {
     clearAllCharts();
     document.getElementById('detailSection').classList.add('hidden');
-    document.getElementById('runDetailSection').classList.add('hidden');
     document.getElementById('createForm').classList.remove('hidden');
     document.getElementById('historySection').classList.remove('hidden');
     currentExperimentId = null;
@@ -672,7 +568,6 @@ function displayComparison(data) {
     document.getElementById('createForm').classList.add('hidden');
     document.getElementById('historySection').classList.add('hidden');
     document.getElementById('detailSection').classList.add('hidden');
-    document.getElementById('runDetailSection').classList.add('hidden');
     document.getElementById('comparisonSection').classList.remove('hidden');
 
     // Build header

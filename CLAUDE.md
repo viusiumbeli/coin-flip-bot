@@ -56,7 +56,6 @@ This ensures **each losing trade loses exactly 1% of capital**.
 | `candles` | OHLCV data from Binance with pre-calculated ATR |
 | `experiments` | Experiment config + aggregated results across all runs |
 | `backtest_runs` | Individual backtest results within an experiment |
-| `experiment_trades` | Trade details (only saved if ≤`tradesThreshold` runs) |
 
 ### Live Trading Tables
 | Table | Purpose |
@@ -98,10 +97,9 @@ This ensures **each losing trade loses exactly 1% of capital**.
 3. **Don't add BigDecimal division in hot paths** - Use lazy pre-computed rates in `TradingConfig` (e.g., `riskPerTradeRate`)
 4. **Don't use blocking calls in suspend functions** - No `runBlocking`, use `Mutex.withLock` not `@Synchronized`
 5. **Don't forget async cancellation handling** - Check `isActive` in loops, use `SupervisorJob` for isolation
-6. **Don't save trades for large experiments** - Only saved if `numBacktests ≤ tradesThreshold` (default 100)
-7. **Don't use browser `confirm()`** - Use `showConfirmModal()` from `modal.js`
-8. **Don't apply timezone to dates** - Use `toUTCISOString()` from `formatters.js`, all dates are UTC
-9. **Don't use ATRCalculator for new code** - ATR is calculated by database trigger; re-fetch candle after save to get ATR value
+6. **Don't use browser `confirm()`** - Use `showConfirmModal()` from `modal.js`
+7. **Don't apply timezone to dates** - Use `toUTCISOString()` from `formatters.js`, all dates are UTC
+8. **Don't use ATRCalculator for new code** - ATR is calculated by database trigger; re-fetch candle after save to get ATR value
 
 ---
 
@@ -147,7 +145,6 @@ Feature-based organization under `com.trading.coinflip` with **one class per fil
 - Database migrations are in `src/main/resources/db/migration/` using Flyway (V1, V2, V3...)
 - Entity extension functions (mappers) are in `experiment/ExperimentMappers.kt`
 - Frontend is vanilla JS with Chart.js for visualizations
-- Trades are saved to `experiment_trades` table only for experiments with ≤`tradesThreshold` backtests (configurable, default 100)
 
 ## Configuration
 All runtime constants are centralized in `BacktestProperties` (`common/config/BacktestProperties.kt`) with nested config classes, configurable via `application.yml`:
@@ -165,7 +162,6 @@ backtest:
   experiment:       # ExperimentConfig
     sync-backtest-limit: 1000000
     async-backtest-limit: 10000000
-    trades-threshold: 100
   async:            # AsyncConfig
     parallelism-min: 4
     parallelism-max: 32
@@ -177,7 +173,7 @@ backtest:
     rate-limit-delay-ms: 100
 ```
 
-Access in code: `properties.trading.riskPerTrade`, `properties.experiment.tradesThreshold`, `properties.async.batchSize`, `properties.api.maxPageSize`
+Access in code: `properties.trading.riskPerTrade`, `properties.experiment.asyncBacktestLimit`, `properties.async.batchSize`, `properties.api.maxPageSize`
 
 ## Logging
 Use `KotlinLogging` with logger declared **inside the class** as the first property:

@@ -25,11 +25,4 @@ interface BacktestRunRepository : CoroutineCrudRepository<BacktestRunEntity, Lon
 
     @Query("SELECT COUNT(*) FROM backtest_runs WHERE experiment_id = :experimentId")
     suspend fun countByExperimentId(experimentId: Long): Long
-
-    // For non-paginated access
-    fun findByExperimentId(experimentId: Long): Flow<BacktestRunEntity>
-
-    // Manual cascade delete - R2DBC doesn't honor ON DELETE CASCADE
-    @Query("DELETE FROM backtest_runs WHERE experiment_id = :experimentId")
-    suspend fun deleteByExperimentId(experimentId: Long)
 }

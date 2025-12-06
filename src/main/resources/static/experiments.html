@@ -191,7 +191,6 @@
                                 <th class="sortable" data-field="profitFactor" onclick="sortRuns('profitFactor')">Profit Factor<span class="sort-indicator"></span></th>
                                 <th class="sortable" data-field="maxDrawdownPercent" onclick="sortRuns('maxDrawdownPercent')">Max DD %<span class="sort-indicator"></span></th>
                                 <th class="sortable" data-field="totalTrades" onclick="sortRuns('totalTrades')">Trades<span class="sort-indicator"></span></th>
-                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="runsBody"></tbody>
@@ -200,47 +199,6 @@
             </div>
         </div>
 
-        <!-- Run Detail View (trades) -->
-        <div class="card hidden" id="runDetailSection">
-            <div class="nav-bar">
-                <button class="back-btn" onclick="hideRunDetail()">Back to Experiment</button>
-            </div>
-
-            <div class="experiment-header">
-                <div>
-                    <h2 class="experiment-title" id="runDetailTitle">Run Details</h2>
-                    <p class="experiment-meta" id="runDetailMeta"></p>
-                </div>
-            </div>
-
-            <h3>Run Metrics</h3>
-            <div class="metrics-grid" id="runMetrics"></div>
-
-            <h3>Trade History</h3>
-            <div class="trades-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Side</th>
-                            <th>Entry Time</th>
-                            <th>Entry Price</th>
-                            <th>Balance Before</th>
-                            <th>Size</th>
-                            <th>Balance After</th>
-                            <th>Exit Time</th>
-                            <th>Exit Price</th>
-                            <th>Bal Before Close</th>
-                            <th>P&L</th>
-                            <th>P&L %</th>
-                            <th>Bal After Close</th>
-                            <th>Exit Reason</th>
-                        </tr>
-                    </thead>
-                    <tbody id="runTrades"></tbody>
-                </table>
-            </div>
-        </div>
     </div>
 
     <script src="js/components/theme.js"></script>

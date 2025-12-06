@@ -51,7 +51,6 @@ backtest:
   experiment:
     sync-backtest-limit: 1000000
     async-backtest-limit: 10000000
-    trades-threshold: 100
 
   async:
     parallelism-min: 4
