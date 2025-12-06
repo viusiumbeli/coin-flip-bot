@@ -5,7 +5,8 @@ import com.trading.coinflip.backtest.model.BacktestConfig
 import com.trading.coinflip.backtest.model.BacktestResult
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
-import com.trading.coinflip.data.DataService
+import com.trading.coinflip.data.CandleRepository
+import kotlinx.coroutines.flow.toList
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -13,7 +14,7 @@ import java.time.Instant
 @Service
 class BacktestService(
     private val properties: BacktestProperties,
-    private val dataService: DataService,
+    private val candleRepository: CandleRepository,
     private val reportGenerator: ReportGenerator,
     private val backtestEngine: BacktestEngine,
 ) {
@@ -36,12 +37,13 @@ class BacktestService(
                 try {
                     // Get candles for backtest
                     val candles =
-                        dataService.getCandlesForBacktest(
-                            symbol = symbol,
-                            timeframe = timeframe,
-                            startDate = properties.startDate,
-                            endDate = Instant.now(),
-                        )
+                        candleRepository
+                            .findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc(
+                                symbol = symbol,
+                                timeframe = timeframe,
+                                startTime = properties.startDate,
+                                endTime = Instant.now(),
+                            ).toList()
 
                     if (candles.isEmpty()) {
                         log.warn { "No candles available for $symbol ${timeframe.label}" }
@@ -97,12 +99,13 @@ class BacktestService(
 
         // Get candles for backtest
         val candles =
-            dataService.getCandlesForBacktest(
-                symbol = symbol,
-                timeframe = timeframe,
-                startDate = startDate ?: properties.startDate,
-                endDate = endDate ?: Instant.now(),
-            )
+            candleRepository
+                .findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc(
+                    symbol = symbol,
+                    timeframe = timeframe,
+                    startTime = startDate ?: properties.startDate,
+                    endTime = endDate ?: Instant.now(),
+                ).toList()
 
         require(candles.isNotEmpty()) { "No candles available for $symbol ${timeframe.label}" }
 

@@ -323,14 +323,14 @@ startDate: new Date(startDate).toISOString()
 **Key Components:**
 - `BinanceClient.streamHistoricalData()` - Returns `Flow<List<CandleEntity>>`, emits pages of 1000 candles
 - `DataService.syncMissingData()` - Syncs from latest candle to now, used by `/api/data/sync`
-- `DataService.getCandlesForBacktest()` - DB-only fetch, used by backtests and experiments
+- `CandleRepository.findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc()` - DB-only fetch, used by backtests and experiments
 - `CandlePersistenceService.saveCandlePage()` - Saves one page per transaction for crash safety
 
 **Data Flow:**
 ```
 Binance API → BinanceClient (streaming) → CandlePersistenceService (page-by-page save) → DB
                                                                                           ↓
-Backtest/Experiment ← DataService.getCandlesForBacktest() ← CandleRepository ←───────────┘
+Backtest/Experiment ← CandleRepository ←──────────────────────────────────────────────────┘
 ```
 
 **ATR Calculation (Database Trigger):**

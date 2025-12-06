@@ -2,7 +2,6 @@ package com.trading.coinflip.data
 
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.awaitSingle
 import mu.KotlinLogging
 import org.springframework.r2dbc.core.DatabaseClient
@@ -75,23 +74,6 @@ class DataService(
 
         return totalSaved
     }
-
-    /**
-     * Fetches candles from database only. No network calls.
-     */
-    suspend fun getCandlesForBacktest(
-        symbol: String,
-        timeframe: Timeframe,
-        startDate: Instant,
-        endDate: Instant,
-    ): List<CandleEntity> =
-        candleRepository
-            .findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc(
-                symbol,
-                timeframe,
-                startDate,
-                endDate,
-            ).toList()
 
     /**
      * Save a page of candles to the database.
