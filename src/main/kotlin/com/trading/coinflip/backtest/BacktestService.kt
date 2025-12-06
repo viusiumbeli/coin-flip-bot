@@ -24,9 +24,8 @@ class BacktestService(
         startDate: Instant? = null,
         endDate: Instant? = null,
     ): BacktestResult {
-        log.debug { "Processing: $symbol - ${timeframe.label}" }
+        log.info { "Processing: $symbol - ${timeframe.label}" }
 
-        // Get candles for backtest
         val candles =
             candleRepository
                 .findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc(
@@ -36,9 +35,6 @@ class BacktestService(
                     endTime = endDate ?: Instant.now(),
                 ).toList()
 
-        require(candles.isNotEmpty()) { "No candles available for $symbol ${timeframe.label}" }
-
-        // Create backtest config
         val config =
             BacktestConfig(
                 symbol = symbol,
@@ -49,7 +45,6 @@ class BacktestService(
                 endDate = endDate ?: Instant.now(),
             )
 
-        // Run backtest
         return backtestEngine.runBacktest(config, candles)
     }
 }

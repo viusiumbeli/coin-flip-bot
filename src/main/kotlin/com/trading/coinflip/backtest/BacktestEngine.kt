@@ -22,37 +22,28 @@ class BacktestEngine(
         config: BacktestConfig,
         candles: List<CandleEntity>,
     ): BacktestResult {
-        log.debug { "Starting backtest for ${config.symbol} ${config.timeframe.label}" }
-        log.debug { "Initial capital: ${config.initialCapital}, Risk per trade: ${config.trading.riskPerTrade}%" }
+        log.info { "Starting backtest for ${config.symbol} ${config.timeframe.label}" }
 
         // Use MutableTradingState for high-performance backtest execution
         val state = MutableTradingState.create(config.initialCapital)
 
-        // Filter candles by date range if specified
-        val backtestCandles =
-            candles.filter { candle ->
-                val afterStart = config.startDate?.let { candle.openTime >= it } ?: true
-                val beforeEnd = config.endDate?.let { candle.openTime <= it } ?: true
-                afterStart && beforeEnd
-            }
-
-        if (backtestCandles.isEmpty()) {
+        if (candles.isEmpty()) {
             log.warn { "No candles available for backtesting" }
             return createEmptyResult(config, candles)
         }
 
-        log.debug {
-            "Backtesting ${backtestCandles.size} candles from ${backtestCandles.first().openTime} to ${backtestCandles.last().openTime}"
+        log.info {
+            "Backtesting ${candles.size} candles from ${candles.first().openTime} to ${candles.last().openTime}"
         }
 
         // Single source of truth - TradingProcessor handles ALL trading logic
-        for (candle in backtestCandles) {
+        for (candle in candles) {
             val events = processor.processCandle(state, candle)
             state.applyEvents(events)
         }
 
         // Close any remaining open positions at the last candle price
-        val lastCandle = backtestCandles.last()
+        val lastCandle = candles.last()
         for (position in state.openPositions.toList()) {
             val closeEvent =
                 processor.forceClosePosition(
@@ -65,18 +56,8 @@ class BacktestEngine(
             state.applyEvent(closeEvent)
         }
 
-        log.debug { "Backtest completed. Closed ${state.closedTrades.size} trades" }
-        log.debug {
-            "Final balance: ${state.accountBalance} (${(
-                (state.accountBalance - config.initialCapital) / config.initialCapital *
-                    BigDecimal(
-                        100,
-                    )
-            ).setScale(2, RoundingMode.HALF_UP)}%)"
-        }
-
         // Calculate buy and hold performance
-        val buyAndHoldReturn = calculateBuyAndHoldReturn(backtestCandles, config.initialCapital)
+        val buyAndHoldReturn = calculateBuyAndHoldReturn(candles, config.initialCapital)
 
         return analytics.calculatePerformance(
             config = config,
@@ -85,8 +66,8 @@ class BacktestEngine(
             maxDrawdown = state.maxDrawdown,
             peakBalance = state.peakBalance,
             buyAndHoldReturn = buyAndHoldReturn,
-            startDate = backtestCandles.first().openTime,
-            endDate = backtestCandles.last().openTime,
+            startDate = candles.first().openTime,
+            endDate = candles.last().openTime,
         )
     }
 
