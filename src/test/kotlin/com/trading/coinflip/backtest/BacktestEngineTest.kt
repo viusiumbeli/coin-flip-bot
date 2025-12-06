@@ -7,11 +7,13 @@ import com.trading.coinflip.common.config.TradingConfig
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.engine.TradingProcessor
+import com.trading.coinflip.engine.model.MutableTradingState
 import com.trading.coinflip.engine.model.Position
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionStatus
 import com.trading.coinflip.engine.model.Trade
 import com.trading.coinflip.engine.model.TradingEvent
+import com.trading.coinflip.engine.model.TradingStateView
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -72,6 +74,9 @@ class BacktestEngineTest {
             trading = TradingConfig(),
             collectTrades = collectTrades,
         )
+
+    private fun createState(config: BacktestConfig): MutableTradingState =
+        MutableTradingState.create(config.initialCapital, config.collectTrades)
 
     private fun createTestPosition(
         id: Long = 1L,
@@ -147,6 +152,16 @@ class BacktestEngineTest {
             buyAndHoldReturnPercent = BigDecimal.ZERO,
         )
 
+    private fun mockAnalytics(result: BacktestResult) {
+        every {
+            analytics.calculatePerformance(
+                config = any(),
+                state = any(),
+                candles = any(),
+            )
+        } returns result
+    }
+
     @Nested
     @DisplayName("Empty Candles")
     inner class EmptyCandlesTests {
@@ -154,8 +169,9 @@ class BacktestEngineTest {
         @DisplayName("returns empty result when candles list is empty")
         fun emptyCandles_returnsEmptyResult() {
             val config = createTestConfig()
+            val state = createState(config)
 
-            val result = engine.runBacktest(config, emptyList())
+            val result = engine.runBacktest(state, config, emptyList())
 
             assertThat(result.trades).isEmpty()
             assertThat(result.totalTrades).isEqualTo(0)
@@ -169,11 +185,12 @@ class BacktestEngineTest {
         @DisplayName("does not call processor or analytics when candles empty")
         fun emptyCandles_noProcessorCalls() {
             val config = createTestConfig()
+            val state = createState(config)
 
-            engine.runBacktest(config, emptyList())
+            engine.runBacktest(state, config, emptyList())
 
             verify(exactly = 0) { processor.processCandle(any(), any()) }
-            verify(exactly = 0) { analytics.calculatePerformance(any(), any(), any(), any(), any(), any(), any(), any(), any()) }
+            verify(exactly = 0) { analytics.calculatePerformance(any(), any(), any()) }
         }
     }
 
@@ -188,50 +205,35 @@ class BacktestEngineTest {
             val expectedResult = createEmptyBacktestResult(config)
 
             every { processor.processCandle(any(), any()) } returns emptyList()
-            every {
-                analytics.calculatePerformance(
-                    config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = any(),
-                    startDate = any(),
-                    endDate = any(),
-                    trades = any(),
-                )
-            } returns expectedResult
+            mockAnalytics(expectedResult)
 
-            engine.runBacktest(config, listOf(candle))
+            val state = createState(config)
+            engine.runBacktest(state, config, listOf(candle))
 
             verify(exactly = 1) { processor.processCandle(any(), candle) }
         }
 
         @Test
-        @DisplayName("buy and hold is zero when single candle")
-        fun singleCandle_buyAndHoldZero() {
+        @DisplayName("passes candles to analytics")
+        fun singleCandle_passesCandlesToAnalytics() {
             val config = createTestConfig()
-            val candle = createTestCandle(0, price = BigDecimal("100"))
-
-            val buyAndHoldSlot = slot<BigDecimal>()
+            val candle = createTestCandle(0)
+            val candlesSlot = slot<List<CandleEntity>>()
 
             every { processor.processCandle(any(), any()) } returns emptyList()
             every {
                 analytics.calculatePerformance(
                     config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = capture(buyAndHoldSlot),
-                    startDate = any(),
-                    endDate = any(),
+                    state = any(),
+                    candles = capture(candlesSlot),
                 )
             } returns createEmptyBacktestResult(config)
 
-            engine.runBacktest(config, listOf(candle))
+            val state = createState(config)
+            engine.runBacktest(state, config, listOf(candle))
 
-            assertThat(buyAndHoldSlot.captured).isEqualByComparingTo(BigDecimal.ZERO)
+            assertThat(candlesSlot.captured).hasSize(1)
+            assertThat(candlesSlot.captured[0]).isEqualTo(candle)
         }
     }
 
@@ -246,116 +248,35 @@ class BacktestEngineTest {
             val expectedResult = createEmptyBacktestResult(config)
 
             every { processor.processCandle(any(), any()) } returns emptyList()
-            every {
-                analytics.calculatePerformance(
-                    config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = any(),
-                    startDate = any(),
-                    endDate = any(),
-                    trades = any(),
-                )
-            } returns expectedResult
+            mockAnalytics(expectedResult)
 
-            engine.runBacktest(config, candles)
+            val state = createState(config)
+            engine.runBacktest(state, config, candles)
 
             verify(exactly = 5) { processor.processCandle(any(), any()) }
         }
 
         @Test
-        @DisplayName("calculates buy and hold correctly for price increase")
-        fun priceIncrease_buyAndHoldPositive() {
-            val config = createTestConfig()
-            val candles =
-                listOf(
-                    createTestCandle(0, price = BigDecimal("100")),
-                    createTestCandle(1, price = BigDecimal("150")),
-                )
-
-            val buyAndHoldSlot = slot<BigDecimal>()
-
-            every { processor.processCandle(any(), any()) } returns emptyList()
-            every {
-                analytics.calculatePerformance(
-                    config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = capture(buyAndHoldSlot),
-                    startDate = any(),
-                    endDate = any(),
-                )
-            } returns createEmptyBacktestResult(config)
-
-            engine.runBacktest(config, candles)
-
-            // Buy and hold: (150 - 100) / 100 * 10000 = 5000
-            assertThat(buyAndHoldSlot.captured).isEqualByComparingTo(BigDecimal("5000"))
-        }
-
-        @Test
-        @DisplayName("calculates buy and hold correctly for price decrease")
-        fun priceDecrease_buyAndHoldNegative() {
-            val config = createTestConfig()
-            val candles =
-                listOf(
-                    createTestCandle(0, price = BigDecimal("100")),
-                    createTestCandle(1, price = BigDecimal("80")),
-                )
-
-            val buyAndHoldSlot = slot<BigDecimal>()
-
-            every { processor.processCandle(any(), any()) } returns emptyList()
-            every {
-                analytics.calculatePerformance(
-                    config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = capture(buyAndHoldSlot),
-                    startDate = any(),
-                    endDate = any(),
-                )
-            } returns createEmptyBacktestResult(config)
-
-            engine.runBacktest(config, candles)
-
-            // Buy and hold: (80 - 100) / 100 * 10000 = -2000
-            assertThat(buyAndHoldSlot.captured).isEqualByComparingTo(BigDecimal("-2000"))
-        }
-
-        @Test
-        @DisplayName("passes correct dates to analytics")
-        fun passesDatesToAnalytics() {
+        @DisplayName("passes all candles to analytics")
+        fun multipleCandlesNoTrades_passesAllCandlesToAnalytics() {
             val config = createTestConfig()
             val candles = (0 until 3).map { createTestCandle(it) }
-
-            val startDateSlot = slot<Instant>()
-            val endDateSlot = slot<Instant>()
+            val candlesSlot = slot<List<CandleEntity>>()
 
             every { processor.processCandle(any(), any()) } returns emptyList()
             every {
                 analytics.calculatePerformance(
                     config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = any(),
-                    startDate = capture(startDateSlot),
-                    endDate = capture(endDateSlot),
+                    state = any(),
+                    candles = capture(candlesSlot),
                 )
             } returns createEmptyBacktestResult(config)
 
-            engine.runBacktest(config, candles)
+            val state = createState(config)
+            engine.runBacktest(state, config, candles)
 
-            assertThat(startDateSlot.captured).isEqualTo(candles.first().openTime)
-            assertThat(endDateSlot.captured).isEqualTo(candles.last().openTime)
+            assertThat(candlesSlot.captured).hasSize(3)
+            assertThat(candlesSlot.captured).isEqualTo(candles)
         }
     }
 
@@ -399,22 +320,10 @@ class BacktestEngineTest {
                 )
 
             every { processor.forceClosePosition(any(), any(), any(), any(), any()) } returns closeEvent
+            mockAnalytics(createEmptyBacktestResult(config))
 
-            every {
-                analytics.calculatePerformance(
-                    config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = any(),
-                    startDate = any(),
-                    endDate = any(),
-                    trades = any(),
-                )
-            } returns createEmptyBacktestResult(config)
-
-            engine.runBacktest(config, candles)
+            val state = createState(config)
+            engine.runBacktest(state, config, candles)
 
             verify(exactly = 1) {
                 processor.forceClosePosition(
@@ -428,8 +337,8 @@ class BacktestEngineTest {
         }
 
         @Test
-        @DisplayName("returns closed trades when collectTrades is true")
-        fun closedTrades_returnedInResult() {
+        @DisplayName("passes state to analytics after applying events")
+        fun closedTrades_statePassedToAnalytics() {
             val config = createTestConfig(collectTrades = true)
             val candles = (0 until 2).map { createTestCandle(it) }
             val position = createTestPosition()
@@ -462,28 +371,21 @@ class BacktestEngineTest {
                     listOf(positionClosedEvent),
                 )
 
+            val stateSlot = slot<TradingStateView>()
             every {
                 analytics.calculatePerformance(
                     config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = any(),
-                    startDate = any(),
-                    endDate = any(),
-                    trades = any(),
+                    state = capture(stateSlot),
+                    candles = any(),
                 )
-            } answers {
-                // Return the captured trades in the result
-                val capturedTrades = arg<List<Trade>>(8)
-                createEmptyBacktestResult(config).copy(trades = capturedTrades)
-            }
+            } returns createEmptyBacktestResult(config)
 
-            val result = engine.runBacktest(config, candles)
+            val state = createState(config)
+            engine.runBacktest(state, config, candles)
 
-            assertThat(result.trades).hasSize(1)
-            assertThat(result.trades[0]).isEqualTo(trade)
+            // State should have the trade after events applied
+            assertThat(stateSlot.captured.closedTrades).hasSize(1)
+            assertThat(stateSlot.captured.closedTrades[0]).isEqualTo(trade)
         }
     }
 
@@ -544,21 +446,10 @@ class BacktestEngineTest {
                     newTradeIdCounter = 2L,
                 )
 
-            every {
-                analytics.calculatePerformance(
-                    config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = any(),
-                    startDate = any(),
-                    endDate = any(),
-                    trades = any(),
-                )
-            } returns createEmptyBacktestResult(config)
+            mockAnalytics(createEmptyBacktestResult(config))
 
-            engine.runBacktest(config, candles)
+            val state = createState(config)
+            engine.runBacktest(state, config, candles)
 
             verify(exactly = 2) { processor.forceClosePosition(any(), any(), any(), any(), any()) }
         }
@@ -600,21 +491,10 @@ class BacktestEngineTest {
                     newTradeIdCounter = 1L,
                 )
 
-            every {
-                analytics.calculatePerformance(
-                    config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = any(),
-                    startDate = any(),
-                    endDate = any(),
-                    trades = any(),
-                )
-            } returns createEmptyBacktestResult(config)
+            mockAnalytics(createEmptyBacktestResult(config))
 
-            engine.runBacktest(config, candles)
+            val state = createState(config)
+            engine.runBacktest(state, config, candles)
 
             assertThat(exitPriceSlot.captured).isEqualByComparingTo(lastPrice)
         }
@@ -651,21 +531,10 @@ class BacktestEngineTest {
                     newTradeIdCounter = 1L,
                 )
 
-            every {
-                analytics.calculatePerformance(
-                    config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = any(),
-                    startDate = any(),
-                    endDate = any(),
-                    trades = any(),
-                )
-            } returns createEmptyBacktestResult(config)
+            mockAnalytics(createEmptyBacktestResult(config))
 
-            engine.runBacktest(config, candles)
+            val state = createState(config)
+            engine.runBacktest(state, config, candles)
 
             assertThat(exitReasonSlot.captured).isEqualTo("End of backtest period")
         }
@@ -675,8 +544,8 @@ class BacktestEngineTest {
     @DisplayName("State Tracking")
     inner class StateTrackingTests {
         @Test
-        @DisplayName("passes final balance to analytics")
-        fun passesFinalBalanceToAnalytics() {
+        @DisplayName("passes state with updated balance to analytics")
+        fun passesUpdatedStateToAnalytics() {
             val config = createTestConfig()
             val candles = (0 until 2).map { createTestCandle(it) }
             val position = createTestPosition()
@@ -706,28 +575,24 @@ class BacktestEngineTest {
                     listOf(positionClosedEvent),
                 )
 
-            val finalCapitalSlot = slot<BigDecimal>()
+            val stateSlot = slot<TradingStateView>()
             every {
                 analytics.calculatePerformance(
                     config = any(),
-                    stats = any(),
-                    finalCapital = capture(finalCapitalSlot),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = any(),
-                    startDate = any(),
-                    endDate = any(),
+                    state = capture(stateSlot),
+                    candles = any(),
                 )
             } returns createEmptyBacktestResult(config)
 
-            engine.runBacktest(config, candles)
+            val state = createState(config)
+            engine.runBacktest(state, config, candles)
 
-            assertThat(finalCapitalSlot.captured).isEqualByComparingTo(finalBalance)
+            assertThat(stateSlot.captured.accountBalance).isEqualByComparingTo(finalBalance)
         }
 
         @Test
-        @DisplayName("passes max drawdown to analytics")
-        fun passesMaxDrawdownToAnalytics() {
+        @DisplayName("passes state with max drawdown to analytics")
+        fun passesStateWithMaxDrawdown() {
             val config = createTestConfig()
             val candles = (0 until 2).map { createTestCandle(it) }
             val position = createTestPosition()
@@ -756,128 +621,19 @@ class BacktestEngineTest {
                     listOf(positionClosedEvent),
                 )
 
-            val maxDrawdownSlot = slot<BigDecimal>()
+            val stateSlot = slot<TradingStateView>()
             every {
                 analytics.calculatePerformance(
                     config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = capture(maxDrawdownSlot),
-                    peakBalance = any(),
-                    buyAndHoldReturn = any(),
-                    startDate = any(),
-                    endDate = any(),
+                    state = capture(stateSlot),
+                    candles = any(),
                 )
             } returns createEmptyBacktestResult(config)
 
-            engine.runBacktest(config, candles)
+            val state = createState(config)
+            engine.runBacktest(state, config, candles)
 
-            assertThat(maxDrawdownSlot.captured).isEqualByComparingTo(maxDrawdown)
-        }
-    }
-
-    @Nested
-    @DisplayName("Buy and Hold Edge Cases")
-    inner class BuyAndHoldEdgeCasesTests {
-        @Test
-        @DisplayName("buy and hold is zero when price unchanged")
-        fun priceUnchanged_buyAndHoldZero() {
-            val config = createTestConfig()
-            val price = BigDecimal("100")
-            val candles =
-                listOf(
-                    createTestCandle(0, price = price),
-                    createTestCandle(1, price = price),
-                    createTestCandle(2, price = price),
-                )
-
-            val buyAndHoldSlot = slot<BigDecimal>()
-
-            every { processor.processCandle(any(), any()) } returns emptyList()
-            every {
-                analytics.calculatePerformance(
-                    config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = capture(buyAndHoldSlot),
-                    startDate = any(),
-                    endDate = any(),
-                )
-            } returns createEmptyBacktestResult(config)
-
-            engine.runBacktest(config, candles)
-
-            assertThat(buyAndHoldSlot.captured).isEqualByComparingTo(BigDecimal.ZERO)
-        }
-
-        @Test
-        @DisplayName("buy and hold calculated from first and last candle only")
-        fun buyAndHold_ignoresMiddleCandles() {
-            val config = createTestConfig()
-            val candles =
-                listOf(
-                    createTestCandle(0, price = BigDecimal("100")),
-                    createTestCandle(1, price = BigDecimal("500")), // This high shouldn't affect result
-                    createTestCandle(2, price = BigDecimal("50")), // This low shouldn't affect result
-                    createTestCandle(3, price = BigDecimal("200")),
-                )
-
-            val buyAndHoldSlot = slot<BigDecimal>()
-
-            every { processor.processCandle(any(), any()) } returns emptyList()
-            every {
-                analytics.calculatePerformance(
-                    config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = capture(buyAndHoldSlot),
-                    startDate = any(),
-                    endDate = any(),
-                )
-            } returns createEmptyBacktestResult(config)
-
-            engine.runBacktest(config, candles)
-
-            // Buy and hold: (200 - 100) / 100 * 10000 = 10000
-            assertThat(buyAndHoldSlot.captured).isEqualByComparingTo(BigDecimal("10000"))
-        }
-
-        @Test
-        @DisplayName("buy and hold uses close prices not high/low")
-        fun buyAndHold_usesClosePrices() {
-            val config = createTestConfig()
-            // First candle: close=100, high=105, low=95
-            // Last candle: close=120, high=125, low=115
-            val candles =
-                listOf(
-                    createTestCandle(0, price = BigDecimal("100")),
-                    createTestCandle(1, price = BigDecimal("120")),
-                )
-
-            val buyAndHoldSlot = slot<BigDecimal>()
-
-            every { processor.processCandle(any(), any()) } returns emptyList()
-            every {
-                analytics.calculatePerformance(
-                    config = any(),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = capture(buyAndHoldSlot),
-                    startDate = any(),
-                    endDate = any(),
-                )
-            } returns createEmptyBacktestResult(config)
-
-            engine.runBacktest(config, candles)
-
-            // Buy and hold: (120 - 100) / 100 * 10000 = 2000
-            assertThat(buyAndHoldSlot.captured).isEqualByComparingTo(BigDecimal("2000"))
+            assertThat(stateSlot.captured.maxDrawdown).isEqualByComparingTo(maxDrawdown)
         }
     }
 
@@ -896,19 +652,41 @@ class BacktestEngineTest {
             every {
                 analytics.calculatePerformance(
                     config = capture(configSlot),
-                    stats = any(),
-                    finalCapital = any(),
-                    maxDrawdown = any(),
-                    peakBalance = any(),
-                    buyAndHoldReturn = any(),
-                    startDate = any(),
-                    endDate = any(),
+                    state = any(),
+                    candles = any(),
                 )
             } returns createEmptyBacktestResult(config)
 
-            engine.runBacktest(config, candles)
+            val state = createState(config)
+            engine.runBacktest(state, config, candles)
 
             assertThat(configSlot.captured).isEqualTo(config)
+        }
+    }
+
+    @Nested
+    @DisplayName("Analytics Result")
+    inner class AnalyticsResultTests {
+        @Test
+        @DisplayName("returns result from analytics")
+        fun returnsAnalyticsResult() {
+            val config = createTestConfig()
+            val candles = listOf(createTestCandle(0))
+            val expectedResult =
+                createEmptyBacktestResult(config).copy(
+                    totalTrades = 42,
+                    winRate = BigDecimal("65.00"),
+                )
+
+            every { processor.processCandle(any(), any()) } returns emptyList()
+            mockAnalytics(expectedResult)
+
+            val state = createState(config)
+            val result = engine.runBacktest(state, config, candles)
+
+            assertThat(result).isEqualTo(expectedResult)
+            assertThat(result.totalTrades).isEqualTo(42)
+            assertThat(result.winRate).isEqualByComparingTo(BigDecimal("65.00"))
         }
     }
 }

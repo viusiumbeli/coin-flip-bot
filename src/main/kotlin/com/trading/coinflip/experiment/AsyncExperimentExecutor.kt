@@ -4,7 +4,8 @@ import com.trading.coinflip.backtest.BacktestEngine
 import com.trading.coinflip.backtest.model.BacktestConfig
 import com.trading.coinflip.backtest.model.BacktestResultWithRunNumber
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.data.CandleRepository
+import com.trading.coinflip.data.DataService
+import com.trading.coinflip.engine.model.MutableTradingState
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -13,7 +14,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -35,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Service
 class AsyncExperimentExecutor(
-    private val candleRepository: CandleRepository,
+    private val dataService: DataService,
     private val batchPersistenceService: BatchPersistenceService,
     private val experimentRepository: ExperimentRepository,
     private val properties: BacktestProperties,
@@ -102,13 +102,12 @@ class AsyncExperimentExecutor(
         val loadStartTime = System.currentTimeMillis()
 
         val candles =
-            candleRepository
-                .findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc(
-                    symbol = request.symbol,
-                    timeframe = request.timeframe,
-                    startTime = request.startDate,
-                    endTime = request.endDate,
-                ).toList()
+            dataService.loadCandlesParallel(
+                symbol = request.symbol,
+                timeframe = request.timeframe,
+                startTime = request.startDate,
+                endTime = request.endDate,
+            )
 
         val loadTime = System.currentTimeMillis() - loadStartTime
         log.info { "Loaded ${candles.size} candles in ${loadTime}ms for experiment $experimentId" }
@@ -145,7 +144,8 @@ class AsyncExperimentExecutor(
                     semaphore.withPermit {
                         try {
                             // Config uses default collectTrades=false for memory efficiency
-                            val result = backtestEngine.runBacktest(config, candles)
+                            val state = MutableTradingState.create(config.initialCapital, config.collectTrades)
+                            val result = backtestEngine.runBacktest(state, config, candles)
                             batchPersistenceService.submitResult(
                                 experimentId,
                                 BacktestResultWithRunNumber(result, runNumber),

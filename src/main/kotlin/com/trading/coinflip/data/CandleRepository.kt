@@ -18,21 +18,6 @@ interface CandleRepository : CoroutineCrudRepository<CandleEntity, Long> {
         """
         SELECT * FROM candles
         WHERE symbol = :symbol AND timeframe = :timeframe
-        AND open_time BETWEEN :startTime AND :endTime
-        ORDER BY open_time ASC
-        """,
-    )
-    fun findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc(
-        symbol: String,
-        timeframe: Timeframe,
-        startTime: Instant,
-        endTime: Instant,
-    ): Flow<CandleEntity>
-
-    @Query(
-        """
-        SELECT * FROM candles
-        WHERE symbol = :symbol AND timeframe = :timeframe
         ORDER BY open_time ASC LIMIT 1
         """,
     )
@@ -61,6 +46,20 @@ interface CandleRepository : CoroutineCrudRepository<CandleEntity, Long> {
 
     @Query(
         """
+        SELECT COUNT(*) FROM candles
+        WHERE symbol = :symbol AND timeframe = :timeframe
+        AND open_time >= :startTime AND open_time <= :endTime
+        """,
+    )
+    suspend fun countCandlesInRange(
+        symbol: String,
+        timeframe: Timeframe,
+        startTime: Instant,
+        endTime: Instant,
+    ): Long
+
+    @Query(
+        """
         SELECT * FROM candles
         WHERE symbol = :symbol AND timeframe = :timeframe AND atr IS NOT NULL
         ORDER BY open_time DESC LIMIT 1
@@ -83,4 +82,22 @@ interface CandleRepository : CoroutineCrudRepository<CandleEntity, Long> {
         timeframe: Timeframe,
         openTime: Instant,
     ): CandleEntity?
+
+    @Query(
+        """
+        SELECT * FROM candles
+        WHERE symbol = :symbol AND timeframe = :timeframe
+        AND open_time >= :startTime AND open_time <= :endTime
+        ORDER BY open_time ASC
+        LIMIT :limit OFFSET :offset
+        """,
+    )
+    fun findCandlesPageByOffset(
+        symbol: String,
+        timeframe: Timeframe,
+        startTime: Instant,
+        endTime: Instant,
+        limit: Int,
+        offset: Long,
+    ): Flow<CandleEntity>
 }

@@ -14,6 +14,7 @@ data class BacktestProperties(
     var timeframes: List<Timeframe> = listOf(Timeframe.ONE_HOUR),
     var initialCapital: BigDecimal = BigDecimal(10000),
     var startDate: Instant = Instant.parse("2020-01-01T00:00:00Z"),
+    var candlePageSize: Int = 100_000,
     @NestedConfigurationProperty
     var trading: TradingConfig = TradingConfig(),
     @NestedConfigurationProperty

@@ -27,13 +27,7 @@ class BacktestController(
     ): BacktestResponse {
         log.info { "Received backtest request for ${request.symbol} ${request.timeframe.label}" }
 
-        val result =
-            backtestService.runBacktestForSymbol(
-                symbol = request.symbol,
-                timeframe = request.timeframe,
-                startDate = request.startDate,
-                endDate = request.endDate,
-            )
+        val result = backtestService.runBacktestForSymbol(request)
 
         return toBacktestResponse(result)
     }

@@ -2,8 +2,9 @@ package com.trading.coinflip.analytics
 
 import com.trading.coinflip.backtest.model.BacktestConfig
 import com.trading.coinflip.backtest.model.BacktestResult
+import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.engine.model.RunningTradeStats
-import com.trading.coinflip.engine.model.Trade
+import com.trading.coinflip.engine.model.TradingStateView
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -14,29 +15,32 @@ import kotlin.math.sqrt
 @Component
 class PerformanceAnalytics {
     /**
-     * Calculate performance from running statistics (no trade list required).
-     * Used by experiments to avoid storing millions of trade objects.
+     * Calculate performance from trading state and candles.
+     * Extracts all needed values from state and computes buy-and-hold internally.
      */
     fun calculatePerformance(
         config: BacktestConfig,
-        stats: RunningTradeStats,
-        finalCapital: BigDecimal,
-        maxDrawdown: BigDecimal,
-        peakBalance: BigDecimal,
-        buyAndHoldReturn: BigDecimal,
-        startDate: Instant,
-        endDate: Instant,
-        trades: List<Trade> = emptyList(),
+        state: TradingStateView,
+        candles: List<CandleEntity>,
     ): BacktestResult {
-        if (stats.tradeCount == 0) {
+        val startDate = candles.first().openTime
+        val endDate = candles.last().openTime
+        val buyAndHoldReturn = calculateBuyAndHoldReturn(candles, config.initialCapital)
+
+        if (state.stats.tradeCount == 0) {
             return createEmptyResult(
                 config,
-                finalCapital,
+                state.accountBalance,
                 buyAndHoldReturn,
                 startDate,
                 endDate,
             )
         }
+
+        val stats = state.stats
+        val finalCapital = state.accountBalance
+        val maxDrawdown = state.maxDrawdown
+        val peakBalance = state.peakBalance
 
         val totalReturn = finalCapital - config.initialCapital
         val totalReturnPercent =
@@ -113,8 +117,22 @@ class PerformanceAnalytics {
             endDate = endDate,
             buyAndHoldReturn = buyAndHoldReturn,
             buyAndHoldReturnPercent = buyAndHoldReturnPercent,
-            trades = trades,
+            trades = state.closedTrades,
         )
+    }
+
+    private fun calculateBuyAndHoldReturn(
+        candles: List<CandleEntity>,
+        initialCapital: BigDecimal,
+    ): BigDecimal {
+        if (candles.isEmpty()) return BigDecimal.ZERO
+
+        val firstPrice = candles.first().close
+        val lastPrice = candles.last().close
+        val priceChange = lastPrice - firstPrice
+        val percentChange = priceChange.divide(firstPrice, 8, RoundingMode.HALF_UP)
+
+        return initialCapital * percentChange
     }
 
     /**
