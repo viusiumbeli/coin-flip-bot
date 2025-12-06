@@ -38,15 +38,6 @@ class BacktestController(
         return result.toResponse()
     }
 
-    @PostMapping("/run-all")
-    suspend fun runAllBacktests(): List<BacktestResponse> {
-        log.info { "Received request to run all backtests" }
-
-        val results = backtestService.runBacktest()
-
-        return results.map { it.toResponse() }
-    }
-
     @GetMapping("/symbols")
     fun getAvailableSymbols(): AvailableSymbolsResponse =
         AvailableSymbolsResponse(
