@@ -144,6 +144,7 @@ class AsyncExperimentExecutor(
                 launch {
                     semaphore.withPermit {
                         try {
+                            // Config uses default collectTrades=false for memory efficiency
                             val result = backtestEngine.runBacktest(config, candles)
                             batchPersistenceService.submitResult(
                                 experimentId,

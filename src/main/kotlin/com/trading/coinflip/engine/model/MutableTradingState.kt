@@ -15,6 +15,8 @@ class MutableTradingState(
     private val _closedTrades: MutableList<Trade>,
     override var tradeIdCounter: Long,
     override var positionIdCounter: Long,
+    private val collectTrades: Boolean,
+    override val stats: RunningTradeStats,
 ) : TradingStateView {
     // TradingStateView requires List<PositionView>
     // MutableList<MutablePosition> is covariant to List<PositionView>
@@ -25,7 +27,10 @@ class MutableTradingState(
         get() = _closedTrades
 
     companion object {
-        fun create(initialCapital: BigDecimal): MutableTradingState =
+        fun create(
+            initialCapital: BigDecimal,
+            collectTrades: Boolean = false,
+        ): MutableTradingState =
             MutableTradingState(
                 accountBalance = initialCapital,
                 peakBalance = initialCapital,
@@ -34,6 +39,8 @@ class MutableTradingState(
                 _closedTrades = mutableListOf(),
                 tradeIdCounter = 0L,
                 positionIdCounter = 0L,
+                collectTrades = collectTrades,
+                stats = RunningTradeStats(),
             )
     }
 
@@ -57,7 +64,10 @@ class MutableTradingState(
 
             is TradingEvent.PositionClosed -> {
                 _openPositions.removeIf { it.id == event.positionId }
-                _closedTrades.add(event.trade)
+                stats.addTrade(event.trade)
+                if (collectTrades) {
+                    _closedTrades.add(event.trade)
+                }
                 accountBalance = event.newBalance
                 peakBalance = event.newPeakBalance
                 maxDrawdown = event.newMaxDrawdown

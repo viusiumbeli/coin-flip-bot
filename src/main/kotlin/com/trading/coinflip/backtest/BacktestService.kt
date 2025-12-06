@@ -43,6 +43,7 @@ class BacktestService(
                 trading = properties.trading,
                 startDate = startDate ?: properties.startDate,
                 endDate = endDate ?: Instant.now(),
+                collectTrades = true,
             )
 
         return backtestEngine.runBacktest(config, candles)

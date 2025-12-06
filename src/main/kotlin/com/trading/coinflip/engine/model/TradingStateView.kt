@@ -14,4 +14,5 @@ interface TradingStateView {
     val closedTrades: List<Trade>
     val tradeIdCounter: Long
     val positionIdCounter: Long
+    val stats: RunningTradeStats
 }

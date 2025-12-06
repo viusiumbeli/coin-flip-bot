@@ -16,6 +16,11 @@ data class TradingState(
     override val tradeIdCounter: Long,
     override val positionIdCounter: Long,
 ) : TradingStateView {
+    // Computed stats from closedTrades - less efficient but TradingState is only used
+    // for simulation/live where performance is less critical than experiments
+    override val stats: RunningTradeStats
+        get() = RunningTradeStats().apply { closedTrades.forEach { addTrade(it) } }
+
     companion object {
         fun create(initialCapital: BigDecimal): TradingState =
             TradingState(

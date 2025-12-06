@@ -35,7 +35,7 @@ class BacktestController(
                 endDate = request.endDate,
             )
 
-        return result.toResponse()
+        return toBacktestResponse(result)
     }
 
     @GetMapping("/symbols")

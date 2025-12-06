@@ -18,22 +18,23 @@ class BacktestEngine(
 ) {
     private val log = KotlinLogging.logger {}
 
+    /**
+     * Run a backtest and return the result.
+     *
+     * Trade collection is controlled by config.collectTrades:
+     * - true: Trades are collected for frontend display (single backtests)
+     * - false (default): Trades are not stored (experiments - saves memory)
+     */
     fun runBacktest(
         config: BacktestConfig,
         candles: List<CandleEntity>,
     ): BacktestResult {
-        log.info { "Starting backtest for ${config.symbol} ${config.timeframe.label}" }
-
         // Use MutableTradingState for high-performance backtest execution
-        val state = MutableTradingState.create(config.initialCapital)
+        val state = MutableTradingState.create(config.initialCapital, config.collectTrades)
 
         if (candles.isEmpty()) {
             log.warn { "No candles available for backtesting" }
             return createEmptyResult(config, candles)
-        }
-
-        log.info {
-            "Backtesting ${candles.size} candles from ${candles.first().openTime} to ${candles.last().openTime}"
         }
 
         // Single source of truth - TradingProcessor handles ALL trading logic
@@ -59,15 +60,17 @@ class BacktestEngine(
         // Calculate buy and hold performance
         val buyAndHoldReturn = calculateBuyAndHoldReturn(candles, config.initialCapital)
 
+        // Use running stats for performance calculation
         return analytics.calculatePerformance(
             config = config,
-            trades = state.closedTrades,
+            stats = state.stats,
             finalCapital = state.accountBalance,
             maxDrawdown = state.maxDrawdown,
             peakBalance = state.peakBalance,
             buyAndHoldReturn = buyAndHoldReturn,
             startDate = candles.first().openTime,
             endDate = candles.last().openTime,
+            trades = state.closedTrades,
         )
     }
 
@@ -94,7 +97,6 @@ class BacktestEngine(
 
         return BacktestResult(
             config = config,
-            trades = emptyList(),
             initialCapital = config.initialCapital,
             finalCapital = config.initialCapital,
             totalReturn = BigDecimal.ZERO,
