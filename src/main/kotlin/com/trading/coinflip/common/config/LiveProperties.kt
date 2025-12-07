@@ -28,4 +28,7 @@ data class LiveProperties(
     var bybitApiSecret: String = "",
     var bybitDemo: Boolean = true, // true = demo environment (api-demo.bybit.com), false = mainnet
     var bybitDemoRestUrl: String = "https://api-demo.bybit.com",
+    // Real order execution - when true, places actual orders on exchange
+    var executeRealOrders: Boolean = false,
+    var defaultLeverage: Int = 1,
 )

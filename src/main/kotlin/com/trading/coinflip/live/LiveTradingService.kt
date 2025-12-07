@@ -12,6 +12,11 @@ import com.trading.coinflip.engine.model.TradingEvent
 import com.trading.coinflip.engine.model.TradingState
 import com.trading.coinflip.exchange.Exchange
 import com.trading.coinflip.exchange.ExchangeClientFactory
+import com.trading.coinflip.exchange.ExchangeTradingClient
+import com.trading.coinflip.exchange.OrderSide
+import com.trading.coinflip.exchange.OrderType
+import com.trading.coinflip.exchange.PlaceOrderRequest
+import com.trading.coinflip.exchange.TradingStopRequest
 import com.trading.coinflip.live.model.LiveBalanceSnapshotEntity
 import com.trading.coinflip.live.model.LivePositionEntity
 import com.trading.coinflip.live.model.LiveSessionEntity
@@ -66,6 +71,8 @@ class LiveTradingService(
     private fun getRestClient(exchange: Exchange) = exchangeClientFactory.getRestClient(exchange)
 
     private fun getWebSocketClient(exchange: Exchange) = exchangeClientFactory.getWebSocketClient(exchange)
+
+    private fun getTradingClient(exchange: Exchange): ExchangeTradingClient? = exchangeClientFactory.getTradingClient(exchange)
 
     private fun sessionKey(
         symbol: String,
@@ -328,19 +335,26 @@ class LiveTradingService(
     }
 
     /**
-     * Persist trading events to database.
+     * Persist trading events to database and execute real orders if enabled.
      */
     private suspend fun persistEvents(
         stateHolder: LiveTradingStateHolder,
         events: List<TradingEvent>,
     ) {
         val sessionId = stateHolder.sessionId
+        val tradingClient = if (liveProperties.executeRealOrders) getTradingClient(stateHolder.exchange) else null
+
         for (event in events) {
             when (event) {
                 is TradingEvent.PositionOpened -> {
                     val entity = LivePositionEntity.fromPosition(event.position, sessionId)
                     positionRepository.save(entity)
                     log.info { "${stateHolder.logPrefix} Persisted new position: ${event.position.id} ${event.position.side}" }
+
+                    // Execute real order on exchange
+                    if (tradingClient != null) {
+                        executeOpenPosition(stateHolder, tradingClient, event)
+                    }
                 }
 
                 is TradingEvent.PositionUpdated -> {
@@ -354,6 +368,11 @@ class LiveTradingService(
                         entity.highestFavorablePrice = event.newHighestFavorablePrice
                         entity.updatedAt = Instant.now()
                         positionRepository.save(entity)
+                    }
+
+                    // Update stop loss on exchange
+                    if (tradingClient != null) {
+                        executeUpdateStopLoss(stateHolder, tradingClient, event)
                     }
                 }
 
@@ -373,8 +392,110 @@ class LiveTradingService(
                     log.info {
                         "${stateHolder.logPrefix} Closed position ${event.positionId}: P&L=${event.pnl}, Reason=${event.exitReason}"
                     }
+
+                    // Execute close order on exchange
+                    if (tradingClient != null) {
+                        executeClosePosition(stateHolder, tradingClient, event)
+                    }
                 }
             }
+        }
+    }
+
+    /**
+     * Execute real order on exchange when position opens.
+     */
+    private suspend fun executeOpenPosition(
+        stateHolder: LiveTradingStateHolder,
+        tradingClient: ExchangeTradingClient,
+        event: TradingEvent.PositionOpened,
+    ) {
+        try {
+            val position = event.position
+            val orderSide = if (position.side == PositionSide.LONG) OrderSide.Buy else OrderSide.Sell
+
+            log.info {
+                "${stateHolder.logPrefix} [REAL ORDER] Opening ${position.side} qty=${position.positionSize} SL=${position.trailingStop}"
+            }
+
+            // Set leverage first
+            tradingClient.setLeverage(stateHolder.symbol, liveProperties.defaultLeverage)
+
+            // Place market order with stop loss
+            val result =
+                tradingClient.placeOrder(
+                    PlaceOrderRequest(
+                        symbol = stateHolder.symbol,
+                        side = orderSide,
+                        orderType = OrderType.Market,
+                        qty = position.positionSize,
+                        stopLoss = position.trailingStop,
+                    ),
+                )
+
+            log.info { "${stateHolder.logPrefix} [REAL ORDER] Order placed: orderId=${result.orderId}" }
+        } catch (e: Exception) {
+            log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to open position on exchange" }
+        }
+    }
+
+    /**
+     * Update stop loss on exchange when trailing stop moves.
+     */
+    private suspend fun executeUpdateStopLoss(
+        stateHolder: LiveTradingStateHolder,
+        tradingClient: ExchangeTradingClient,
+        event: TradingEvent.PositionUpdated,
+    ) {
+        try {
+            log.info {
+                "${stateHolder.logPrefix} [REAL ORDER] Updating SL to ${event.newTrailingStop}"
+            }
+
+            tradingClient.setTradingStop(
+                TradingStopRequest(
+                    symbol = stateHolder.symbol,
+                    stopLoss = event.newTrailingStop,
+                ),
+            )
+
+            log.info { "${stateHolder.logPrefix} [REAL ORDER] Stop loss updated" }
+        } catch (e: Exception) {
+            log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to update stop loss on exchange" }
+        }
+    }
+
+    /**
+     * Execute close order on exchange when position closes.
+     */
+    private suspend fun executeClosePosition(
+        stateHolder: LiveTradingStateHolder,
+        tradingClient: ExchangeTradingClient,
+        event: TradingEvent.PositionClosed,
+    ) {
+        try {
+            val trade = event.trade
+            // Close with opposite side, reduce-only
+            val closeSide = if (trade.side == PositionSide.LONG) OrderSide.Sell else OrderSide.Buy
+
+            log.info {
+                "${stateHolder.logPrefix} [REAL ORDER] Closing position qty=${trade.positionSize}"
+            }
+
+            val result =
+                tradingClient.placeOrder(
+                    PlaceOrderRequest(
+                        symbol = stateHolder.symbol,
+                        side = closeSide,
+                        orderType = OrderType.Market,
+                        qty = trade.positionSize,
+                        reduceOnly = true,
+                    ),
+                )
+
+            log.info { "${stateHolder.logPrefix} [REAL ORDER] Position closed: orderId=${result.orderId}" }
+        } catch (e: Exception) {
+            log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to close position on exchange" }
         }
     }
 

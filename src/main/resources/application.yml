@@ -76,7 +76,7 @@ live:
   balance-snapshot-interval-minutes: 60
 
   # Exchange selection: BINANCE or BYBIT
-  exchange: BINANCE
+  exchange: BYBIT
 
   # Common WebSocket settings
   reconnect-delay-ms: 5000
@@ -96,3 +96,7 @@ live:
   bybit-api-secret: ${BYBIT_API_SECRET:}
   bybit-demo: true  # true = demo (api-demo.bybit.com), false = mainnet
   bybit-demo-rest-url: https://api-demo.bybit.com
+
+  # Real order execution - when true, places actual orders on exchange (uses demo if bybit-demo=true)
+  execute-real-orders: true
+  default-leverage: 1
