@@ -142,7 +142,7 @@ class BybitTradingClient(
             mutableMapOf<String, Any>(
                 "category" to "linear",
                 "symbol" to request.symbol,
-                "positionIdx" to 0, // One-way mode
+                "positionIdx" to request.positionIdx.value, // Hedge mode support
                 "tpslMode" to request.tpslMode.name,
             )
         request.takeProfit?.let { params["takeProfit"] = roundPrice(request.symbol, it).toPlainString() }
@@ -281,7 +281,7 @@ class BybitTradingClient(
                 "side" to request.side.name,
                 "orderType" to request.orderType.name,
                 "qty" to roundedQty.toPlainString(),
-                "positionIdx" to 0, // One-way mode
+                "positionIdx" to request.positionIdx.value, // Hedge mode support
                 "timeInForce" to request.timeInForce,
             )
 

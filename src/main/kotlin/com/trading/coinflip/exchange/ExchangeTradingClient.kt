@@ -70,6 +70,19 @@ enum class OrderSide { Buy, Sell }
 enum class OrderType { Market, Limit }
 
 /**
+ * Position index for Hedge Mode.
+ * One-Way mode: use OneWay (0)
+ * Hedge mode: use HedgeLong (1) for Buy side, HedgeShort (2) for Sell side
+ */
+enum class PositionIdx(
+    val value: Int,
+) {
+    OneWay(0),
+    HedgeLong(1),
+    HedgeShort(2),
+}
+
+/**
  * Request to place a new order.
  */
 data class PlaceOrderRequest(
@@ -82,6 +95,7 @@ data class PlaceOrderRequest(
     val stopLoss: BigDecimal? = null,
     val reduceOnly: Boolean = false,
     val timeInForce: String = "GTC", // GTC, IOC, FOK, PostOnly
+    val positionIdx: PositionIdx = PositionIdx.HedgeLong, // Default to Hedge mode
 )
 
 /**
@@ -105,6 +119,7 @@ data class TradingStopRequest(
     val stopLoss: BigDecimal? = null, // Pass BigDecimal.ZERO to cancel
     val trailingStop: BigDecimal? = null,
     val tpslMode: TpslMode = TpslMode.Full,
+    val positionIdx: PositionIdx = PositionIdx.HedgeLong, // Default to Hedge mode
 )
 
 enum class TpslMode { Full, Partial }
