@@ -135,8 +135,8 @@ class BybitTradingClient(
                 "positionIdx" to 0, // One-way mode
                 "tpslMode" to request.tpslMode.name,
             )
-        request.takeProfit?.let { params["takeProfit"] = it.toPlainString() }
-        request.stopLoss?.let { params["stopLoss"] = it.toPlainString() }
+        request.takeProfit?.let { params["takeProfit"] = roundPrice(request.symbol, it).toPlainString() }
+        request.stopLoss?.let { params["stopLoss"] = roundPrice(request.symbol, it).toPlainString() }
         request.trailingStop?.let { params["trailingStop"] = it.toPlainString() }
 
         // Use LastPrice as default trigger
@@ -220,21 +220,64 @@ class BybitTradingClient(
 
     // --- Response Parsing ---
 
+    /**
+     * Round quantity to valid precision for the symbol.
+     * Bybit requires specific decimal places per instrument.
+     */
+    private fun roundQty(
+        symbol: String,
+        qty: BigDecimal,
+    ): BigDecimal {
+        // Qty step sizes for common USDT perpetuals
+        val scale =
+            when {
+                symbol.startsWith("BTC") -> 3 // 0.001 BTC
+                symbol.startsWith("ETH") -> 2 // 0.01 ETH
+                symbol.startsWith("BNB") -> 2 // 0.01 BNB
+                symbol.startsWith("SOL") -> 1 // 0.1 SOL
+                symbol.startsWith("XRP") -> 0 // 1 XRP
+                symbol.startsWith("DOGE") -> 0 // 1 DOGE
+                else -> 3 // Default to 3 decimals
+            }
+        return qty.setScale(scale, java.math.RoundingMode.DOWN)
+    }
+
+    /**
+     * Round price to valid precision for the symbol.
+     */
+    private fun roundPrice(
+        symbol: String,
+        price: BigDecimal,
+    ): BigDecimal {
+        // Price tick sizes for common USDT perpetuals
+        val scale =
+            when {
+                symbol.startsWith("BTC") -> 1 // 0.1 USDT
+                symbol.startsWith("ETH") -> 2 // 0.01 USDT
+                symbol.startsWith("BNB") -> 2 // 0.01 USDT
+                symbol.startsWith("SOL") -> 2 // 0.01 USDT
+                else -> 2 // Default to 2 decimals
+            }
+        return price.setScale(scale, java.math.RoundingMode.DOWN)
+    }
+
     private fun buildOrderBody(request: PlaceOrderRequest): String {
+        val roundedQty = roundQty(request.symbol, request.qty)
+
         val params =
             mutableMapOf<String, Any>(
                 "category" to "linear",
                 "symbol" to request.symbol,
                 "side" to request.side.name,
                 "orderType" to request.orderType.name,
-                "qty" to request.qty.toPlainString(),
+                "qty" to roundedQty.toPlainString(),
                 "positionIdx" to 0, // One-way mode
                 "timeInForce" to request.timeInForce,
             )
 
-        request.price?.let { params["price"] = it.toPlainString() }
-        request.takeProfit?.let { params["takeProfit"] = it.toPlainString() }
-        request.stopLoss?.let { params["stopLoss"] = it.toPlainString() }
+        request.price?.let { params["price"] = roundPrice(request.symbol, it).toPlainString() }
+        request.takeProfit?.let { params["takeProfit"] = roundPrice(request.symbol, it).toPlainString() }
+        request.stopLoss?.let { params["stopLoss"] = roundPrice(request.symbol, it).toPlainString() }
         if (request.reduceOnly) params["reduceOnly"] = true
 
         // Set TP/SL triggers to LastPrice
