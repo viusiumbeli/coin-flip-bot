@@ -156,8 +156,18 @@ class BybitTradingClient(
         val body = objectMapper.writeValueAsString(params)
         log.info { "Setting trading stop: ${request.symbol} TP=${request.takeProfit} SL=${request.stopLoss}" }
 
-        val response = post("/v5/position/trading-stop", body)
-        return isSuccess(response)
+        return try {
+            val response = post("/v5/position/trading-stop", body)
+            isSuccess(response)
+        } catch (e: BybitApiException) {
+            // 34040 = "not modified" - stop loss already at desired level, not an error
+            if (e.code == 34040) {
+                log.debug { "Trading stop already set for ${request.symbol}" }
+                true
+            } else {
+                throw e
+            }
+        }
     }
 
     // --- Account Operations ---
