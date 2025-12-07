@@ -218,6 +218,7 @@
         let balanceChart = null;
         let pnlChart = null;
         let configData = null;
+        let eventSource = null; // SSE connection
 
         // Status badge colors
         const statusColors = {
@@ -231,6 +232,96 @@
         async function initialize() {
             await loadConfig();
             await loadSessions();
+            connectSSE();
+        }
+
+        // SSE connection for real-time updates
+        function connectSSE() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource(`${API_BASE}/events`);
+
+            eventSource.onopen = () => {
+                console.log('SSE connected');
+            };
+
+            eventSource.onerror = (e) => {
+                console.error('SSE error:', e);
+                // Reconnect after 5 seconds
+                setTimeout(connectSSE, 5000);
+            };
+
+            // Handle different event types
+            eventSource.addEventListener('SESSION_STARTED', (e) => {
+                console.log('Session started:', e.data);
+                loadSessions();
+            });
+
+            eventSource.addEventListener('SESSION_STOPPED', (e) => {
+                console.log('Session stopped:', e.data);
+                loadSessions();
+                const data = JSON.parse(e.data);
+                if (currentSessionId === data.sessionId) {
+                    loadSessionDetail();
+                }
+            });
+
+            eventSource.addEventListener('POSITION_OPENED', (e) => {
+                console.log('Position opened:', e.data);
+                const data = JSON.parse(e.data);
+                if (currentSessionId === data.sessionId) {
+                    loadSessionDetail();
+                }
+                loadSessions();
+            });
+
+            eventSource.addEventListener('POSITION_UPDATED', (e) => {
+                console.log('Position updated:', e.data);
+                const data = JSON.parse(e.data);
+                if (currentSessionId === data.sessionId) {
+                    loadSessionDetail();
+                }
+            });
+
+            eventSource.addEventListener('POSITION_CLOSED', (e) => {
+                console.log('Position closed:', e.data);
+                const data = JSON.parse(e.data);
+                if (currentSessionId === data.sessionId) {
+                    loadSessionDetail();
+                    loadSessionTrades();
+                }
+                loadSessions();
+            });
+
+            eventSource.addEventListener('CANDLE_PROCESSED', (e) => {
+                console.log('Candle processed:', e.data);
+                const data = JSON.parse(e.data);
+                if (currentSessionId === data.sessionId) {
+                    // Quick update for balance and positions count
+                    const balanceEl = document.getElementById('currentBalance');
+                    if (balanceEl && data.data.currentBalance) {
+                        balanceEl.textContent = '$' + formatNumber(data.data.currentBalance);
+                    }
+                    const posCountEl = document.getElementById('openPositionsCount');
+                    if (posCountEl && data.data.openPositionsCount !== undefined) {
+                        posCountEl.textContent = data.data.openPositionsCount;
+                    }
+                    const priceEl = document.getElementById('lastPrice');
+                    if (priceEl && data.data.lastPrice) {
+                        priceEl.textContent = '$' + formatNumber(data.data.lastPrice);
+                    }
+                    const atrEl = document.getElementById('lastAtr');
+                    if (atrEl && data.data.lastAtr) {
+                        atrEl.textContent = '$' + formatNumber(data.data.lastAtr);
+                    }
+                }
+                // Update sessions list occasionally (every 5 candles or so)
+                if (Math.random() < 0.2) {
+                    loadSessions();
+                }
+            });
         }
 
         async function loadConfig() {
@@ -683,11 +774,13 @@
 
         function startPolling() {
             stopPolling();
+            // Reduced polling frequency since SSE handles real-time updates
+            // This is just a fallback in case SSE misses something
             pollingInterval = setInterval(async () => {
                 await loadSessionDetail();
                 await loadSessionTrades();
                 await loadSessionSnapshots();
-            }, 10000); // 10 seconds
+            }, 60000); // 60 seconds (reduced from 10s, SSE handles real-time)
         }
 
         function stopPolling() {

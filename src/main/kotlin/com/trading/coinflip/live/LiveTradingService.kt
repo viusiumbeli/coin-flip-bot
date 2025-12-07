@@ -63,6 +63,7 @@ class LiveTradingService(
     private val candleRepository: CandleRepository,
     private val liveProperties: LiveProperties,
     private val backtestProperties: BacktestProperties,
+    private val eventPublisher: LiveEventPublisher,
 ) {
     private val log = KotlinLogging.logger {}
 
@@ -173,6 +174,15 @@ class LiveTradingService(
             sessionJobs[key] = job
 
             log.info { "[#${session.id} $symbol/${timeframe.label}] Started live trading session via $exchange" }
+
+            // Publish session started event
+            eventPublisher.publishSessionStarted(
+                sessionId = session.id!!,
+                symbol = symbol,
+                timeframe = timeframe.label,
+                exchange = exchange.name,
+            )
+
             session
         }
 
@@ -229,6 +239,12 @@ class LiveTradingService(
         }
 
         log.info { "[#${stateHolder.sessionId} $symbol/${timeframe.label} $exchange] Stopped session" }
+
+        // Publish session stopped event
+        eventPublisher.publishSessionStopped(
+            sessionId = stateHolder.sessionId,
+            symbol = symbol,
+        )
     }
 
     /**
@@ -304,6 +320,16 @@ class LiveTradingService(
 
             // Always update session with latest candle ID
             updateSessionFromState(stateHolder, stateToSave, savedCandle)
+
+            // Publish candle processed event for UI updates
+            eventPublisher.publishCandleProcessed(
+                sessionId = stateHolder.sessionId,
+                symbol = stateHolder.symbol,
+                currentBalance = stateToSave.accountBalance,
+                openPositionsCount = stateToSave.openPositions.size,
+                lastPrice = savedCandle.close,
+                lastAtr = savedCandle.atr,
+            )
         }
 
         // Take balance snapshot if needed
@@ -376,6 +402,17 @@ class LiveTradingService(
                             positionRepository.save(entity)
                         }
                     }
+
+                    // Publish SSE event
+                    eventPublisher.publishPositionOpened(
+                        sessionId = sessionId,
+                        symbol = stateHolder.symbol,
+                        positionId = event.position.id,
+                        side = event.position.side.name,
+                        entryPrice = event.position.entryPrice,
+                        positionSize = event.position.positionSize,
+                        trailingStop = event.position.trailingStop,
+                    )
                 }
 
                 is TradingEvent.PositionUpdated -> {
@@ -394,6 +431,14 @@ class LiveTradingService(
                         if (tradingClient != null && entity.stopOrderId != null) {
                             executeUpdateStopLoss(stateHolder, tradingClient, event, entity)
                         }
+
+                        // Publish SSE event
+                        eventPublisher.publishPositionUpdated(
+                            sessionId = sessionId,
+                            symbol = stateHolder.symbol,
+                            positionId = event.positionId,
+                            newTrailingStop = event.newTrailingStop,
+                        )
                     }
                 }
 
@@ -418,6 +463,16 @@ class LiveTradingService(
                     if (tradingClient != null) {
                         executeClosePosition(stateHolder, tradingClient, event, entity?.stopOrderId)
                     }
+
+                    // Publish SSE event
+                    eventPublisher.publishPositionClosed(
+                        sessionId = sessionId,
+                        symbol = stateHolder.symbol,
+                        positionId = event.positionId,
+                        pnl = event.pnl,
+                        exitReason = event.exitReason,
+                        newBalance = event.newBalance,
+                    )
                 }
             }
         }
