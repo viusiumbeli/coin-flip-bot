@@ -17,6 +17,7 @@ import com.trading.coinflip.exchange.OrderSide
 import com.trading.coinflip.exchange.OrderType
 import com.trading.coinflip.exchange.PlaceOrderRequest
 import com.trading.coinflip.exchange.TradingStopRequest
+import com.trading.coinflip.exchange.bybit.BybitApiException
 import com.trading.coinflip.live.model.LiveBalanceSnapshotEntity
 import com.trading.coinflip.live.model.LivePositionEntity
 import com.trading.coinflip.live.model.LiveSessionEntity
@@ -460,6 +461,13 @@ class LiveTradingService(
             )
 
             log.info { "${stateHolder.logPrefix} [REAL ORDER] Stop loss updated" }
+        } catch (e: BybitApiException) {
+            // 10001 with "zero position" means no position exists on exchange - just warn
+            if (e.message.contains("zero position")) {
+                log.warn { "${stateHolder.logPrefix} [REAL ORDER] No position on exchange to update SL" }
+            } else {
+                log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to update stop loss" }
+            }
         } catch (e: Exception) {
             log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to update stop loss on exchange" }
         }
@@ -494,6 +502,13 @@ class LiveTradingService(
                 )
 
             log.info { "${stateHolder.logPrefix} [REAL ORDER] Position closed: orderId=${result.orderId}" }
+        } catch (e: BybitApiException) {
+            // Handle "no position to close" errors gracefully
+            if (e.message.contains("position") || e.message.contains("reduce")) {
+                log.warn { "${stateHolder.logPrefix} [REAL ORDER] No position on exchange to close" }
+            } else {
+                log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to close position" }
+            }
         } catch (e: Exception) {
             log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to close position on exchange" }
         }
