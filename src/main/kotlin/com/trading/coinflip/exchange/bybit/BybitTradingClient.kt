@@ -286,18 +286,21 @@ class BybitTradingClient(
             )
 
         request.price?.let { params["price"] = roundPrice(request.symbol, it).toPlainString() }
-        request.takeProfit?.let { params["takeProfit"] = roundPrice(request.symbol, it).toPlainString() }
-        request.stopLoss?.let { params["stopLoss"] = roundPrice(request.symbol, it).toPlainString() }
         if (request.reduceOnly) params["reduceOnly"] = true
 
-        // Set TP/SL triggers to LastPrice
-        if (request.takeProfit != null) {
-            params["tpTriggerBy"] = "LastPrice"
-            params["tpOrderType"] = "Market"
-        }
-        if (request.stopLoss != null) {
-            params["slTriggerBy"] = "LastPrice"
-            params["slOrderType"] = "Market"
+        // Add TP/SL if provided - requires tpSlMode
+        if (request.takeProfit != null || request.stopLoss != null) {
+            params["tpSlMode"] = "Full" // Required when setting TP or SL
+            request.takeProfit?.let {
+                params["takeProfit"] = roundPrice(request.symbol, it).toPlainString()
+                params["tpTriggerBy"] = "LastPrice"
+                params["tpOrderType"] = "Market"
+            }
+            request.stopLoss?.let {
+                params["stopLoss"] = roundPrice(request.symbol, it).toPlainString()
+                params["slTriggerBy"] = "LastPrice"
+                params["slOrderType"] = "Market"
+            }
         }
 
         return objectMapper.writeValueAsString(params)
