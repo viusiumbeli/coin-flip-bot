@@ -29,12 +29,16 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # Database
       SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/coinflipbot
       SPRING_R2DBC_USERNAME: coinflipuser
       SPRING_R2DBC_PASSWORD: coinflippass
       SPRING_FLYWAY_URL: jdbc:postgresql://postgres:5432/coinflipbot
       SPRING_FLYWAY_USER: coinflipuser
       SPRING_FLYWAY_PASSWORD: coinflippass
+      # ByBit API credentials (from .env file)
+      BYBIT_API_KEY: ${BYBIT_API_KEY:-}
+      BYBIT_API_SECRET: ${BYBIT_API_SECRET:-}
     networks:
       - coinflip-network
     depends_on:

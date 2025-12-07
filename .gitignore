@@ -55,3 +55,7 @@ logs/
 *.bak
 *.swp
 *~
+
+# Environment files with secrets
+.env
+infra/.env
