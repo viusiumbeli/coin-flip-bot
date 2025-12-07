@@ -288,9 +288,9 @@ class BybitTradingClient(
         request.price?.let { params["price"] = roundPrice(request.symbol, it).toPlainString() }
         if (request.reduceOnly) params["reduceOnly"] = true
 
-        // Add TP/SL if provided - requires tpSlMode
+        // Add TP/SL if provided - requires tpslMode (lowercase 's')
         if (request.takeProfit != null || request.stopLoss != null) {
-            params["tpSlMode"] = "Full" // Required when setting TP or SL
+            params["tpslMode"] = "Full" // Required when setting TP or SL for linear
             request.takeProfit?.let {
                 params["takeProfit"] = roundPrice(request.symbol, it).toPlainString()
                 params["tpTriggerBy"] = "LastPrice"
