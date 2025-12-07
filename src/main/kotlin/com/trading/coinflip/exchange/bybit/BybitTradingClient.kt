@@ -83,9 +83,10 @@ class BybitTradingClient(
         request.price?.let { params["price"] = it.toPlainString() }
         request.takeProfit?.let { params["takeProfit"] = it.toPlainString() }
         request.stopLoss?.let { params["stopLoss"] = it.toPlainString() }
+        request.triggerPrice?.let { params["triggerPrice"] = roundPrice(request.symbol, it).toPlainString() }
 
         val body = objectMapper.writeValueAsString(params)
-        log.info { "Amending order: ${request.symbol} orderId=${request.orderId}" }
+        log.info { "Amending order: ${request.symbol} orderId=${request.orderId} triggerPrice=${request.triggerPrice}" }
 
         val response = post("/v5/order/amend", body)
         return parseOrderResult(response)
@@ -334,6 +335,7 @@ class BybitTradingClient(
         if (request.reduceOnly) params["reduceOnly"] = true
 
         // Add TP/SL if provided - requires tpslMode (lowercase 's')
+        // Note: Position-level TP/SL merges with other positions
         if (request.takeProfit != null || request.stopLoss != null) {
             params["tpslMode"] = "Full" // Required when setting TP or SL for linear
             request.takeProfit?.let {
@@ -347,6 +349,16 @@ class BybitTradingClient(
                 params["slOrderType"] = "Market"
             }
         }
+
+        // Conditional order fields - creates a standalone stop order (doesn't merge)
+        if (request.triggerPrice != null && request.triggerDirection != null) {
+            params["triggerPrice"] = roundPrice(request.symbol, request.triggerPrice).toPlainString()
+            params["triggerDirection"] = request.triggerDirection.value
+            params["triggerBy"] = "LastPrice"
+        }
+
+        // Custom order ID for tracking
+        request.orderLinkId?.let { params["orderLinkId"] = it }
 
         return objectMapper.writeValueAsString(params)
     }

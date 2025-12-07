@@ -15,9 +15,11 @@ import com.trading.coinflip.exchange.ExchangeClientFactory
 import com.trading.coinflip.exchange.ExchangeTradingClient
 import com.trading.coinflip.exchange.OrderSide
 import com.trading.coinflip.exchange.OrderType
+import com.trading.coinflip.exchange.AmendOrderRequest
 import com.trading.coinflip.exchange.PlaceOrderRequest
 import com.trading.coinflip.exchange.PositionIdx
 import com.trading.coinflip.exchange.TradingStopRequest
+import com.trading.coinflip.exchange.TriggerDirection
 import com.trading.coinflip.exchange.bybit.BybitApiException
 import com.trading.coinflip.live.model.LiveBalanceSnapshotEntity
 import com.trading.coinflip.live.model.LivePositionEntity
@@ -362,13 +364,17 @@ class LiveTradingService(
         for (event in events) {
             when (event) {
                 is TradingEvent.PositionOpened -> {
-                    val entity = LivePositionEntity.fromPosition(event.position, sessionId)
-                    positionRepository.save(entity)
+                    var entity = LivePositionEntity.fromPosition(event.position, sessionId)
+                    entity = positionRepository.save(entity)
                     log.info { "${stateHolder.logPrefix} Persisted new position: ${event.position.id} ${event.position.side}" }
 
-                    // Execute real order on exchange
+                    // Execute real order on exchange and save stop order ID
                     if (tradingClient != null) {
-                        executeOpenPosition(stateHolder, tradingClient, event)
+                        val stopOrderId = executeOpenPosition(stateHolder, tradingClient, event)
+                        if (stopOrderId != null) {
+                            entity.stopOrderId = stopOrderId
+                            positionRepository.save(entity)
+                        }
                     }
                 }
 
@@ -384,9 +390,9 @@ class LiveTradingService(
                         entity.updatedAt = Instant.now()
                         positionRepository.save(entity)
 
-                        // Update stop loss on exchange
-                        if (tradingClient != null) {
-                            executeUpdateStopLoss(stateHolder, tradingClient, event, entity.side)
+                        // Update conditional stop order on exchange
+                        if (tradingClient != null && entity.stopOrderId != null) {
+                            executeUpdateStopLoss(stateHolder, tradingClient, event, entity)
                         }
                     }
                 }
@@ -408,9 +414,9 @@ class LiveTradingService(
                         "${stateHolder.logPrefix} Closed position ${event.positionId}: P&L=${event.pnl}, Reason=${event.exitReason}"
                     }
 
-                    // Execute close order on exchange
+                    // Cancel conditional stop order and close position on exchange
                     if (tradingClient != null) {
-                        executeClosePosition(stateHolder, tradingClient, event)
+                        executeClosePosition(stateHolder, tradingClient, event, entity?.stopOrderId)
                     }
                 }
             }
@@ -419,100 +425,134 @@ class LiveTradingService(
 
     /**
      * Execute real order on exchange when position opens.
-     * Uses Hedge Mode: positionIdx=1 for Long, positionIdx=2 for Short.
+     * Places market order first, then separate conditional stop order.
+     * Returns the stop order ID for tracking.
      */
     private suspend fun executeOpenPosition(
         stateHolder: LiveTradingStateHolder,
         tradingClient: ExchangeTradingClient,
         event: TradingEvent.PositionOpened,
-    ) {
+    ): String? {
         try {
             val position = event.position
             val orderSide = if (position.side == PositionSide.LONG) OrderSide.Buy else OrderSide.Sell
             val positionIdx = if (position.side == PositionSide.LONG) PositionIdx.HedgeLong else PositionIdx.HedgeShort
 
             log.info {
-                "${stateHolder.logPrefix} [REAL ORDER] Opening ${position.side} qty=${position.positionSize} SL=${position.trailingStop} posIdx=${positionIdx.value}"
+                "${stateHolder.logPrefix} [REAL ORDER] Opening ${position.side} qty=${position.positionSize} SL=${position.trailingStop}"
             }
 
             // Set leverage first
             tradingClient.setLeverage(stateHolder.symbol, liveProperties.defaultLeverage)
 
-            // Place market order with stop loss (Hedge Mode)
-            val result =
+            // 1. Place market order WITHOUT stop loss
+            val entryResult =
                 tradingClient.placeOrder(
                     PlaceOrderRequest(
                         symbol = stateHolder.symbol,
                         side = orderSide,
                         orderType = OrderType.Market,
                         qty = position.positionSize,
-                        stopLoss = position.trailingStop,
                         positionIdx = positionIdx,
                     ),
                 )
+            log.info { "${stateHolder.logPrefix} [REAL ORDER] Entry order placed: orderId=${entryResult.orderId}" }
 
-            log.info { "${stateHolder.logPrefix} [REAL ORDER] Order placed: orderId=${result.orderId}" }
+            // 2. Place conditional stop order (separate from position-level SL)
+            val stopSide = if (position.side == PositionSide.LONG) OrderSide.Sell else OrderSide.Buy
+            // Long: trigger when price falls to stop. Short: trigger when price rises to stop.
+            val triggerDirection = if (position.side == PositionSide.LONG) TriggerDirection.FallTo else TriggerDirection.RiseTo
+
+            val stopResult =
+                tradingClient.placeOrder(
+                    PlaceOrderRequest(
+                        symbol = stateHolder.symbol,
+                        side = stopSide,
+                        orderType = OrderType.Market,
+                        qty = position.positionSize,
+                        reduceOnly = true,
+                        positionIdx = positionIdx,
+                        triggerPrice = position.trailingStop,
+                        triggerDirection = triggerDirection,
+                        orderLinkId = "stop_${stateHolder.sessionId}_${position.id}",
+                    ),
+                )
+            log.info { "${stateHolder.logPrefix} [REAL ORDER] Stop order placed: orderId=${stopResult.orderId}" }
+
+            return stopResult.orderId
         } catch (e: Exception) {
             log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to open position on exchange" }
+            return null
         }
     }
 
     /**
-     * Update stop loss on exchange when trailing stop moves.
-     * Uses Hedge Mode: positionIdx based on position side.
+     * Update conditional stop order when trailing stop moves.
+     * Amends the stop order's trigger price.
      */
     private suspend fun executeUpdateStopLoss(
         stateHolder: LiveTradingStateHolder,
         tradingClient: ExchangeTradingClient,
         event: TradingEvent.PositionUpdated,
-        positionSide: PositionSide,
+        entity: LivePositionEntity,
     ) {
         try {
-            val positionIdx = if (positionSide == PositionSide.LONG) PositionIdx.HedgeLong else PositionIdx.HedgeShort
-
             log.info {
-                "${stateHolder.logPrefix} [REAL ORDER] Updating SL to ${event.newTrailingStop} posIdx=${positionIdx.value}"
+                "${stateHolder.logPrefix} [REAL ORDER] Amending stop order ${entity.stopOrderId} to triggerPrice=${event.newTrailingStop}"
             }
 
-            tradingClient.setTradingStop(
-                TradingStopRequest(
+            tradingClient.amendOrder(
+                AmendOrderRequest(
                     symbol = stateHolder.symbol,
-                    stopLoss = event.newTrailingStop,
-                    positionIdx = positionIdx,
+                    orderId = entity.stopOrderId!!,
+                    triggerPrice = event.newTrailingStop,
                 ),
             )
 
-            log.info { "${stateHolder.logPrefix} [REAL ORDER] Stop loss updated" }
+            log.info { "${stateHolder.logPrefix} [REAL ORDER] Stop order amended" }
         } catch (e: BybitApiException) {
-            // 10001 with "zero position" means no position exists on exchange - just warn
-            if (e.message.contains("zero position")) {
-                log.warn { "${stateHolder.logPrefix} [REAL ORDER] No position on exchange to update SL" }
+            // Order might already be filled/cancelled
+            if (e.code == 110001 || e.message.contains("not exist")) {
+                log.warn { "${stateHolder.logPrefix} [REAL ORDER] Stop order no longer exists: ${entity.stopOrderId}" }
             } else {
-                log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to update stop loss" }
+                log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to amend stop order" }
             }
         } catch (e: Exception) {
-            log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to update stop loss on exchange" }
+            log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to amend stop order on exchange" }
         }
     }
 
     /**
      * Execute close order on exchange when position closes.
-     * Uses Hedge Mode: positionIdx based on original position side.
+     * Cancels the conditional stop order first, then closes the position.
      */
     private suspend fun executeClosePosition(
         stateHolder: LiveTradingStateHolder,
         tradingClient: ExchangeTradingClient,
         event: TradingEvent.PositionClosed,
+        stopOrderId: String?,
     ) {
         try {
             val trade = event.trade
-            // Close with opposite side, reduce-only
-            val closeSide = if (trade.side == PositionSide.LONG) OrderSide.Sell else OrderSide.Buy
-            // Position index is based on the ORIGINAL position side, not the close order side
             val positionIdx = if (trade.side == PositionSide.LONG) PositionIdx.HedgeLong else PositionIdx.HedgeShort
 
+            // 1. Cancel conditional stop order (if exists and not already triggered)
+            if (stopOrderId != null) {
+                try {
+                    log.info { "${stateHolder.logPrefix} [REAL ORDER] Cancelling stop order: $stopOrderId" }
+                    tradingClient.cancelOrder(stateHolder.symbol, stopOrderId)
+                    log.info { "${stateHolder.logPrefix} [REAL ORDER] Stop order cancelled" }
+                } catch (e: BybitApiException) {
+                    // Order might already be filled (stop was triggered) or cancelled
+                    log.debug { "${stateHolder.logPrefix} [REAL ORDER] Stop order already gone: ${e.message}" }
+                }
+            }
+
+            // 2. Close position with market order (if not already closed by stop)
+            val closeSide = if (trade.side == PositionSide.LONG) OrderSide.Sell else OrderSide.Buy
+
             log.info {
-                "${stateHolder.logPrefix} [REAL ORDER] Closing position qty=${trade.positionSize} posIdx=${positionIdx.value}"
+                "${stateHolder.logPrefix} [REAL ORDER] Closing position qty=${trade.positionSize}"
             }
 
             val result =
@@ -529,9 +569,9 @@ class LiveTradingService(
 
             log.info { "${stateHolder.logPrefix} [REAL ORDER] Position closed: orderId=${result.orderId}" }
         } catch (e: BybitApiException) {
-            // Handle "no position to close" errors gracefully
-            if (e.message.contains("position") || e.message.contains("reduce")) {
-                log.warn { "${stateHolder.logPrefix} [REAL ORDER] No position on exchange to close" }
+            // Handle "no position to close" - might have been closed by stop order
+            if (e.message.contains("position") || e.message.contains("reduce") || e.code == 110017) {
+                log.info { "${stateHolder.logPrefix} [REAL ORDER] Position already closed (likely by stop order)" }
             } else {
                 log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to close position" }
             }

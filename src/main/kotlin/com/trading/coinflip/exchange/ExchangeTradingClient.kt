@@ -95,6 +95,7 @@ enum class PositionIdx(
 
 /**
  * Request to place a new order.
+ * For conditional stop orders, set triggerPrice and triggerDirection.
  */
 data class PlaceOrderRequest(
     val symbol: String,
@@ -103,11 +104,23 @@ data class PlaceOrderRequest(
     val qty: BigDecimal,
     val price: BigDecimal? = null, // Required for Limit orders
     val takeProfit: BigDecimal? = null,
-    val stopLoss: BigDecimal? = null,
+    val stopLoss: BigDecimal? = null, // Position-level SL (merges with other positions)
     val reduceOnly: Boolean = false,
     val timeInForce: String = "GTC", // GTC, IOC, FOK, PostOnly
     val positionIdx: PositionIdx = PositionIdx.HedgeLong, // Default to Hedge mode
+    // Conditional order fields - creates a stop order that doesn't merge
+    val triggerPrice: BigDecimal? = null, // Price at which order triggers
+    val triggerDirection: TriggerDirection? = null, // Rise or fall to triggerPrice
+    val orderLinkId: String? = null, // Custom ID for tracking (e.g., "stop_pos_123")
 )
+
+/**
+ * Trigger direction for conditional orders.
+ */
+enum class TriggerDirection(val value: Int) {
+    RiseTo(1),  // Trigger when price rises to triggerPrice (for take profit on short)
+    FallTo(2),  // Trigger when price falls to triggerPrice (for stop loss on long)
+}
 
 /**
  * Request to amend an existing order.
@@ -119,6 +132,7 @@ data class AmendOrderRequest(
     val price: BigDecimal? = null,
     val takeProfit: BigDecimal? = null,
     val stopLoss: BigDecimal? = null,
+    val triggerPrice: BigDecimal? = null, // For amending conditional stop orders
 )
 
 /**
