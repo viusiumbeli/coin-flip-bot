@@ -1,9 +1,10 @@
-package com.trading.coinflip.live
+package com.trading.coinflip.exchange.binance
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.trading.coinflip.candle.CandleEntity
-import com.trading.coinflip.common.config.LiveProperties
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.exchange.ExchangeWebSocketClient
+import com.trading.coinflip.exchange.ExchangeWebSocketConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.WebSockets
@@ -19,41 +20,44 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.isActive
 import mu.KotlinLogging
-import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
-@Component
+/**
+ * Binance WebSocket client for real-time kline streaming.
+ * Implements ExchangeWebSocketClient interface for exchange abstraction.
+ *
+ * Binance WebSocket characteristics:
+ * - URL format: wss://stream.binance.com:9443/ws/{symbol}@kline_{interval}
+ * - Closed candle indicator: k.x = true
+ * - Built-in ping/pong handling
+ */
 class BinanceWebSocketClient(
     private val objectMapper: ObjectMapper,
-    private val liveProperties: LiveProperties,
-) {
+    private val config: ExchangeWebSocketConfig,
+) : ExchangeWebSocketClient {
     private val log = KotlinLogging.logger {}
 
     private val client =
         HttpClient(CIO) {
             install(WebSockets) {
-                pingInterval = liveProperties.heartbeatIntervalMs
+                pingInterval = config.heartbeatIntervalMs
             }
         }
 
     private val running = AtomicBoolean(false)
     private val reconnectAttempts = AtomicInteger(0)
 
-    /**
-     * Connect to Binance kline WebSocket and emit completed candles.
-     * Automatically handles reconnection with exponential backoff.
-     */
-    fun connectAndStream(
+    override fun connectAndStream(
         symbol: String,
         timeframe: Timeframe,
         scope: CoroutineScope,
     ): Flow<CandleEntity> =
         channelFlow {
             val streamName = "${symbol.lowercase()}@kline_${timeframe.label}"
-            val url = "${liveProperties.websocketUrl}/$streamName"
+            val url = "${config.websocketUrl}/$streamName"
 
             running.set(true)
 
@@ -91,13 +95,13 @@ class BinanceWebSocketClient(
                     if (!running.get()) break
 
                     val attempts = reconnectAttempts.incrementAndGet()
-                    if (attempts > liveProperties.maxReconnectAttempts) {
+                    if (attempts > config.maxReconnectAttempts) {
                         log.error { "Max reconnect attempts ($attempts) reached, stopping" }
                         break
                     }
 
                     // Exponential backoff: 5s, 10s, 20s, 40s...
-                    val delayMs = liveProperties.reconnectDelayMs * (1L shl (attempts - 1).coerceAtMost(6))
+                    val delayMs = config.reconnectDelayMs * (1L shl (attempts - 1).coerceAtMost(6))
                     log.info { "Reconnecting in ${delayMs}ms (attempt $attempts)" }
                     delay(delayMs)
                 }
@@ -117,7 +121,7 @@ class BinanceWebSocketClient(
             val node = objectMapper.readTree(json)
             val kline = node["k"] ?: return null
 
-            // Only emit completed candles
+            // Only emit completed candles (x = true means candle is closed)
             val isClosed = kline["x"]?.asBoolean() ?: false
             if (!isClosed) return null
 
@@ -137,20 +141,11 @@ class BinanceWebSocketClient(
         }
     }
 
-    /**
-     * Stop the WebSocket connection gracefully.
-     */
-    fun stop() {
+    override fun stop() {
         running.set(false)
     }
 
-    /**
-     * Check if currently connected/running.
-     */
-    fun isRunning(): Boolean = running.get()
+    override fun isRunning(): Boolean = running.get()
 
-    /**
-     * Get current reconnect attempt count.
-     */
-    fun getReconnectAttempts(): Int = reconnectAttempts.get()
+    override fun getReconnectAttempts(): Int = reconnectAttempts.get()
 }

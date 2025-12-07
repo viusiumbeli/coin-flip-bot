@@ -3,6 +3,7 @@ package com.trading.coinflip.common.config
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionStatus
+import com.trading.coinflip.exchange.Exchange
 import com.trading.coinflip.experiment.model.ExperimentStatus
 import com.trading.coinflip.live.model.LiveSessionStatus
 import io.r2dbc.spi.ConnectionFactory
@@ -33,6 +34,8 @@ class R2dbcConfig {
                 PositionStatusReadConverter(),
                 LiveSessionStatusWriteConverter(),
                 LiveSessionStatusReadConverter(),
+                ExchangeWriteConverter(),
+                ExchangeReadConverter(),
             )
         return R2dbcCustomConversions.of(dialect, converters)
     }
@@ -86,4 +89,14 @@ class LiveSessionStatusWriteConverter : Converter<LiveSessionStatus, String> {
 @ReadingConverter
 class LiveSessionStatusReadConverter : Converter<String, LiveSessionStatus> {
     override fun convert(source: String): LiveSessionStatus = LiveSessionStatus.valueOf(source)
+}
+
+@WritingConverter
+class ExchangeWriteConverter : Converter<Exchange, String> {
+    override fun convert(source: Exchange): String = source.name
+}
+
+@ReadingConverter
+class ExchangeReadConverter : Converter<String, Exchange> {
+    override fun convert(source: String): Exchange = Exchange.valueOf(source)
 }

@@ -2,6 +2,7 @@ package com.trading.coinflip.candle
 
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.exchange.ExchangeClientFactory
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -16,11 +17,14 @@ import java.time.Instant
 @Service
 class CandleService(
     private val candleRepository: CandleRepository,
-    private val binanceClient: BinanceClient,
+    private val exchangeClientFactory: ExchangeClientFactory,
     private val properties: BacktestProperties,
     private val databaseClient: DatabaseClient,
 ) {
     private val log = KotlinLogging.logger {}
+
+    // Lazily create REST client (uses configured exchange)
+    private val exchangeClient by lazy { exchangeClientFactory.getRestClient() }
 
     /**
      * Syncs missing data from the latest candle to now.
@@ -45,7 +49,8 @@ class CandleService(
             return 0
         }
 
-        log.info { "Syncing missing data for $symbol ${timeframe.label} from $startTime" }
+        val exchange = exchangeClientFactory.getExchange()
+        log.info { "Syncing missing data for $symbol ${timeframe.label} from $startTime via $exchange" }
         val totalSaved = streamAndSave(symbol, timeframe, startTime)
 
         if (totalSaved == 0) {
@@ -115,7 +120,7 @@ class CandleService(
         var totalSaved = 0
         var pageNum = 0
 
-        binanceClient
+        exchangeClient
             .streamHistoricalData(symbol, timeframe, startDate)
             .collect { page ->
                 log.info {

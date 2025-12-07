@@ -5,6 +5,8 @@ import com.trading.coinflip.candle.CandleRepository
 import com.trading.coinflip.common.config.LiveProperties
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.engine.model.PositionStatus
+import com.trading.coinflip.exchange.Exchange
+import com.trading.coinflip.exchange.ExchangeClientFactory
 import com.trading.coinflip.live.LiveTradingService
 import com.trading.coinflip.live.repository.LiveBalanceSnapshotRepository
 import com.trading.coinflip.live.repository.LivePositionRepository
@@ -36,18 +38,26 @@ class LiveController(
     private val balanceSnapshotRepository: LiveBalanceSnapshotRepository,
     private val candleRepository: CandleRepository,
     private val liveProperties: LiveProperties,
+    private val exchangeClientFactory: ExchangeClientFactory,
 ) {
     private val log = KotlinLogging.logger {}
 
     @GetMapping("/config")
-    fun getConfig(): LiveConfigResponse =
-        LiveConfigResponse(
+    fun getConfig(): LiveConfigResponse {
+        val websocketUrl =
+            when (liveProperties.exchange) {
+                com.trading.coinflip.exchange.Exchange.BINANCE -> liveProperties.binanceWebsocketUrl
+                com.trading.coinflip.exchange.Exchange.BYBIT -> liveProperties.bybitWebsocketUrl
+            }
+        return LiveConfigResponse(
             enabled = liveProperties.enabled,
             symbols = liveProperties.symbols,
             timeframes = Timeframe.entries.map { it.label },
             initialCapital = liveProperties.initialCapital,
-            websocketUrl = liveProperties.websocketUrl,
+            websocketUrl = websocketUrl,
+            exchange = liveProperties.exchange.name,
         )
+    }
 
     @GetMapping("/sessions")
     suspend fun getAllSessions(): List<LiveSessionSummaryResponse> =
@@ -120,7 +130,8 @@ class LiveController(
     suspend fun startSession(
         @RequestBody request: StartSessionRequest,
     ): LiveSessionSummaryResponse {
-        log.info { "Starting live trading session for ${request.symbol} with timeframe ${request.timeframe}" }
+        val exchange = request.exchange ?: liveProperties.exchange
+        log.info { "Starting live trading session for ${request.symbol} ${request.timeframe.label} on $exchange" }
 
         if (!liveProperties.enabled) {
             throw IllegalStateException("Live trading is disabled")
@@ -130,7 +141,7 @@ class LiveController(
             throw IllegalArgumentException("Symbol ${request.symbol} is not in configured symbols: ${liveProperties.symbols}")
         }
 
-        val session = liveTradingService.startSession(request.symbol, request.timeframe)
+        val session = liveTradingService.startSession(request.symbol, request.timeframe, exchange)
         return session.toSummaryDto()
     }
 
