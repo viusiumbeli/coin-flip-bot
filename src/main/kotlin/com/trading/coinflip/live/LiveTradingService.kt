@@ -160,7 +160,9 @@ class LiveTradingService(
             val key = sessionKey(session.symbol, session.timeframe, session.exchange)
 
             if (sessionJobs.containsKey(key)) {
-                log.warn { "Session already running for ${session.symbol} ${session.timeframe.label} on ${session.exchange}, skipping resume" }
+                log.warn {
+                    "Session already running for ${session.symbol} ${session.timeframe.label} on ${session.exchange}, skipping resume"
+                }
                 return
             }
 

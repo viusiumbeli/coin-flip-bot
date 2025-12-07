@@ -7,8 +7,11 @@ import com.trading.coinflip.exchange.binance.BinanceClient
 import com.trading.coinflip.exchange.binance.BinanceRestConfig
 import com.trading.coinflip.exchange.binance.BinanceWebSocketClient
 import com.trading.coinflip.exchange.binance.BinanceWebSocketConfig
+import com.trading.coinflip.exchange.bybit.BybitAuthenticator
 import com.trading.coinflip.exchange.bybit.BybitClient
 import com.trading.coinflip.exchange.bybit.BybitRestConfig
+import com.trading.coinflip.exchange.bybit.BybitTradingClient
+import com.trading.coinflip.exchange.bybit.BybitTradingConfig
 import com.trading.coinflip.exchange.bybit.BybitWebSocketClient
 import com.trading.coinflip.exchange.bybit.BybitWebSocketConfig
 import mu.KotlinLogging
@@ -31,6 +34,7 @@ class ExchangeClientFactory(
     // Cached clients per exchange - allows multiple exchanges to run simultaneously
     private val restClients = ConcurrentHashMap<Exchange, ExchangeClient>()
     private val webSocketClients = ConcurrentHashMap<Exchange, ExchangeWebSocketClient>()
+    private val tradingClients = ConcurrentHashMap<Exchange, ExchangeTradingClient>()
 
     /**
      * Get REST API client for a specific exchange.
@@ -69,6 +73,46 @@ class ExchangeClientFactory(
     fun getWebSocketClient(): ExchangeWebSocketClient = getWebSocketClient(liveProperties.exchange)
 
     /**
+     * Get trading client for a specific exchange.
+     * Returns null if credentials are not configured.
+     * Creates and caches client if not already present.
+     */
+    fun getTradingClient(exchange: Exchange): ExchangeTradingClient? {
+        // Check if we already have a cached client (including null marker)
+        if (tradingClients.containsKey(exchange)) {
+            return tradingClients[exchange]
+        }
+
+        // Try to create the client
+        val client =
+            when (exchange) {
+                Exchange.BYBIT -> createBybitTradingClient()
+                Exchange.BINANCE -> {
+                    log.warn { "Binance trading client not implemented yet" }
+                    null
+                }
+            }
+
+        // Cache the result (even null) and return
+        if (client != null) {
+            tradingClients[exchange] = client
+            log.info { "Created trading client for exchange: $exchange" }
+        }
+        return client
+    }
+
+    /**
+     * Get trading client for the configured default exchange.
+     * Returns null if credentials are not configured.
+     */
+    fun getTradingClient(): ExchangeTradingClient? = getTradingClient(liveProperties.exchange)
+
+    /**
+     * Check if trading is available for the given exchange.
+     */
+    fun isTradingAvailable(exchange: Exchange): Boolean = getTradingClient(exchange) != null
+
+    /**
      * Get the default configured exchange.
      */
     fun getExchange(): Exchange = liveProperties.exchange
@@ -80,6 +124,7 @@ class ExchangeClientFactory(
         log.info { "Invalidating cached clients for exchange: $exchange" }
         restClients.remove(exchange)
         webSocketClients.remove(exchange)?.stop()
+        tradingClients.remove(exchange)
     }
 
     /**
@@ -90,6 +135,7 @@ class ExchangeClientFactory(
         restClients.clear()
         webSocketClients.values.forEach { it.stop() }
         webSocketClients.clear()
+        tradingClients.clear()
     }
 
     // --- Binance client creation ---
@@ -136,5 +182,48 @@ class ExchangeClientFactory(
                 maxReconnectAttempts = liveProperties.maxReconnectAttempts,
             )
         return BybitWebSocketClient(objectMapper, config)
+    }
+
+    /**
+     * Create Bybit trading client with authentication.
+     * Returns null if API credentials are not configured.
+     * Checks both environment variables and application.yml config.
+     */
+    private fun createBybitTradingClient(): BybitTradingClient? {
+        // Environment variables take precedence over config file
+        val apiKey =
+            System.getenv("BYBIT_API_KEY")?.takeIf { it.isNotBlank() }
+                ?: liveProperties.bybitApiKey.takeIf { it.isNotBlank() }
+        val apiSecret =
+            System.getenv("BYBIT_API_SECRET")?.takeIf { it.isNotBlank() }
+                ?: liveProperties.bybitApiSecret.takeIf { it.isNotBlank() }
+
+        if (apiKey == null || apiSecret == null) {
+            log.warn { "Bybit API credentials not configured - trading client unavailable" }
+            log.info { "Set BYBIT_API_KEY and BYBIT_API_SECRET env vars or configure in application.yml" }
+            return null
+        }
+
+        // Select demo or mainnet URL based on configuration
+        val baseUrl =
+            if (liveProperties.bybitDemo) {
+                liveProperties.bybitDemoRestUrl
+            } else {
+                liveProperties.bybitRestUrl
+            }
+
+        log.info {
+            "Creating Bybit trading client for ${if (liveProperties.bybitDemo) "DEMO" else "MAINNET"}: $baseUrl"
+        }
+
+        val config =
+            BybitTradingConfig(
+                baseUrl = baseUrl,
+                httpTimeoutMs = backtestProperties.api.httpTimeoutMs,
+            )
+
+        val authenticator = BybitAuthenticator(apiKey, apiSecret)
+
+        return BybitTradingClient(objectMapper, config, authenticator)
     }
 }
