@@ -15,4 +15,5 @@ data class LiveProperties(
     var balanceSnapshotIntervalMinutes: Int = 60,
     var heartbeatIntervalMs: Long = 30000,
     var websocketUrl: String = "wss://stream.binance.com:9443/ws",
+    var prefetchCandleCount: Int = 20,
 )

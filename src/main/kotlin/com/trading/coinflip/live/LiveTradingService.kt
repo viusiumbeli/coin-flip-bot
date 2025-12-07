@@ -1,5 +1,6 @@
 package com.trading.coinflip.live
 
+import com.trading.coinflip.candle.BinanceClient
 import com.trading.coinflip.candle.CandleEntity
 import com.trading.coinflip.candle.CandleRepository
 import com.trading.coinflip.common.config.BacktestProperties
@@ -43,6 +44,7 @@ import java.util.concurrent.ConcurrentHashMap
 @Service
 class LiveTradingService(
     private val webSocketClient: BinanceWebSocketClient,
+    private val binanceClient: BinanceClient,
     private val tradingProcessor: TradingProcessor,
     private val recoveryService: LiveStateRecoveryService,
     private val sessionRepository: LiveSessionRepository,
@@ -126,8 +128,8 @@ class LiveTradingService(
                 )
             stateHolders[key] = stateHolder
 
-            // Initialize ATR from historical data
-            initializeAtrFromHistory(stateHolder)
+            // Prefetch historical candles for ATR initialization
+            prefetchHistoricalCandles(stateHolder)
 
             // Start WebSocket streaming
             val job =
@@ -270,15 +272,41 @@ class LiveTradingService(
     }
 
     /**
-     * Initialize ATR from historical candle data.
+     * Prefetch historical candles from Binance API to ensure ATR is available.
      */
-    private suspend fun initializeAtrFromHistory(stateHolder: LiveTradingStateHolder) {
-        val lastCandle = candleRepository.findLastCandleWithATR(stateHolder.symbol, stateHolder.timeframe)
-        if (lastCandle != null) {
-            stateHolder.lastCandle = lastCandle
-            log.info { "${stateHolder.logPrefix} Initialized ATR from history: ${lastCandle.atr} at ${lastCandle.openTime}" }
+    private suspend fun prefetchHistoricalCandles(stateHolder: LiveTradingStateHolder) {
+        val count = liveProperties.prefetchCandleCount
+        log.info { "${stateHolder.logPrefix} Prefetching last $count candles for ATR initialization" }
+
+        // Fetch from Binance REST API
+        val candles =
+            binanceClient.fetchHistoricalKlines(
+                symbol = stateHolder.symbol,
+                timeframe = stateHolder.timeframe,
+                limit = count,
+            )
+
+        if (candles.isEmpty()) {
+            log.warn { "${stateHolder.logPrefix} No historical candles fetched from Binance API" }
+            return
+        }
+
+        // Save to DB (triggers ATR calculation)
+        for (candle in candles) {
+            persistCandle(candle)
+        }
+
+        // Update lastCandle with most recent that has ATR
+        val lastWithAtr =
+            candleRepository.findLastCandleWithATR(
+                stateHolder.symbol,
+                stateHolder.timeframe,
+            )
+        if (lastWithAtr != null) {
+            stateHolder.lastCandle = lastWithAtr
+            log.info { "${stateHolder.logPrefix} ATR initialized: ${lastWithAtr.atr} at ${lastWithAtr.openTime}" }
         } else {
-            log.warn { "${stateHolder.logPrefix} No historical ATR found, will need to build from stream" }
+            log.warn { "${stateHolder.logPrefix} No ATR calculated after prefetch (need more history)" }
         }
     }
 

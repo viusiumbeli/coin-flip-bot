@@ -77,3 +77,4 @@ live:
   balance-snapshot-interval-minutes: 60
   heartbeat-interval-ms: 30000
   websocket-url: wss://stream.binance.com:9443/ws
+  prefetch-candle-count: 20
