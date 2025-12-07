@@ -9,23 +9,6 @@ import java.time.Instant
 
 @Repository
 interface CandleRepository : CoroutineCrudRepository<CandleEntity, Long> {
-    fun findBySymbolAndTimeframeOrderByOpenTimeAsc(
-        symbol: String,
-        timeframe: Timeframe,
-    ): Flow<CandleEntity>
-
-    @Query(
-        """
-        SELECT * FROM candles
-        WHERE symbol = :symbol AND timeframe = :timeframe
-        ORDER BY open_time ASC LIMIT 1
-        """,
-    )
-    suspend fun findEarliestCandle(
-        symbol: String,
-        timeframe: Timeframe,
-    ): CandleEntity?
-
     @Query(
         """
         SELECT * FROM candles
@@ -37,12 +20,6 @@ interface CandleRepository : CoroutineCrudRepository<CandleEntity, Long> {
         symbol: String,
         timeframe: Timeframe,
     ): CandleEntity?
-
-    @Query("SELECT COUNT(*) FROM candles WHERE symbol = :symbol AND timeframe = :timeframe")
-    suspend fun countBySymbolAndTimeframe(
-        symbol: String,
-        timeframe: Timeframe,
-    ): Long
 
     @Query(
         """
@@ -100,4 +77,9 @@ interface CandleRepository : CoroutineCrudRepository<CandleEntity, Long> {
         limit: Int,
         offset: Long,
     ): Flow<CandleEntity>
+
+    suspend fun deleteBySymbolAndTimeframe(
+        symbol: String,
+        timeframe: Timeframe,
+    )
 }

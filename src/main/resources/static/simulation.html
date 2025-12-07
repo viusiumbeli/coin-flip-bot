@@ -36,13 +36,13 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="startDate">Start Date (Optional)</label>
-                    <input type="datetime-local" id="startDate" max="9999-12-31T23:59">
+                    <label for="startDate">Start Date</label>
+                    <input type="datetime-local" id="startDate" max="9999-12-31T23:59" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="endDate">End Date (Optional)</label>
-                    <input type="datetime-local" id="endDate" max="9999-12-31T23:59">
+                    <label for="endDate">End Date</label>
+                    <input type="datetime-local" id="endDate" max="9999-12-31T23:59" required>
                 </div>
             </div>
 
@@ -269,6 +269,14 @@
                     ATR Multiplier: ${config.atrMultiplier} |
                     Max Positions: ${config.maxConcurrentPositions}
                 `;
+
+                // Pre-fill date fields (1 year ago to now)
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setFullYear(startDate.getFullYear() - 1);
+
+                document.getElementById('startDate').value = startDate.toISOString().slice(0, 16);
+                document.getElementById('endDate').value = endDate.toISOString().slice(0, 16);
             } catch (error) {
                 showError('Failed to load options: ' + error.message);
             }
@@ -280,8 +288,8 @@
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
 
-            if (!symbol || !timeframe) {
-                showError('Please select a symbol and timeframe');
+            if (!symbol || !timeframe || !startDate || !endDate) {
+                showError('Please fill in all fields');
                 return;
             }
 
@@ -291,16 +299,10 @@
             try {
                 const requestBody = {
                     symbol,
-                    timeframe
+                    timeframe,
+                    startDate: toUTCISOString(startDate),
+                    endDate: toUTCISOString(endDate),
                 };
-
-                // Add dates if provided
-                if (startDate) {
-                    requestBody.startDate = toUTCISOString(startDate);
-                }
-                if (endDate) {
-                    requestBody.endDate = toUTCISOString(endDate);
-                }
 
                 const response = await fetch(`${API_BASE}/init`, {
                     method: 'POST',

@@ -43,9 +43,7 @@ class ATRTriggerIntegrationTest {
     fun cleanup() =
         runBlocking {
             // Delete only test data to avoid affecting other tests
-            candleRepository
-                .findBySymbolAndTimeframeOrderByOpenTimeAsc(TEST_SYMBOL, TEST_TIMEFRAME)
-                .collect { candleRepository.delete(it) }
+            candleRepository.deleteBySymbolAndTimeframe(TEST_SYMBOL, TEST_TIMEFRAME)
         }
 
     // --- Helper Methods ---
@@ -349,8 +347,14 @@ class ATRTriggerIntegrationTest {
             // Fetch all and verify ATR
             val savedCandles =
                 candleRepository
-                    .findBySymbolAndTimeframeOrderByOpenTimeAsc(TEST_SYMBOL, TEST_TIMEFRAME)
-                    .toList()
+                    .findCandlesPageByOffset(
+                        symbol = TEST_SYMBOL,
+                        timeframe = TEST_TIMEFRAME,
+                        startTime = BASE_TIME,
+                        endTime = BASE_TIME.plus(100, ChronoUnit.HOURS),
+                        limit = 100,
+                        offset = 0,
+                    ).toList()
 
             assertThat(savedCandles).hasSize(12)
 
@@ -447,11 +451,7 @@ class ATRTriggerIntegrationTest {
                 .isNull()
 
             // Clean up other symbols
-            candleRepository
-                .findBySymbolAndTimeframeOrderByOpenTimeAsc("SYMBOL_A", TEST_TIMEFRAME)
-                .collect { candleRepository.delete(it) }
-            candleRepository
-                .findBySymbolAndTimeframeOrderByOpenTimeAsc("SYMBOL_B", TEST_TIMEFRAME)
-                .collect { candleRepository.delete(it) }
+            candleRepository.deleteBySymbolAndTimeframe("SYMBOL_A", TEST_TIMEFRAME)
+            candleRepository.deleteBySymbolAndTimeframe("SYMBOL_B", TEST_TIMEFRAME)
         }
 }
