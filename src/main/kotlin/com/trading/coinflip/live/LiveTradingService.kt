@@ -323,6 +323,7 @@ class LiveTradingService(
         stateHolder: LiveTradingStateHolder,
     ) {
         if (!liveProperties.executeRealOrders) {
+            log.info { "${stateHolder.logPrefix} Position sync disabled (executeRealOrders=false)" }
             return
         }
 
