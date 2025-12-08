@@ -117,9 +117,11 @@ data class PlaceOrderRequest(
 /**
  * Trigger direction for conditional orders.
  */
-enum class TriggerDirection(val value: Int) {
-    RiseTo(1),  // Trigger when price rises to triggerPrice (for take profit on short)
-    FallTo(2),  // Trigger when price falls to triggerPrice (for stop loss on long)
+enum class TriggerDirection(
+    val value: Int,
+) {
+    RiseTo(1), // Trigger when price rises to triggerPrice (for take profit on short)
+    FallTo(2), // Trigger when price falls to triggerPrice (for stop loss on long)
 }
 
 /**
