@@ -13,6 +13,7 @@ import com.trading.coinflip.engine.model.TradingState
 import com.trading.coinflip.exchange.Exchange
 import com.trading.coinflip.exchange.ExchangeClientFactory
 import com.trading.coinflip.exchange.ExchangeTradingClient
+import com.trading.coinflip.exchange.ExecutionEvent
 import com.trading.coinflip.exchange.OrderSide
 import com.trading.coinflip.exchange.OrderType
 import com.trading.coinflip.exchange.PlaceOrderRequest
@@ -66,6 +67,7 @@ class LiveTradingService(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val sessionJobs = ConcurrentHashMap<String, Job>()
+    private val executionJobs = ConcurrentHashMap<Exchange, Job>() // One per exchange
     private val stateHolders = ConcurrentHashMap<String, LiveTradingStateHolder>()
     private val mutex = Mutex()
 
@@ -75,6 +77,8 @@ class LiveTradingService(
     private fun getWebSocketClient(exchange: Exchange) = exchangeClientFactory.getWebSocketClient(exchange)
 
     private fun getTradingClient(exchange: Exchange): ExchangeTradingClient? = exchangeClientFactory.getTradingClient(exchange)
+
+    private fun getExecutionClient(exchange: Exchange) = exchangeClientFactory.getExecutionClient(exchange)
 
     private fun sessionKey(
         symbol: String,
@@ -163,6 +167,9 @@ class LiveTradingService(
             // Prefetch historical candles for ATR initialization
             prefetchHistoricalCandles(stateHolder)
 
+            // Start execution WebSocket if not already running for this exchange
+            startExecutionStream(exchange)
+
             // Start WebSocket streaming
             val job =
                 scope.launch {
@@ -242,6 +249,194 @@ class LiveTradingService(
             sessionId = stateHolder.sessionId,
             symbol = symbol,
         )
+
+        // Stop execution stream if no more sessions for this exchange
+        val hasSessionsForExchange = stateHolders.values.any { it.exchange == exchange }
+        if (!hasSessionsForExchange) {
+            stopExecutionStream(exchange)
+        }
+    }
+
+    /**
+     * Start execution WebSocket stream for an exchange (one per exchange, shared by all sessions).
+     * Receives position close events from exchange when trailing stop triggers.
+     */
+    private fun startExecutionStream(exchange: Exchange) {
+        if (executionJobs.containsKey(exchange)) {
+            log.debug { "Execution stream already running for $exchange" }
+            return
+        }
+
+        if (!liveProperties.executeRealOrders) {
+            log.debug { "Execution stream disabled (executeRealOrders=false)" }
+            return
+        }
+
+        val executionClient = getExecutionClient(exchange)
+        if (executionClient == null) {
+            log.warn { "Execution client not available for $exchange - position sync disabled" }
+            return
+        }
+
+        val job =
+            scope.launch {
+                log.info { "Starting execution stream for $exchange" }
+                executionClient
+                    .connectAndStream(scope)
+                    .onEach { event -> handleExecutionEvent(exchange, event) }
+                    .catch { e -> log.error(e) { "Execution stream error for $exchange" } }
+                    .collect()
+            }
+        executionJobs[exchange] = job
+    }
+
+    /**
+     * Stop execution WebSocket stream for an exchange.
+     */
+    private fun stopExecutionStream(exchange: Exchange) {
+        val job = executionJobs.remove(exchange)
+        if (job != null) {
+            job.cancel()
+            getExecutionClient(exchange)?.stop()
+            log.info { "Stopped execution stream for $exchange" }
+        }
+    }
+
+    /**
+     * Handle execution events from exchange.
+     * Updates local state when position is closed by exchange (trailing stop triggered).
+     */
+    private suspend fun handleExecutionEvent(
+        exchange: Exchange,
+        event: ExecutionEvent,
+    ) {
+        when (event) {
+            is ExecutionEvent.PositionClosed -> {
+                log.info {
+                    "[$exchange] Position closed by exchange: ${event.symbol} ${event.side} qty=${event.closedSize} pnl=${event.execPnl}"
+                }
+
+                // Find matching session for this symbol
+                val stateHolder =
+                    stateHolders.values.find {
+                        it.exchange == exchange && it.symbol == event.symbol
+                    }
+
+                if (stateHolder == null) {
+                    log.debug { "No active session for ${event.symbol} on $exchange" }
+                    return
+                }
+
+                // Sync position closure with local state
+                syncPositionClosure(stateHolder, event)
+            }
+
+            is ExecutionEvent.PositionUpdate -> {
+                // Log position updates for debugging
+                if (event.size == BigDecimal.ZERO) {
+                    log.info { "[$exchange] Position fully closed: ${event.symbol}" }
+                }
+            }
+        }
+    }
+
+    /**
+     * Sync position closure from exchange with local state.
+     * Called when trailing stop triggers on exchange side.
+     */
+    private suspend fun syncPositionClosure(
+        stateHolder: LiveTradingStateHolder,
+        event: ExecutionEvent.PositionClosed,
+    ) {
+        // Determine position side from execution event
+        // If exchange closed with Sell, our position was Long (and vice versa)
+        val positionSide = if (event.side == "Sell") PositionSide.LONG else PositionSide.SHORT
+
+        stateHolder.withState { currentState ->
+            // Find matching open position
+            val position = currentState.openPositions.find { it.side == positionSide }
+            if (position == null) {
+                log.warn { "${stateHolder.logPrefix} No open $positionSide position to sync with exchange close" }
+                return@withState
+            }
+
+            log.info { "${stateHolder.logPrefix} Syncing position #${position.id} closure from exchange (pnl=${event.execPnl})" }
+
+            // Update position in database
+            val entity = positionRepository.findBySessionIdAndPositionId(stateHolder.sessionId, position.id)
+            if (entity != null) {
+                entity.status = PositionStatus.CLOSED
+                entity.updatedAt = Instant.now()
+                positionRepository.save(entity)
+            }
+
+            // Create trade record with exchange data
+            val exitTime = Instant.now()
+            val balanceBeforeClose = currentState.accountBalance
+            val balanceAfterClose = currentState.accountBalance + event.execPnl
+            val profitLossPercent =
+                if (position.entryPrice > BigDecimal.ZERO) {
+                    (event.execPrice - position.entryPrice)
+                        .divide(position.entryPrice, 8, java.math.RoundingMode.HALF_UP)
+                        .multiply(BigDecimal(100))
+                } else {
+                    BigDecimal.ZERO
+                }
+
+            val trade =
+                LiveTradeEntity(
+                    sessionId = stateHolder.sessionId,
+                    tradeId = currentState.tradeIdCounter + 1,
+                    symbol = event.symbol,
+                    timeframe = stateHolder.timeframe,
+                    side = positionSide,
+                    entryTime = position.entryTime,
+                    entryPrice = position.entryPrice,
+                    exitTime = exitTime,
+                    exitPrice = event.execPrice,
+                    positionSize = event.closedSize,
+                    initialStopLoss = position.initialStopLoss,
+                    trailingStop = position.trailingStop,
+                    profitLoss = event.execPnl,
+                    profitLossPercent = profitLossPercent,
+                    exitReason = "Trailing stop (exchange)",
+                    balanceBeforeOpen = position.balanceBeforeOpen,
+                    balanceAfterOpen = position.balanceAfterOpen,
+                    balanceBeforeClose = balanceBeforeClose,
+                    balanceAfterClose = balanceAfterClose,
+                )
+            tradeRepository.save(trade)
+
+            // Update local state - remove position and update balance
+            val newBalance = currentState.accountBalance + event.execPnl
+            val newPeak = maxOf(currentState.peakBalance, newBalance)
+            val drawdown =
+                if (newPeak > BigDecimal.ZERO) {
+                    (newPeak - newBalance).divide(newPeak, 8, java.math.RoundingMode.HALF_UP)
+                } else {
+                    BigDecimal.ZERO
+                }
+            val newMaxDrawdown = maxOf(currentState.maxDrawdown, drawdown)
+
+            val newState =
+                currentState.copy(
+                    openPositions = currentState.openPositions.filter { it.id != position.id },
+                    accountBalance = newBalance,
+                    peakBalance = newPeak,
+                    maxDrawdown = newMaxDrawdown,
+                )
+            stateHolder.updateState(newState)
+
+            // Publish SSE event
+            eventPublisher.publishPositionClosed(
+                sessionId = stateHolder.sessionId,
+                symbol = stateHolder.symbol,
+                positionId = position.id,
+                pnl = event.execPnl,
+                exitReason = "Trailing stop (exchange)",
+                newBalance = newBalance,
+            )
+        }
     }
 
     /**

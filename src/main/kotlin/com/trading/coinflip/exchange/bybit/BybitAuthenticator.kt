@@ -52,6 +52,19 @@ class BybitAuthenticator(
     }
 
     /**
+     * Generate WebSocket authentication arguments.
+     * WebSocket uses different signature format: HMAC_SHA256("GET/realtime" + expires, apiSecret)
+     *
+     * @return Triple of (apiKey, expires, signature) for WebSocket auth message
+     */
+    fun generateWebSocketAuth(): Triple<String, Long, String> {
+        val expires = System.currentTimeMillis() + 10000 // 10 seconds from now
+        val message = "GET/realtime$expires"
+        val signature = hmacSha256(message, apiSecret)
+        return Triple(apiKey, expires, signature)
+    }
+
+    /**
      * Compute HMAC-SHA256 and return as lowercase hex string.
      */
     private fun hmacSha256(
