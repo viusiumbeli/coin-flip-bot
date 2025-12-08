@@ -217,6 +217,12 @@ class LiveTradingService(
             val stateHolder = recoveryService.recoverState(session)
             stateHolders[key] = stateHolder
 
+            // Start execution WebSocket if not already running for this exchange
+            startExecutionStream(session.exchange)
+
+            // Start periodic position sync (every minute)
+            startPositionSyncJob(key, stateHolder)
+
             val job =
                 scope.launch {
                     runSession(stateHolder)
