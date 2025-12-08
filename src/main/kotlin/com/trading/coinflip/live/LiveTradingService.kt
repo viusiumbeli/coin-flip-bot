@@ -18,7 +18,6 @@ import com.trading.coinflip.exchange.OrderType
 import com.trading.coinflip.exchange.PlaceOrderRequest
 import com.trading.coinflip.exchange.PositionIdx
 import com.trading.coinflip.exchange.TradingStopRequest
-import com.trading.coinflip.exchange.bybit.BybitApiException
 import com.trading.coinflip.live.model.LiveBalanceSnapshotEntity
 import com.trading.coinflip.live.model.LivePositionEntity
 import com.trading.coinflip.live.model.LiveSessionEntity
@@ -449,10 +448,7 @@ class LiveTradingService(
                         "${stateHolder.logPrefix} Closed position ${event.positionId}: P&L=${event.pnl}, Reason=${event.exitReason}"
                     }
 
-                    // Close position on exchange (trailing stop auto-cancels with position)
-                    if (tradingClient != null) {
-                        executeClosePosition(stateHolder, tradingClient, event)
-                    }
+                    // NOTE: We don't close position on exchange - ByBit's trailing stop handles it
 
                     // Publish SSE event
                     eventPublisher.publishPositionClosed(
@@ -517,49 +513,6 @@ class LiveTradingService(
             log.info { "${stateHolder.logPrefix} [REAL ORDER] Trailing stop set: distance=$trailingDistance" }
         } catch (e: Exception) {
             log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to open position on exchange" }
-        }
-    }
-
-    /**
-     * Execute close order on exchange when position closes.
-     * Trailing stop auto-cancels when position closes.
-     */
-    private suspend fun executeClosePosition(
-        stateHolder: LiveTradingStateHolder,
-        tradingClient: ExchangeTradingClient,
-        event: TradingEvent.PositionClosed,
-    ) {
-        try {
-            val trade = event.trade
-            val positionIdx = if (trade.side == PositionSide.LONG) PositionIdx.HedgeLong else PositionIdx.HedgeShort
-            val closeSide = if (trade.side == PositionSide.LONG) OrderSide.Sell else OrderSide.Buy
-
-            log.info {
-                "${stateHolder.logPrefix} [REAL ORDER] Closing position qty=${trade.positionSize}"
-            }
-
-            val result =
-                tradingClient.placeOrder(
-                    PlaceOrderRequest(
-                        symbol = stateHolder.symbol,
-                        side = closeSide,
-                        orderType = OrderType.Market,
-                        qty = trade.positionSize,
-                        reduceOnly = true,
-                        positionIdx = positionIdx,
-                    ),
-                )
-
-            log.info { "${stateHolder.logPrefix} [REAL ORDER] Position closed: orderId=${result.orderId}" }
-        } catch (e: BybitApiException) {
-            // Handle "no position to close" - might have been closed by trailing stop
-            if (e.message.contains("position") || e.message.contains("reduce") || e.code == 110017) {
-                log.info { "${stateHolder.logPrefix} [REAL ORDER] Position already closed (likely by trailing stop)" }
-            } else {
-                log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to close position" }
-            }
-        } catch (e: Exception) {
-            log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to close position on exchange" }
         }
     }
 
