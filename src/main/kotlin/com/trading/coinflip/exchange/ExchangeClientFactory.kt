@@ -277,7 +277,7 @@ class ExchangeClientFactory(
         // Select demo or mainnet WebSocket URL
         val wsUrl =
             if (liveProperties.bybitDemo) {
-                "wss://stream-testnet.bybit.com/v5/private"
+                "wss://stream-demo.bybit.com/v5/private"
             } else {
                 "wss://stream.bybit.com/v5/private"
             }
