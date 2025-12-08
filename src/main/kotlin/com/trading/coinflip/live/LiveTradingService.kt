@@ -35,10 +35,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -68,8 +70,13 @@ class LiveTradingService(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val sessionJobs = ConcurrentHashMap<String, Job>()
     private val executionJobs = ConcurrentHashMap<Exchange, Job>() // One per exchange
+    private val syncJobs = ConcurrentHashMap<String, Job>() // Periodic position sync per session
     private val stateHolders = ConcurrentHashMap<String, LiveTradingStateHolder>()
     private val mutex = Mutex()
+
+    companion object {
+        private const val SYNC_INTERVAL_MS = 60_000L // 1 minute
+    }
 
     // Get clients from factory for specific exchange (factory handles caching)
     private fun getRestClient(exchange: Exchange) = exchangeClientFactory.getRestClient(exchange)
@@ -170,6 +177,9 @@ class LiveTradingService(
             // Start execution WebSocket if not already running for this exchange
             startExecutionStream(exchange)
 
+            // Start periodic position sync (every minute)
+            startPositionSyncJob(key, stateHolder)
+
             // Start WebSocket streaming
             val job =
                 scope.launch {
@@ -226,6 +236,7 @@ class LiveTradingService(
     ) = mutex.withLock {
         val key = sessionKey(symbol, timeframe, exchange)
         val job = sessionJobs.remove(key)
+        val syncJob = syncJobs.remove(key)
         val stateHolder = stateHolders.remove(key)
 
         if (job == null || stateHolder == null) {
@@ -233,6 +244,7 @@ class LiveTradingService(
         }
 
         job.cancel()
+        syncJob?.cancel()
 
         // Update session status in database
         val session = sessionRepository.findById(stateHolder.sessionId)
@@ -299,6 +311,179 @@ class LiveTradingService(
             job.cancel()
             getExecutionClient(exchange)?.stop()
             log.info { "Stopped execution stream for $exchange" }
+        }
+    }
+
+    /**
+     * Start periodic position sync job for a session.
+     * Polls exchange every minute to detect positions closed outside WebSocket events.
+     */
+    private fun startPositionSyncJob(
+        key: String,
+        stateHolder: LiveTradingStateHolder,
+    ) {
+        if (!liveProperties.executeRealOrders) {
+            return
+        }
+
+        val tradingClient = getTradingClient(stateHolder.exchange)
+        if (tradingClient == null) {
+            log.warn { "${stateHolder.logPrefix} Trading client not available - position sync disabled" }
+            return
+        }
+
+        val job =
+            scope.launch {
+                while (isActive) {
+                    delay(SYNC_INTERVAL_MS)
+                    try {
+                        syncPositionsWithExchange(stateHolder, tradingClient)
+                    } catch (e: Exception) {
+                        log.warn(e) { "${stateHolder.logPrefix} Position sync failed" }
+                    }
+                }
+            }
+        syncJobs[key] = job
+        log.info { "${stateHolder.logPrefix} Started position sync (every ${SYNC_INTERVAL_MS / 1000}s)" }
+    }
+
+    /**
+     * Sync local positions with exchange state.
+     * Detects positions that were closed on exchange but not synced locally.
+     */
+    private suspend fun syncPositionsWithExchange(
+        stateHolder: LiveTradingStateHolder,
+        tradingClient: ExchangeTradingClient,
+    ) {
+        stateHolder.withState { currentState ->
+            if (currentState.openPositions.isEmpty()) {
+                return@withState // Nothing to sync
+            }
+
+            // Get positions from exchange
+            val exchangePositions = tradingClient.getPositions(stateHolder.symbol)
+
+            for (localPosition in currentState.openPositions) {
+                // Find matching exchange position by side
+                val exchangePosition =
+                    exchangePositions.find {
+                        it.symbol == stateHolder.symbol &&
+                            (
+                                (localPosition.side == PositionSide.LONG && it.side == "Buy") ||
+                                    (localPosition.side == PositionSide.SHORT && it.side == "Sell")
+                            )
+                    }
+
+                // Check if position is closed on exchange (not found or size = 0)
+                val isClosedOnExchange = exchangePosition == null || exchangePosition.size == BigDecimal.ZERO
+
+                if (isClosedOnExchange) {
+                    log.warn {
+                        "${stateHolder.logPrefix} Position #${localPosition.id} ${localPosition.side} not found on exchange - syncing closure"
+                    }
+
+                    // Close position locally (we don't have P&L from exchange, use 0)
+                    syncPositionClosureFromPolling(stateHolder, localPosition)
+                }
+            }
+        }
+    }
+
+    /**
+     * Sync position closure detected via polling (fallback when WebSocket misses event).
+     */
+    private suspend fun syncPositionClosureFromPolling(
+        stateHolder: LiveTradingStateHolder,
+        position: com.trading.coinflip.engine.model.Position,
+    ) {
+        stateHolder.withState { currentState ->
+            // Already closed?
+            if (currentState.openPositions.none { it.id == position.id }) {
+                return@withState
+            }
+
+            log.info { "${stateHolder.logPrefix} Syncing position #${position.id} closure from polling" }
+
+            // Update position in database
+            val entity = positionRepository.findBySessionIdAndPositionId(stateHolder.sessionId, position.id)
+            if (entity != null) {
+                entity.status = PositionStatus.CLOSED
+                entity.updatedAt = Instant.now()
+                positionRepository.save(entity)
+            }
+
+            // Create trade record (P&L unknown from polling, use trailing stop price estimate)
+            val exitPrice = position.trailingStop
+            val exitTime = Instant.now()
+            val estimatedPnl =
+                when (position.side) {
+                    PositionSide.LONG -> (exitPrice - position.entryPrice) * position.positionSize
+                    PositionSide.SHORT -> (position.entryPrice - exitPrice) * position.positionSize
+                }
+            val balanceBeforeClose = currentState.accountBalance
+            val balanceAfterClose = currentState.accountBalance + estimatedPnl
+            val profitLossPercent =
+                if (position.entryPrice > BigDecimal.ZERO) {
+                    (exitPrice - position.entryPrice)
+                        .divide(position.entryPrice, 8, java.math.RoundingMode.HALF_UP)
+                        .multiply(BigDecimal(100))
+                } else {
+                    BigDecimal.ZERO
+                }
+
+            val trade =
+                LiveTradeEntity(
+                    sessionId = stateHolder.sessionId,
+                    tradeId = currentState.tradeIdCounter + 1,
+                    symbol = stateHolder.symbol,
+                    timeframe = stateHolder.timeframe,
+                    side = position.side,
+                    entryTime = position.entryTime,
+                    entryPrice = position.entryPrice,
+                    exitTime = exitTime,
+                    exitPrice = exitPrice,
+                    positionSize = position.positionSize,
+                    initialStopLoss = position.initialStopLoss,
+                    trailingStop = position.trailingStop,
+                    profitLoss = estimatedPnl,
+                    profitLossPercent = profitLossPercent,
+                    exitReason = "Trailing stop (polling sync)",
+                    balanceBeforeOpen = position.balanceBeforeOpen,
+                    balanceAfterOpen = position.balanceAfterOpen,
+                    balanceBeforeClose = balanceBeforeClose,
+                    balanceAfterClose = balanceAfterClose,
+                )
+            tradeRepository.save(trade)
+
+            // Update local state
+            val newBalance = balanceAfterClose
+            val newPeak = maxOf(currentState.peakBalance, newBalance)
+            val drawdown =
+                if (newPeak > BigDecimal.ZERO) {
+                    (newPeak - newBalance).divide(newPeak, 8, java.math.RoundingMode.HALF_UP)
+                } else {
+                    BigDecimal.ZERO
+                }
+            val newMaxDrawdown = maxOf(currentState.maxDrawdown, drawdown)
+
+            val newState =
+                currentState.copy(
+                    openPositions = currentState.openPositions.filter { it.id != position.id },
+                    accountBalance = newBalance,
+                    peakBalance = newPeak,
+                    maxDrawdown = newMaxDrawdown,
+                )
+            stateHolder.updateState(newState)
+
+            // Publish SSE event
+            eventPublisher.publishPositionClosed(
+                sessionId = stateHolder.sessionId,
+                symbol = stateHolder.symbol,
+                positionId = position.id,
+                pnl = estimatedPnl,
+                exitReason = "Trailing stop (polling sync)",
+                newBalance = newBalance,
+            )
         }
     }
 
