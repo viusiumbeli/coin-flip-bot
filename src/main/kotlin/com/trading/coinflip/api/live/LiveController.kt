@@ -146,7 +146,15 @@ class LiveController(
             throw IllegalArgumentException("Symbol ${request.symbol} is not in configured symbols: ${liveProperties.symbols}")
         }
 
-        val session = liveTradingService.startSession(request.symbol, request.timeframe, exchange)
+        val session =
+            liveTradingService.startSession(
+                symbol = request.symbol,
+                timeframe = request.timeframe,
+                exchange = exchange,
+                trailingStopMode = request.trailingStopMode,
+                trailingStopPercent = request.trailingStopPercent,
+                atrMultiplier = request.atrMultiplier,
+            )
         return session.toSummaryDto()
     }
 

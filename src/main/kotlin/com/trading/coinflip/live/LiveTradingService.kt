@@ -5,6 +5,7 @@ import com.trading.coinflip.candle.CandleRepository
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.config.LiveProperties
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.common.model.TrailingStopMode
 import com.trading.coinflip.engine.TradingProcessor
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionStatus
@@ -127,6 +128,9 @@ class LiveTradingService(
         symbol: String,
         timeframe: Timeframe,
         exchange: Exchange,
+        trailingStopMode: TrailingStopMode = TrailingStopMode.ATR,
+        trailingStopPercent: BigDecimal = BigDecimal("1.0"),
+        atrMultiplier: BigDecimal = BigDecimal("3.0"),
     ): LiveSessionEntity =
         mutex.withLock {
             val key = sessionKey(symbol, timeframe, exchange)
@@ -134,7 +138,7 @@ class LiveTradingService(
                 throw IllegalStateException("Session already running for $symbol ${timeframe.label} on $exchange")
             }
 
-            // Create new session in database with specified exchange
+            // Create new session in database with specified exchange and trailing stop config
             val session =
                 sessionRepository.save(
                     LiveSessionEntity(
@@ -144,16 +148,22 @@ class LiveTradingService(
                         initialCapital = liveProperties.initialCapital,
                         currentBalance = liveProperties.initialCapital,
                         peakBalance = liveProperties.initialCapital,
+                        trailingStopMode = trailingStopMode,
+                        trailingStopPercent = trailingStopPercent,
+                        atrMultiplier = atrMultiplier,
                     ),
                 )
 
-            // Initialize state holder with exchange info
+            // Initialize state holder with exchange info and trailing stop config
             val stateHolder =
                 LiveTradingStateHolder(
                     sessionId = session.id!!,
                     symbol = symbol,
                     timeframe = timeframe,
                     exchange = exchange,
+                    trailingStopMode = trailingStopMode,
+                    trailingStopPercent = trailingStopPercent,
+                    atrMultiplier = atrMultiplier,
                     initialState = TradingState.create(liveProperties.initialCapital),
                 )
             stateHolders[key] = stateHolder
@@ -676,9 +686,16 @@ class LiveTradingService(
 
         stateHolder.updateLastCandle(savedCandle)
 
-        // Process candle through trading processor
+        // Process candle through trading processor with session-specific trailing stop config
         stateHolder.withState { currentState ->
-            val events = tradingProcessor.processCandle(currentState, savedCandle)
+            val events =
+                tradingProcessor.processCandle(
+                    state = currentState,
+                    candle = savedCandle,
+                    trailingStopMode = stateHolder.trailingStopMode,
+                    atrMultiplier = stateHolder.atrMultiplier,
+                    trailingStopPercent = stateHolder.trailingStopPercent,
+                )
 
             val stateToSave =
                 if (events.isNotEmpty()) {
