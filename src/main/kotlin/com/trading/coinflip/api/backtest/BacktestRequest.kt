@@ -8,4 +8,5 @@ data class BacktestRequest(
     val timeframe: Timeframe,
     val startDate: Instant,
     val endDate: Instant,
+    val leverage: Int? = null, // Optional leverage override (default from config)
 )

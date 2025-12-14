@@ -43,6 +43,7 @@ class TradingProcessor(
             trailingStopMode = TrailingStopMode.ATR,
             atrMultiplier = config.atrMultiplier,
             trailingStopPercent = BigDecimal("1.0"),
+            leverage = config.leverage,
         )
 
     /**
@@ -55,6 +56,7 @@ class TradingProcessor(
         trailingStopMode: TrailingStopMode,
         atrMultiplier: BigDecimal,
         trailingStopPercent: BigDecimal,
+        leverage: Int = 1,
     ): List<TradingEvent> {
         val events = mutableListOf<TradingEvent>()
         var currentBalance = state.accountBalance
@@ -148,6 +150,7 @@ class TradingProcessor(
                             balanceBeforeOpen = currentBalance,
                             positionId = newPositionId,
                             maxAllocation = availableBalance,
+                            leverage = leverage,
                         )
 
                     newPosition?.let {

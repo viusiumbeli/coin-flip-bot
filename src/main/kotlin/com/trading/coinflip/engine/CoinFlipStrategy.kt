@@ -73,6 +73,7 @@ class CoinFlipStrategy {
 
     /**
      * Create a new position with coin flip entry
+     * @param leverage Leverage multiplier (1 = no leverage, 10 = 10x)
      */
     fun createPosition(
         candle: CandleEntity,
@@ -85,6 +86,7 @@ class CoinFlipStrategy {
         balanceBeforeOpen: BigDecimal,
         positionId: Long,
         maxAllocation: BigDecimal,
+        leverage: Int = 1,
     ): Position? {
         val atr =
             candle.atr
@@ -133,31 +135,41 @@ class CoinFlipStrategy {
             return null
         }
 
-        // Cap position to maxPositionSizePercent of balance
-        val maxAllowedValue = accountBalance * maxPositionSizeRate
+        // With leverage, max position value = maxMargin * leverage
+        // where maxMargin = accountBalance * maxPositionSizeRate
+        val leverageBD = BigDecimal(leverage)
+        val maxMargin = accountBalance * maxPositionSizeRate
+        val maxAllowedValue = maxMargin * leverageBD
+
         var positionValue = positionSize * entryPrice
         if (positionValue > maxAllowedValue) {
             positionSize = maxAllowedValue.divide(entryPrice, 8, RoundingMode.DOWN)
             positionValue = positionSize * entryPrice
             log.debug {
-                "Position capped to max size: $positionSize (${maxPositionSizeRate * BigDecimal(100)}% of balance)"
+                "Position capped to max size: $positionSize (${maxPositionSizeRate * BigDecimal(100)}% margin × ${leverage}x leverage)"
             }
         }
 
-        // Cap to available balance (never allocate more than we have)
-        if (positionValue > maxAllocation) {
-            positionSize = maxAllocation.divide(entryPrice, 8, RoundingMode.DOWN)
+        // Cap to available margin (never allocate more margin than we have)
+        // With leverage: margin required = positionValue / leverage
+        val maxPositionFromAllocation = maxAllocation * leverageBD
+        if (positionValue > maxPositionFromAllocation) {
+            positionSize = maxPositionFromAllocation.divide(entryPrice, 8, RoundingMode.DOWN)
             positionValue = positionSize * entryPrice
-            log.debug { "Position capped to available: $positionSize (max allocation: $maxAllocation)" }
+            log.debug { "Position capped to available margin: $positionSize (max allocation: $maxAllocation × ${leverage}x)" }
         }
 
-        // For both LONG and SHORT positions, ensure we don't exceed available balance
-        if (positionValue > accountBalance) {
-            // Cap position size to what we can afford
-            positionSize = accountBalance.divide(entryPrice, 8, RoundingMode.DOWN)
+        // Ensure margin requirement doesn't exceed available balance
+        var marginRequired = positionValue.divide(leverageBD, 8, RoundingMode.HALF_UP)
+        if (marginRequired > accountBalance) {
+            // Cap position size to what we can afford with leverage
+            val maxAffordableValue = accountBalance * leverageBD
+            positionSize = maxAffordableValue.divide(entryPrice, 8, RoundingMode.DOWN)
+            positionValue = positionSize * entryPrice
+            marginRequired = positionValue.divide(leverageBD, 8, RoundingMode.HALF_UP)
             log.debug {
-                "Position size capped to $positionSize due to insufficient balance. " +
-                    "Required: $positionValue, Available: $accountBalance"
+                "Position size capped to $positionSize due to insufficient margin. " +
+                    "Margin required: $marginRequired, Available: $accountBalance"
             }
 
             // After capping, check if position size is still valid
@@ -167,9 +179,8 @@ class CoinFlipStrategy {
             }
         }
 
-        // Calculate balance after opening position (allocating capital)
-        // For both LONG and SHORT: lock up full position value
-        val allocatedCapital = positionSize * entryPrice
+        // Allocated capital is the margin (not full position value)
+        val allocatedCapital = marginRequired
         val balanceAfterOpen = balanceBeforeOpen - allocatedCapital
 
         val position =
@@ -192,7 +203,7 @@ class CoinFlipStrategy {
 
         log.debug {
             "Created ${side.name} position for ${candle.symbol} at $entryPrice, " +
-                "stop: $initialStopLoss, size: $positionSize, ATR: $atr"
+                "stop: $initialStopLoss, size: $positionSize, margin: $allocatedCapital, leverage: ${leverage}x, ATR: $atr"
         }
 
         return position
