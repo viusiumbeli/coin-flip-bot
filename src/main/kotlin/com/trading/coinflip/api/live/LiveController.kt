@@ -166,13 +166,8 @@ class LiveController(
     suspend fun stopSession(
         @PathVariable id: Long,
     ) {
-        val session =
-            sessionRepository.findById(id)
-                ?: throw NotFoundException("Session not found: $id")
-
-        log.info { "Stopping live trading session for ${session.symbol} ${session.timeframe.label} on ${session.exchange}" }
-
-        liveTradingService.stopSession(session.symbol, session.timeframe, session.exchange)
+        log.info { "Stopping live trading session $id" }
+        liveTradingService.stopSessionById(id)
     }
 
     /**
