@@ -16,6 +16,7 @@ data class LiveSessionSummaryResponse(
     val trailingStopMode: TrailingStopMode,
     val atrMultiplier: BigDecimal,
     val trailingStopPercent: BigDecimal,
+    val leverage: Int,
     val initialCapital: BigDecimal,
     val currentBalance: BigDecimal,
     val profitLoss: BigDecimal,

@@ -12,6 +12,7 @@ data class LiveSessionDetailResponse(
     val timeframe: Timeframe,
     val exchange: Exchange,
     val status: LiveSessionStatus,
+    val leverage: Int,
     val initialCapital: BigDecimal,
     val currentBalance: BigDecimal,
     val peakBalance: BigDecimal,

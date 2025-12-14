@@ -12,4 +12,5 @@ data class StartSessionRequest(
     val trailingStopMode: TrailingStopMode = TrailingStopMode.ATR,
     val trailingStopPercent: BigDecimal = BigDecimal("1.0"),
     val atrMultiplier: BigDecimal = BigDecimal("3.0"),
+    val leverage: Int = 1,
 )

@@ -44,7 +44,7 @@ backtest:
     atr-period: 10
     atr-multiplier: 3.0
     transaction-cost-percent: 0.1
-    max-concurrent-positions: 1
+    max-concurrent-positions: 5
     max-position-size-percent: 20
     entry-frequency: 2
 
@@ -71,6 +71,8 @@ live:
     - BTCUSDT
     - ETHUSDT
     - BNBUSDT
+    - XAUTUSDT
+    - SOLUSDT
   initial-capital: 10000
   prefetch-candle-count: 20
   balance-snapshot-interval-minutes: 60

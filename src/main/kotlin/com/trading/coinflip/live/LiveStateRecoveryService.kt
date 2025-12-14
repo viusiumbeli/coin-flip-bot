@@ -64,6 +64,7 @@ class LiveStateRecoveryService(
             trailingStopMode = session.trailingStopMode,
             trailingStopPercent = session.trailingStopPercent,
             atrMultiplier = session.atrMultiplier,
+            leverage = session.leverage,
             initialState = tradingState,
             lastCandle = lastCandle,
         )
