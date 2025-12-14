@@ -519,14 +519,22 @@ class LiveTradingService(
         // Create trade record (P&L unknown from polling, use trailing stop price estimate)
         val exitPrice = position.trailingStop
         val exitTime = Instant.now()
-        val estimatedPnl =
+        val positionValue = position.entryPrice * position.positionSize
+
+        // Calculate raw P&L based on position side
+        val rawPnl =
             when (position.side) {
                 PositionSide.LONG -> (exitPrice - position.entryPrice) * position.positionSize
                 PositionSide.SHORT -> (position.entryPrice - exitPrice) * position.positionSize
             }
+
+        // Deduct transaction costs (entry + exit) to match exchange-reported P&L
+        val transactionCostPercent = backtestProperties.trading.transactionCostPercent
+        val transactionCost = positionValue * (transactionCostPercent / BigDecimal(100)) * BigDecimal(2)
+        val estimatedPnl = rawPnl - transactionCost
+
         val balanceBeforeClose = currentState.accountBalance
         val balanceAfterClose = currentState.accountBalance + estimatedPnl
-        val positionValue = position.entryPrice * position.positionSize
         val profitLossPercent =
             if (positionValue > BigDecimal.ZERO) {
                 estimatedPnl
