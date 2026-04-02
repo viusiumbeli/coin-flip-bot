@@ -30,6 +30,7 @@ dependencies {
     // Database
     runtimeOnly("com.h2database:h2")
     runtimeOnly("org.postgresql:postgresql")
+    implementation("org.flywaydb:flyway-core")
 
     // HTTP Client
     implementation("io.ktor:ktor-client-core:2.3.7")

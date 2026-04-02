@@ -44,18 +44,23 @@ class DataService(
             return@runBlocking
         }
 
-        // Save candles
-        val savedCandles = mutableListOf<Candle>()
-        candles.forEach { candle ->
-            if (!candleRepository.existsBySymbolAndTimeframeAndOpenTime(
-                    symbol, timeframe, candle.openTime
-                )
-            ) {
-                savedCandles.add(candleRepository.save(candle))
-            }
-        }
+        // Save candles - optimized batch insert
+        // Fetch all existing open times in a single query
+        val existingOpenTimes = candleRepository
+            .findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe)
+            .map { it.openTime }
+            .toSet()
 
-        log.info { "Saved ${savedCandles.size} new candles for $symbol $timeframe" }
+        // Filter out candles that already exist (in memory)
+        val newCandles = candles.filter { it.openTime !in existingOpenTimes }
+
+        // Batch insert all new candles at once
+        if (newCandles.isNotEmpty()) {
+            val savedCandles = candleRepository.saveAll(newCandles).toList()
+            log.info { "Saved ${savedCandles.size} new candles for $symbol $timeframe" }
+        } else {
+            log.info { "No new candles to save for $symbol $timeframe" }
+        }
 
         // Calculate and update ATR
         calculateAndSaveATR(symbol, timeframe)
@@ -73,20 +78,23 @@ class DataService(
 
         val candlesWithATR = atrCalculator.calculateATR(candles, period)
 
-        // Update candles with ATR values
-        var updated = 0
-        candlesWithATR.forEach { candle ->
-            if (candle.atr != null && candle.id != null) {
-                val existing = candleRepository.findById(candle.id).orElse(null)
-                if (existing != null) {
-                    existing.atr = candle.atr
-                    candleRepository.save(existing)
-                    updated++
-                }
-            }
-        }
+        // Update candles with ATR values - optimized batch update
+        // Create a map of calculated ATR values by candle ID
+        val atrMap = candlesWithATR
+            .filter { it.atr != null && it.id != null }
+            .associate { it.id!! to it.atr!! }
 
-        log.info { "Updated $updated candles with ATR values" }
+        // Update ATR values in memory
+        val toUpdate = candles.filter { it.id in atrMap.keys }
+        toUpdate.forEach { it.atr = atrMap[it.id] }
+
+        // Batch update all candles with ATR values at once
+        if (toUpdate.isNotEmpty()) {
+            candleRepository.saveAll(toUpdate)
+            log.info { "Updated ${toUpdate.size} candles with ATR values" }
+        } else {
+            log.info { "No candles to update with ATR values" }
+        }
     }
 
     fun getCandlesForBacktest(
