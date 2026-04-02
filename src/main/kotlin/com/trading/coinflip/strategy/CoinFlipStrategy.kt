@@ -36,7 +36,8 @@ class CoinFlipStrategy(
         entryPrice: BigDecimal,
         stopLoss: BigDecimal
     ): BigDecimal {
-        val riskAmount = accountBalance * (riskPercent / BigDecimal(100))
+        // Ensure proper scale for division to avoid precision loss
+        val riskAmount = accountBalance * riskPercent.divide(BigDecimal(100), 8, RoundingMode.HALF_UP)
         val stopDistance = (entryPrice - stopLoss).abs()
 
         if (stopDistance <= BigDecimal.ZERO) {
@@ -44,7 +45,9 @@ class CoinFlipStrategy(
             return BigDecimal.ZERO
         }
 
-        return riskAmount.divide(stopDistance, 8, RoundingMode.HALF_UP)
+        val positionSize = riskAmount.divide(stopDistance, 8, RoundingMode.HALF_UP)
+
+        return positionSize
     }
 
     /**

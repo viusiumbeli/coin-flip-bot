@@ -18,7 +18,6 @@ class DataService(
     private val atrCalculator: ATRCalculator
 ) {
 
-    @Transactional
     fun loadHistoricalData(
         symbol: String,
         timeframe: Timeframe,
@@ -32,6 +31,8 @@ class DataService(
 
             if (existingCount > 0) {
                 log.info { "Found $existingCount existing candles for $symbol $timeframe, skipping download" }
+                // Still calculate ATR for any candles that don't have it
+                calculateAndSaveATR(symbol, timeframe)
                 return@runBlocking
             }
         }
@@ -44,7 +45,15 @@ class DataService(
             return@runBlocking
         }
 
-        // Save candles - optimized batch insert
+        // Save candles in a separate transaction
+        saveCandles(symbol, timeframe, candles)
+
+        // Calculate and update ATR in a separate transaction
+        calculateAndSaveATR(symbol, timeframe)
+    }
+
+    @Transactional
+    fun saveCandles(symbol: String, timeframe: Timeframe, candles: List<Candle>) {
         // Fetch all existing open times in a single query
         val existingOpenTimes = candleRepository
             .findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe)
@@ -61,40 +70,73 @@ class DataService(
         } else {
             log.info { "No new candles to save for $symbol $timeframe" }
         }
-
-        // Calculate and update ATR
-        calculateAndSaveATR(symbol, timeframe)
     }
 
     @Transactional
     fun calculateAndSaveATR(symbol: String, timeframe: Timeframe, period: Int = 10) {
         log.info { "Calculating ATR for $symbol $timeframe with period $period" }
 
-        val candles = candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe)
-        if (candles.size < period) {
-            log.warn { "Not enough candles to calculate ATR. Need at least $period, got ${candles.size}" }
+        // Check how many candles need ATR calculation
+        val totalCandles = candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe).size
+        val candlesWithoutATR = candleRepository.countCandlesWithoutATR(symbol, timeframe)
+
+        if (candlesWithoutATR == 0L) {
+            log.info { "All $totalCandles candles already have ATR calculated, skipping" }
             return
         }
 
-        val candlesWithATR = atrCalculator.calculateATR(candles, period)
+        log.info { "Found $candlesWithoutATR candles without ATR out of $totalCandles total" }
 
-        // Update candles with ATR values - optimized batch update
-        // Create a map of calculated ATR values by candle ID
-        val atrMap = candlesWithATR
-            .filter { it.atr != null && it.id != null }
-            .associate { it.id!! to it.atr!! }
+        // Load all candles to calculate ATR correctly (need previous candles for context)
+        val startTime = System.currentTimeMillis()
+        log.info { "Loading all candles for ATR calculation..." }
 
-        // Update ATR values in memory
-        val toUpdate = candles.filter { it.id in atrMap.keys }
-        toUpdate.forEach { it.atr = atrMap[it.id] }
+        val allCandles = candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe)
+        val loadTime = System.currentTimeMillis() - startTime
+        log.info { "Loaded ${allCandles.size} candles in ${loadTime}ms" }
 
-        // Batch update all candles with ATR values at once
-        if (toUpdate.isNotEmpty()) {
-            candleRepository.saveAll(toUpdate)
-            log.info { "Updated ${toUpdate.size} candles with ATR values" }
-        } else {
-            log.info { "No candles to update with ATR values" }
+        if (allCandles.size < period) {
+            log.warn { "Not enough candles to calculate ATR. Need at least $period, got ${allCandles.size}" }
+            return
         }
+
+        // Track which candles originally had no ATR
+        val candleIdsWithoutATR = allCandles.filter { it.atr == null }.mapNotNull { it.id }.toSet()
+
+        // Calculate ATR for all candles (needed for continuity)
+        log.info { "Calculating ATR values..." }
+        val calcStartTime = System.currentTimeMillis()
+        val candlesWithATR = atrCalculator.calculateATR(allCandles, period)
+        val calcTime = System.currentTimeMillis() - calcStartTime
+        log.info { "ATR calculation completed in ${calcTime}ms" }
+
+        // Filter only candles that need to be updated (those that originally had no ATR)
+        val candlesNeedingUpdate = candlesWithATR.filter { it.id != null && it.id in candleIdsWithoutATR && it.atr != null }
+
+        if (candlesNeedingUpdate.isEmpty()) {
+            log.info { "No candles need ATR updates" }
+            return
+        }
+
+        log.info { "Updating ${candlesNeedingUpdate.size} candles with ATR values in batches..." }
+
+        // Process in batches for better performance
+        val batchSize = 1000
+        val batches = candlesNeedingUpdate.chunked(batchSize)
+        val updateStartTime = System.currentTimeMillis()
+
+        batches.forEachIndexed { index, batch ->
+            val batchStartTime = System.currentTimeMillis()
+            candleRepository.saveAll(batch)
+            val batchTime = System.currentTimeMillis() - batchStartTime
+
+            val processed = ((index + 1) * batchSize).coerceAtMost(candlesNeedingUpdate.size)
+            val progress = (processed * 100.0 / candlesNeedingUpdate.size).toInt()
+            log.info { "Batch ${index + 1}/${batches.size}: Updated ${batch.size} candles in ${batchTime}ms (Progress: $progress%, Total: $processed/${candlesNeedingUpdate.size})" }
+        }
+
+        val totalUpdateTime = System.currentTimeMillis() - updateStartTime
+        log.info { "Successfully updated ${candlesNeedingUpdate.size} candles with ATR in ${totalUpdateTime}ms" }
     }
 
     fun getCandlesForBacktest(
