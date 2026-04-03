@@ -552,12 +552,12 @@
                                     <tr>
                                         <td>${trade.id}</td>
                                         <td>${trade.side}</td>
-                                        <td>${new Date(trade.entryTime).toLocaleString()}</td>
+                                        <td>${trade.entryTime}</td>
                                         <td>$${formatLargeNumber(trade.entryPrice)}</td>
                                         <td title="$${trade.balanceBeforeOpen.toFixed(2)}">$${formatLargeNumber(trade.balanceBeforeOpen)}</td>
                                         <td>${trade.positionSize.toFixed(4)}</td>
                                         <td title="$${trade.balanceAfterOpen.toFixed(2)}">$${formatLargeNumber(trade.balanceAfterOpen)}</td>
-                                        <td>${new Date(trade.exitTime).toLocaleString()}</td>
+                                        <td>${trade.exitTime}</td>
                                         <td>$${formatLargeNumber(trade.exitPrice)}</td>
                                         <td title="$${trade.balanceBeforeClose.toFixed(2)}">$${formatLargeNumber(trade.balanceBeforeClose)}</td>
                                         <td class="${trade.profitLoss >= 0 ? 'trade-profit' : 'trade-loss'}">
