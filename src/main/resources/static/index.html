@@ -426,15 +426,8 @@
         }
 
         function formatLargeNumber(num) {
-            const absNum = Math.abs(num);
-            if (absNum >= 1e9) {
-                return (num / 1e9).toFixed(2) + 'B';
-            } else if (absNum >= 1e6) {
-                return (num / 1e6).toFixed(2) + 'M';
-            } else if (absNum >= 1e3) {
-                return (num / 1e3).toFixed(2) + 'K';
-            }
-            return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+            // Format with space as thousand separator (e.g., "7 430" instead of "7,430")
+            return num.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
         }
 
         function displayResults(results) {
@@ -560,12 +553,12 @@
                                         <td>${trade.id}</td>
                                         <td>${trade.side}</td>
                                         <td>${new Date(trade.entryTime).toLocaleString()}</td>
-                                        <td>$${trade.entryPrice.toFixed(2)}</td>
+                                        <td>$${formatLargeNumber(trade.entryPrice)}</td>
                                         <td title="$${trade.balanceBeforeOpen.toFixed(2)}">$${formatLargeNumber(trade.balanceBeforeOpen)}</td>
                                         <td>${trade.positionSize.toFixed(4)}</td>
                                         <td title="$${trade.balanceAfterOpen.toFixed(2)}">$${formatLargeNumber(trade.balanceAfterOpen)}</td>
                                         <td>${new Date(trade.exitTime).toLocaleString()}</td>
-                                        <td>$${trade.exitPrice.toFixed(2)}</td>
+                                        <td>$${formatLargeNumber(trade.exitPrice)}</td>
                                         <td title="$${trade.balanceBeforeClose.toFixed(2)}">$${formatLargeNumber(trade.balanceBeforeClose)}</td>
                                         <td class="${trade.profitLoss >= 0 ? 'trade-profit' : 'trade-loss'}">
                                             $${trade.profitLoss.toFixed(2)}
