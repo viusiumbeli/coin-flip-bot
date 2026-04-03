@@ -244,6 +244,14 @@ class SimulationService(
         val trade = position.toTrade(++tradeIdCounter, balanceBeforeClose, balanceAfterClose)
         closedTrades.add(trade)
 
+        log.info {
+            "✓ Trade #${trade.id} CLOSED: ${trade.side}, " +
+                "P&L=${trade.profitLoss}, " +
+                "scale=${trade.profitLoss.scale()}, " +
+                "compareTo(ZERO)=${trade.profitLoss.compareTo(BigDecimal.ZERO)}, " +
+                "Total closed trades: ${closedTrades.size}"
+        }
+
         // Track drawdown
         if (accountBalance > peakBalance) {
             peakBalance = accountBalance
@@ -251,11 +259,6 @@ class SimulationService(
         val currentDrawdown = peakBalance - accountBalance
         if (currentDrawdown > maxDrawdown) {
             maxDrawdown = currentDrawdown
-        }
-
-        log.debug {
-            "Closed ${trade.side} trade: P/L ${trade.profitLoss} (${trade.profitLossPercent}%), " +
-                "Balance: $accountBalance"
         }
     }
 
@@ -299,11 +302,14 @@ class SimulationService(
         val allocatedCapital = openPositions.sumOf { it.allocatedCapital }
         val availableCapital = accountBalance - allocatedCapital
 
-        // Calculate win rate
+        // Calculate win rate using compareTo for safer BigDecimal comparison
         val winningTrades = closedTrades.count { it.profitLoss > BigDecimal.ZERO }
         val losingTrades = closedTrades.count { it.profitLoss < BigDecimal.ZERO }
         val winRate = if (closedTrades.isNotEmpty()) {
-            (BigDecimal(winningTrades) / BigDecimal(closedTrades.size) * BigDecimal(100))
+            // Use divide() with scale to prevent truncation: 1/2 = 0.5, not 0
+            BigDecimal(winningTrades)
+                .divide(BigDecimal(closedTrades.size), 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal(100))
                 .setScale(2, RoundingMode.HALF_UP)
         } else {
             BigDecimal.ZERO
