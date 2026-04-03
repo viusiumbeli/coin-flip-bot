@@ -69,14 +69,22 @@ class BacktestEngine(
                 openPositions.remove(position)
                 position.status = PositionStatus.CLOSED
 
-                val trade = position.toTrade(++tradeIdCounter)
-                closedTrades.add(trade)
+                // Calculate closing balances
+                val balanceBeforeClose = accountBalance
 
-                // Apply transaction costs
+                // Calculate P&L and transaction costs
+                val pnl = when (position.side) {
+                    PositionSide.LONG -> (position.exitPrice!! - position.entryPrice) * position.positionSize
+                    PositionSide.SHORT -> (position.entryPrice - position.exitPrice!!) * position.positionSize
+                }
                 val transactionCost = position.entryPrice * position.positionSize *
                     (config.transactionCostPercent / BigDecimal(100)) * BigDecimal(2) // Entry + Exit
 
-                accountBalance += trade.profitLoss - transactionCost
+                accountBalance += pnl - transactionCost
+                val balanceAfterClose = accountBalance
+
+                val trade = position.toTrade(++tradeIdCounter, balanceBeforeClose, balanceAfterClose)
+                closedTrades.add(trade)
 
                 // Track drawdown
                 if (accountBalance > peakBalance) {
@@ -100,13 +108,15 @@ class BacktestEngine(
             ) {
                 // Random entry frequency: try to enter on ~10% of candles
                 if (kotlin.random.Random.nextDouble() < 0.1) {
+                    val balanceBeforeOpen = accountBalance
                     val newPosition = strategy.createPosition(
                         candle = candle,
                         candles = backtestCandles,
                         candleIndex = i,
                         accountBalance = accountBalance,
                         riskPercent = config.riskPerTrade,
-                        atrMultiplier = config.atrMultiplier
+                        atrMultiplier = config.atrMultiplier,
+                        balanceBeforeOpen = balanceBeforeOpen
                     )
 
                     if (newPosition != null) {
@@ -124,13 +134,22 @@ class BacktestEngine(
             position.exitReason = "End of backtest period"
             position.status = PositionStatus.CLOSED
 
-            val trade = position.toTrade(++tradeIdCounter)
-            closedTrades.add(trade)
+            // Calculate closing balances
+            val balanceBeforeClose = accountBalance
 
+            // Calculate P&L and transaction costs
+            val pnl = when (position.side) {
+                PositionSide.LONG -> (position.exitPrice!! - position.entryPrice) * position.positionSize
+                PositionSide.SHORT -> (position.entryPrice - position.exitPrice!!) * position.positionSize
+            }
             val transactionCost = position.entryPrice * position.positionSize *
                 (config.transactionCostPercent / BigDecimal(100)) * BigDecimal(2)
 
-            accountBalance += trade.profitLoss - transactionCost
+            accountBalance += pnl - transactionCost
+            val balanceAfterClose = accountBalance
+
+            val trade = position.toTrade(++tradeIdCounter, balanceBeforeClose, balanceAfterClose)
+            closedTrades.add(trade)
         }
 
         log.info { "Backtest completed. Closed ${closedTrades.size} trades" }

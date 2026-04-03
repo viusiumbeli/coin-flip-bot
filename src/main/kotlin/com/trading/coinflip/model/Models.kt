@@ -74,7 +74,11 @@ data class Trade(
     val trailingStop: BigDecimal,
     val profitLoss: BigDecimal,
     val profitLossPercent: BigDecimal,
-    val exitReason: String
+    val exitReason: String,
+    val balanceBeforeOpen: BigDecimal,
+    val balanceAfterOpen: BigDecimal,
+    val balanceBeforeClose: BigDecimal,
+    val balanceAfterClose: BigDecimal
 )
 
 data class Position(
@@ -89,6 +93,8 @@ data class Position(
     var trailingStop: BigDecimal,
     var highestFavorablePrice: BigDecimal,
     var status: PositionStatus,
+    val balanceBeforeOpen: BigDecimal,
+    val balanceAfterOpen: BigDecimal,
     var exitTime: Instant? = null,
     var exitPrice: BigDecimal? = null,
     var exitReason: String? = null
@@ -126,7 +132,7 @@ data class Position(
         }
     }
 
-    fun toTrade(tradeId: Long): Trade {
+    fun toTrade(tradeId: Long, balanceBeforeClose: BigDecimal, balanceAfterClose: BigDecimal): Trade {
         require(status == PositionStatus.CLOSED) { "Position must be closed to convert to trade" }
         require(exitPrice != null && exitTime != null) { "Exit price and time must be set" }
 
@@ -151,7 +157,11 @@ data class Position(
             trailingStop = trailingStop,
             profitLoss = pnl,
             profitLossPercent = pnlPercent,
-            exitReason = exitReason ?: "Unknown"
+            exitReason = exitReason ?: "Unknown",
+            balanceBeforeOpen = balanceBeforeOpen,
+            balanceAfterOpen = balanceAfterOpen,
+            balanceBeforeClose = balanceBeforeClose,
+            balanceAfterClose = balanceAfterClose
         )
     }
 }

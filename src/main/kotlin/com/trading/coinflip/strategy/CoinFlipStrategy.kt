@@ -59,7 +59,8 @@ class CoinFlipStrategy(
         candleIndex: Int,
         accountBalance: BigDecimal,
         riskPercent: BigDecimal,
-        atrMultiplier: BigDecimal
+        atrMultiplier: BigDecimal,
+        balanceBeforeOpen: BigDecimal
     ): Position? {
         val atr = atrCalculator.getATRForCandle(candles, candleIndex)
         if (atr == null || atr <= BigDecimal.ZERO) {
@@ -89,6 +90,10 @@ class CoinFlipStrategy(
             return null
         }
 
+        // Calculate balance after opening position (allocating capital)
+        val positionValue = positionSize * entryPrice
+        val balanceAfterOpen = balanceBeforeOpen - positionValue
+
         val position = Position(
             id = ++positionIdCounter,
             symbol = candle.symbol,
@@ -100,7 +105,9 @@ class CoinFlipStrategy(
             initialStopLoss = initialStopLoss,
             trailingStop = initialStopLoss,
             highestFavorablePrice = entryPrice,
-            status = PositionStatus.OPEN
+            status = PositionStatus.OPEN,
+            balanceBeforeOpen = balanceBeforeOpen,
+            balanceAfterOpen = balanceAfterOpen
         )
 
         log.info {
