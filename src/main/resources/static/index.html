@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coin Flip Trading Bot - Backtest System</title>
+    <script src="formatters.js"></script>
     <style>
         * {
             margin: 0;
@@ -362,7 +363,7 @@
                 configInfo.style.display = 'block';
                 configInfo.innerHTML = `
                     <strong>Configuration:</strong>
-                    Initial Capital: $${config.initialCapital.toLocaleString()} |
+                    Initial Capital: $${formatNumber(config.initialCapital)} |
                     Risk per Trade: ${config.riskPerTrade}% |
                     ATR Period: ${config.atrPeriod} |
                     ATR Multiplier: ${config.atrMultiplier} |
@@ -438,11 +439,6 @@
             }
         }
 
-        function formatLargeNumber(num) {
-            // Format with space as thousand separator (e.g., "7 430" instead of "7,430")
-            return num.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
-        }
-
         function displayResults(results) {
             const resultsDiv = document.getElementById('results');
             resultsDiv.innerHTML = '';
@@ -465,42 +461,42 @@
                 <h2 style="margin-bottom: 20px; color: ${isProfit ? '#10b981' : '#ef4444'};">
                     ${result.symbol} - ${result.timeframe}
                     <span style="float: right; font-size: 18px;">
-                        ${result.totalReturnPercent.toFixed(2)}% Return
+                        ${formatNumber(result.totalReturnPercent)}% Return
                     </span>
                 </h2>
 
                 <div class="metrics-grid">
                     <div class="metric-card">
                         <div class="metric-label">Initial Capital</div>
-                        <div class="metric-value" title="$${result.initialCapital.toLocaleString()}">$${formatLargeNumber(result.initialCapital)}</div>
+                        <div class="metric-value" title="$${formatNumber(result.initialCapital)}">$${formatNumber(result.initialCapital)}</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Final Capital</div>
-                        <div class="metric-value ${isProfit ? 'positive' : 'negative'}" title="$${result.finalCapital.toLocaleString()}">
-                            $${formatLargeNumber(result.finalCapital)}
+                        <div class="metric-value ${isProfit ? 'positive' : 'negative'}" title="$${formatNumber(result.finalCapital)}">
+                            $${formatNumber(result.finalCapital)}
                         </div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Total Return</div>
-                        <div class="metric-value ${isProfit ? 'positive' : 'negative'}" title="$${result.totalReturn.toLocaleString()}">
-                            $${formatLargeNumber(result.totalReturn)}
+                        <div class="metric-value ${isProfit ? 'positive' : 'negative'}" title="$${formatNumber(result.totalReturn)}">
+                            $${formatNumber(result.totalReturn)}
                         </div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Max Drawdown</div>
-                        <div class="metric-value negative">${result.maxDrawdownPercent.toFixed(2)}%</div>
+                        <div class="metric-value negative">${formatNumber(result.maxDrawdownPercent)}%</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Win Rate</div>
-                        <div class="metric-value">${result.winRate.toFixed(2)}%</div>
+                        <div class="metric-value">${formatNumber(result.winRate)}%</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Profit Factor</div>
-                        <div class="metric-value">${result.profitFactor.toFixed(2)}</div>
+                        <div class="metric-value">${formatNumber(result.profitFactor)}</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Sharpe Ratio</div>
-                        <div class="metric-value">${result.sharpeRatio.toFixed(2)}</div>
+                        <div class="metric-value">${formatNumber(result.sharpeRatio)}</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Total Trades</div>
@@ -516,24 +512,24 @@
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Average Win</div>
-                        <div class="metric-value positive" title="$${result.averageWin.toFixed(2)}">$${formatLargeNumber(result.averageWin)}</div>
+                        <div class="metric-value positive" title="$${formatNumber(result.averageWin)}">$${formatNumber(result.averageWin)}</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Average Loss</div>
-                        <div class="metric-value negative" title="$${result.averageLoss.toFixed(2)}">$${formatLargeNumber(result.averageLoss)}</div>
+                        <div class="metric-value negative" title="$${formatNumber(result.averageLoss)}">$${formatNumber(result.averageLoss)}</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Largest Win</div>
-                        <div class="metric-value positive" title="$${result.largestWin.toFixed(2)}">$${formatLargeNumber(result.largestWin)}</div>
+                        <div class="metric-value positive" title="$${formatNumber(result.largestWin)}">$${formatNumber(result.largestWin)}</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Largest Loss</div>
-                        <div class="metric-value negative" title="$${result.largestLoss.toFixed(2)}">$${formatLargeNumber(result.largestLoss)}</div>
+                        <div class="metric-value negative" title="$${formatNumber(result.largestLoss)}">$${formatNumber(result.largestLoss)}</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Buy & Hold Return</div>
-                        <div class="metric-value" title="$${result.buyAndHoldReturn.toLocaleString()}">
-                            ${result.buyAndHoldReturnPercent.toFixed(2)}% ($${formatLargeNumber(result.buyAndHoldReturn)})
+                        <div class="metric-value" title="$${formatNumber(result.buyAndHoldReturn)}">
+                            ${formatNumber(result.buyAndHoldReturnPercent)}% ($${formatNumber(result.buyAndHoldReturn)})
                         </div>
                     </div>
                 </div>
@@ -566,20 +562,20 @@
                                         <td>${trade.id}</td>
                                         <td>${trade.side}</td>
                                         <td>${trade.entryTime}</td>
-                                        <td>$${formatLargeNumber(trade.entryPrice)}</td>
-                                        <td title="$${trade.balanceBeforeOpen.toFixed(2)}">$${formatLargeNumber(trade.balanceBeforeOpen)}</td>
-                                        <td>${formatLargeNumber(trade.positionSize)}</td>
-                                        <td title="$${trade.balanceAfterOpen.toFixed(2)}">$${formatLargeNumber(trade.balanceAfterOpen)}</td>
+                                        <td>$${formatNumber(trade.entryPrice)}</td>
+                                        <td title="$${formatNumber(trade.balanceBeforeOpen)}">$${formatNumber(trade.balanceBeforeOpen)}</td>
+                                        <td>${formatNumber(trade.positionSize)}</td>
+                                        <td title="$${formatNumber(trade.balanceAfterOpen)}">$${formatNumber(trade.balanceAfterOpen)}</td>
                                         <td>${trade.exitTime}</td>
-                                        <td>$${formatLargeNumber(trade.exitPrice)}</td>
-                                        <td title="$${trade.balanceBeforeClose.toFixed(2)}">$${formatLargeNumber(trade.balanceBeforeClose)}</td>
+                                        <td>$${formatNumber(trade.exitPrice)}</td>
+                                        <td title="$${formatNumber(trade.balanceBeforeClose)}">$${formatNumber(trade.balanceBeforeClose)}</td>
                                         <td class="${trade.profitLoss >= 0 ? 'trade-profit' : 'trade-loss'}">
-                                            $${trade.profitLoss.toFixed(2)}
+                                            $${formatNumber(trade.profitLoss)}
                                         </td>
                                         <td class="${trade.profitLossPercent >= 0 ? 'trade-profit' : 'trade-loss'}">
-                                            ${trade.profitLossPercent.toFixed(2)}%
+                                            ${formatNumber(trade.profitLossPercent)}%
                                         </td>
-                                        <td title="$${trade.balanceAfterClose.toFixed(2)}">$${formatLargeNumber(trade.balanceAfterClose)}</td>
+                                        <td title="$${formatNumber(trade.balanceAfterClose)}">$${formatNumber(trade.balanceAfterClose)}</td>
                                         <td>${trade.exitReason}</td>
                                     </tr>
                                 `).join('')}
