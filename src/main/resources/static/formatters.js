@@ -15,3 +15,21 @@ function formatNumber(num) {
     const formatted = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
     return decimal ? `${formatted}.${decimal}` : formatted;
 }
+
+/**
+ * Format a date string (pass through backend-formatted value)
+ * @param {string} dateString - The date string from backend
+ * @returns {string} The formatted date
+ */
+function formatDate(dateString) {
+    return dateString;
+}
+
+/**
+ * Format a datetime string (pass through backend-formatted value)
+ * @param {string} timestamp - The timestamp from backend
+ * @returns {string} The formatted datetime
+ */
+function formatDateTime(timestamp) {
+    return timestamp;
+}

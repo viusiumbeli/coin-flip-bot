@@ -82,7 +82,7 @@ class CoinFlipStrategy(
         val minRiskAmount = BigDecimal("0.01") // Minimum $0.01 risk to open position
 
         if (riskAmount < minRiskAmount) {
-            log.warn {
+            log.debug {
                 "Insufficient balance to open position. " +
                 "Available: $accountBalance, Risk amount: $riskAmount, Minimum required: $minRiskAmount"
             }
@@ -107,7 +107,7 @@ class CoinFlipStrategy(
         if (positionValue > accountBalance) {
             // Cap position size to what we can afford
             positionSize = accountBalance.divide(entryPrice, 8, RoundingMode.DOWN)
-            log.warn {
+            log.debug {
                 "Position size capped to $positionSize due to insufficient balance. " +
                 "Required: $positionValue, Available: $accountBalance"
             }
