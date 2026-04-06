@@ -636,11 +636,13 @@
         }
 
         function formatNumber(num) {
-            return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            // Format with space as thousand separator (e.g., "7 430" instead of "7,430")
+            return num.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
         }
 
         function formatDateTime(timestamp) {
-            return new Date(timestamp).toLocaleString();
+            // Return timestamp as-is, already formatted by backend
+            return timestamp;
         }
 
         function updateUI(state) {
@@ -699,7 +701,7 @@
                         <td>${formatDateTime(pos.entryTime)}</td>
                         <td>$${formatNumber(pos.entryPrice)}</td>
                         <td>$${formatNumber(pos.currentPrice)}</td>
-                        <td>${pos.positionSize.toFixed(4)}</td>
+                        <td>${formatNumber(pos.positionSize)}</td>
                         <td>$${formatNumber(pos.trailingStop)}</td>
                         <td class="${pos.unrealizedPnL >= 0 ? 'trade-profit' : 'trade-loss'}">
                             $${formatNumber(pos.unrealizedPnL)}
@@ -730,7 +732,7 @@
                         <td>$${formatNumber(trade.entryPrice)}</td>
                         <td>${formatDateTime(trade.exitTime)}</td>
                         <td>$${formatNumber(trade.exitPrice)}</td>
-                        <td>${trade.positionSize.toFixed(4)}</td>
+                        <td>${formatNumber(trade.positionSize)}</td>
                         <td class="${trade.profitLoss >= 0 ? 'trade-profit' : 'trade-loss'}">
                             $${formatNumber(trade.profitLoss)}
                         </td>
