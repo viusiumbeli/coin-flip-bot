@@ -295,6 +295,12 @@ class SimulationService(
             null
         }
 
+        val previousCandle = if (currentCandleIndex > 0 && currentCandleIndex <= candles.size) {
+            candles[currentCandleIndex - 1]
+        } else {
+            null
+        }
+
         // Calculate current price for unrealized P/L
         val currentPrice = currentCandle?.close ?: BigDecimal.ZERO
 
@@ -329,6 +335,17 @@ class SimulationService(
             currentCandleIndex = currentCandleIndex,
             totalCandles = candles.size,
             currentCandle = currentCandle?.let {
+                CandleDto(
+                    openTime = it.openTime,
+                    open = it.open,
+                    high = it.high,
+                    low = it.low,
+                    close = it.close,
+                    volume = it.volume,
+                    atr = it.atr
+                )
+            },
+            previousCandle = previousCandle?.let {
                 CandleDto(
                     openTime = it.openTime,
                     open = it.open,
