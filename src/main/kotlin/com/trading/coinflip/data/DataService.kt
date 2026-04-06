@@ -168,4 +168,41 @@ class DataService(
             Period: $earliest to $latest
         """.trimIndent()
     }
+
+    fun syncMissingData(symbol: String, timeframe: Timeframe): Int = runBlocking {
+        val latestCandleTime = candleRepository.findLatestCandleTime(symbol, timeframe)
+
+        val startTime = if (latestCandleTime != null) {
+            // Start from the next candle after the latest one
+            latestCandleTime.plusSeconds(timeframe.minutes * 60L)
+        } else {
+            // No data exists, use configured start date
+            Instant.parse("2020-01-01T00:00:00Z")
+        }
+
+        val now = Instant.now()
+        if (!startTime.isBefore(now)) {
+            log.info { "Data for $symbol ${timeframe.label} is already up to date" }
+            return@runBlocking 0
+        }
+
+        log.info { "Syncing missing data for $symbol ${timeframe.label} from $startTime" }
+        val candles = binanceClient.fetchAllHistoricalData(symbol, timeframe, startTime)
+
+        if (candles.isEmpty()) {
+            log.info { "No new candles fetched for $symbol ${timeframe.label}" }
+            return@runBlocking 0
+        }
+
+        val countBefore = candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe).size
+        saveCandles(symbol, timeframe, candles)
+        val countAfter = candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe).size
+        val newCandlesAdded = countAfter - countBefore
+
+        // Calculate ATR for new candles
+        calculateAndSaveATR(symbol, timeframe)
+
+        log.info { "Synced $newCandlesAdded new candles for $symbol ${timeframe.label}" }
+        return@runBlocking newCandlesAdded
+    }
 }
