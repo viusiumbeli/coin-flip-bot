@@ -43,10 +43,10 @@ class PerformanceAnalytics {
 
         // Debug: log some sample trades to understand the issue
         if (trades.isNotEmpty()) {
-            log.info { "Debug: Total trades: ${trades.size}, Winning: ${winningTrades.size}, Losing: ${losingTrades.size}" }
-            log.info { "Debug: First 5 trades P/L: ${trades.take(5).map { it.profitLoss }}" }
-            log.info { "Debug: Sample winning trades: ${winningTrades.take(3).map { "P/L: ${it.profitLoss}, Entry: ${it.entryPrice}, Exit: ${it.exitPrice}, Size: ${it.positionSize}" }}" }
-            log.info { "Debug: Sample losing trades: ${losingTrades.take(3).map { "P/L: ${it.profitLoss}, Entry: ${it.entryPrice}, Exit: ${it.exitPrice}, Size: ${it.positionSize}" }}" }
+            log.debug { "Debug: Total trades: ${trades.size}, Winning: ${winningTrades.size}, Losing: ${losingTrades.size}" }
+            log.debug { "Debug: First 5 trades P/L: ${trades.take(5).map { it.profitLoss }}" }
+            log.debug { "Debug: Sample winning trades: ${winningTrades.take(3).map { "P/L: ${it.profitLoss}, Entry: ${it.entryPrice}, Exit: ${it.exitPrice}, Size: ${it.positionSize}" }}" }
+            log.debug { "Debug: Sample losing trades: ${losingTrades.take(3).map { "P/L: ${it.profitLoss}, Entry: ${it.entryPrice}, Exit: ${it.exitPrice}, Size: ${it.positionSize}" }}" }
         }
 
         val winRate = if (trades.isNotEmpty()) {
@@ -56,7 +56,7 @@ class PerformanceAnalytics {
             BigDecimal.ZERO
         }
 
-        log.info { "Debug: Win rate calculation: ${winningTrades.size} * 100 / ${trades.size} = $winRate" }
+        log.debug { "Debug: Win rate calculation: ${winningTrades.size} * 100 / ${trades.size} = $winRate" }
 
         val totalWins = winningTrades.sumOf { it.profitLoss }
         val totalLosses = losingTrades.sumOf { it.profitLoss }.abs()
