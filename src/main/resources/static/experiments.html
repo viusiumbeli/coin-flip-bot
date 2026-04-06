@@ -678,6 +678,10 @@
                         <h4>Cumulative Expectancy (All Runs)</h4>
                         <canvas id="cumulativeExpectancyChart"></canvas>
                     </div>
+                    <div class="chart-container">
+                        <h4>Std Dev of P/L Per Run</h4>
+                        <canvas id="stdDevChart"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -1274,6 +1278,7 @@
         let expectancyPerRunChart = null;
         let expectancyDistChart = null;
         let cumulativeExpectancyChart = null;
+        let stdDevChart = null;
         let isRenderingCharts = false;
 
         function destroyCharts() {
@@ -1283,6 +1288,7 @@
             if (expectancyPerRunChart) { expectancyPerRunChart.destroy(); expectancyPerRunChart = null; }
             if (expectancyDistChart) { expectancyDistChart.destroy(); expectancyDistChart = null; }
             if (cumulativeExpectancyChart) { cumulativeExpectancyChart.destroy(); cumulativeExpectancyChart = null; }
+            if (stdDevChart) { stdDevChart.destroy(); stdDevChart = null; }
         }
 
         async function renderCharts(experiment) {
@@ -1296,6 +1302,7 @@
                 await renderExpectancyPerRun(experiment.runs);
                 await renderExpectancyDistribution(experiment.runs);
                 await renderCumulativeExpectancy(experiment.runs);
+                await renderStdDevChart(experiment.runs);
             } finally {
                 isRenderingCharts = false;
             }
@@ -1647,6 +1654,65 @@
                         },
                         y: {
                             title: { display: true, text: 'Cumulative Avg P/L ($/trade)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function renderStdDevChart(runs) {
+            const stdDevs = [];
+
+            for (let i = 0; i < runs.length; i++) {
+                const run = runs[i];
+                try {
+                    const response = await fetch(`${API_BASE}/experiments/runs/${run.id}`);
+                    if (response.ok) {
+                        const runDetail = await response.json();
+                        const trades = runDetail.trades;
+
+                        if (trades.length > 1) {
+                            // Calculate standard deviation of P/L
+                            const pls = trades.map(t => parseFloat(t.profitLoss));
+                            const mean = pls.reduce((a, b) => a + b, 0) / pls.length;
+                            const variance = pls.reduce((sum, pl) => sum + Math.pow(pl - mean, 2), 0) / pls.length;
+                            const stdDev = Math.sqrt(variance);
+                            stdDevs.push({ runNumber: run.runNumber, stdDev });
+                        } else {
+                            stdDevs.push({ runNumber: run.runNumber, stdDev: 0 });
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Failed to load run ${run.id}:`, e);
+                }
+            }
+
+            if (stdDevs.length === 0) return;
+
+            const ctx = document.getElementById('stdDevChart').getContext('2d');
+            stdDevChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: stdDevs.map(s => `Run ${s.runNumber}`),
+                    datasets: [{
+                        label: 'Std Dev ($)',
+                        data: stdDevs.map(s => s.stdDev),
+                        backgroundColor: 'rgba(139, 92, 246, 0.7)',
+                        borderColor: 'rgba(139, 92, 246, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            title: { display: true, text: 'Std Dev ($)' },
+                            beginAtZero: true
                         }
                     }
                 }
