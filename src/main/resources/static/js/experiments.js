@@ -521,25 +521,29 @@ function hideDetail() {
     currentExperimentId = null;
 }
 
-async function deleteExperiment(id) {
-    if (!confirm('Are you sure you want to delete this experiment and all its runs?')) {
-        return;
-    }
+function deleteExperiment(id) {
+    showConfirmModal(
+        'Delete Experiment',
+        'Are you sure you want to delete this experiment and all its runs? This action cannot be undone.',
+        'Delete',
+        async () => {
+            try {
+                const response = await fetch(`${API_BASE}/experiments/${id}`, {
+                    method: 'DELETE'
+                });
 
-    try {
-        const response = await fetch(`${API_BASE}/experiments/${id}`, {
-            method: 'DELETE'
-        });
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
 
-        if (!response.ok) {
-            throw new Error(`Server returned ${response.status}`);
-        }
+                await loadExperiments();
 
-        await loadExperiments();
-
-    } catch (error) {
-        showError('Failed to delete experiment: ' + error.message);
-    }
+            } catch (error) {
+                showError('Failed to delete experiment: ' + error.message);
+            }
+        },
+        true
+    );
 }
 
 function toggleSelection(id) {
@@ -683,25 +687,29 @@ function getStatusBadge(status, progressPercent) {
     return `<span style="background: ${color}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">${text}</span>`;
 }
 
-async function cancelExperiment(experimentId) {
-    if (!confirm('Are you sure you want to cancel this experiment?')) {
-        return;
-    }
+function cancelExperiment(experimentId) {
+    showConfirmModal(
+        'Cancel Experiment',
+        'Are you sure you want to cancel this experiment? Progress will be lost.',
+        'Cancel Experiment',
+        async () => {
+            try {
+                const response = await fetch(`${API_BASE}/experiments/${experimentId}/cancel`, {
+                    method: 'POST'
+                });
 
-    try {
-        const response = await fetch(`${API_BASE}/experiments/${experimentId}/cancel`, {
-            method: 'POST'
-        });
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
 
-        if (!response.ok) {
-            throw new Error(`Server returned ${response.status}`);
-        }
+                await loadExperiments();
 
-        await loadExperiments();
-
-    } catch (error) {
-        showError('Failed to cancel experiment: ' + error.message);
-    }
+            } catch (error) {
+                showError('Failed to cancel experiment: ' + error.message);
+            }
+        },
+        false
+    );
 }
 
 function sortRuns(field) {
