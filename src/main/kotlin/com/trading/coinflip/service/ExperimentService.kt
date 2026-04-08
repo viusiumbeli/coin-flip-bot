@@ -17,6 +17,7 @@ import java.math.RoundingMode
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.sqrt
 
 private val log = KotlinLogging.logger {}
 
@@ -75,6 +76,10 @@ class ExperimentService(
             runsBeatBuyHold = results.count { it.totalReturnPercent >= it.buyAndHoldReturnPercent }
         )
 
+        // Calculate variance metrics for totalReturnPercent
+        val returnValues = results.map { it.totalReturnPercent.toDouble() }
+        val varianceMetrics = calculateVarianceMetrics(returnValues)
+
         // Use first result for buy & hold (same for all runs)
         val firstResult = results.first()
 
@@ -115,7 +120,16 @@ class ExperimentService(
             averageTradeDuration = aggregated.averageTradeDuration,
             buyAndHoldReturn = firstResult.buyAndHoldReturn,
             buyAndHoldReturnPercent = firstResult.buyAndHoldReturnPercent,
-            runsBeatBuyHold = aggregated.runsBeatBuyHold
+            runsBeatBuyHold = aggregated.runsBeatBuyHold,
+            // Variance metrics
+            returnStdDev = varianceMetrics.stdDev,
+            returnMin = varianceMetrics.min,
+            returnMax = varianceMetrics.max,
+            returnP5 = varianceMetrics.p5,
+            returnP25 = varianceMetrics.p25,
+            returnP50 = varianceMetrics.p50,
+            returnP75 = varianceMetrics.p75,
+            returnP95 = varianceMetrics.p95
         )
 
         val savedExperiment = experimentRepository.save(experiment)
@@ -256,7 +270,14 @@ class ExperimentService(
             buildMetric("Avg Loss", experiments) { formatCurrency(it.averageLoss) },
             buildMetric("Avg Largest Win", experiments) { formatCurrency(it.largestWin) },
             buildMetric("Avg Largest Loss", experiments) { formatCurrency(it.largestLoss) },
-            buildMetric("Buy & Hold Return %", experiments) { formatPercent(it.buyAndHoldReturnPercent) }
+            buildMetric("Buy & Hold Return %", experiments) { formatPercent(it.buyAndHoldReturnPercent) },
+            // Variance metrics
+            buildMetric("Return Std Dev", experiments) { it.returnStdDev?.let { formatPercent(it) } ?: "N/A" },
+            buildMetric("Return Range", experiments) {
+                val min = it.returnMin?.let { formatPercent(it) } ?: "N/A"
+                val max = it.returnMax?.let { formatPercent(it) } ?: "N/A"
+                "$min to $max"
+            }
         )
 
         return ExperimentComparisonDto(
@@ -457,4 +478,58 @@ class ExperimentService(
         val averageTradeDuration: Long,
         val runsBeatBuyHold: Int
     )
+
+    private data class VarianceMetrics(
+        val stdDev: BigDecimal,
+        val min: BigDecimal,
+        val max: BigDecimal,
+        val p5: BigDecimal,
+        val p25: BigDecimal,
+        val p50: BigDecimal,
+        val p75: BigDecimal,
+        val p95: BigDecimal
+    )
+
+    private fun calculateVarianceMetrics(values: List<Double>): VarianceMetrics {
+        if (values.isEmpty()) {
+            return VarianceMetrics(
+                stdDev = BigDecimal.ZERO,
+                min = BigDecimal.ZERO,
+                max = BigDecimal.ZERO,
+                p5 = BigDecimal.ZERO,
+                p25 = BigDecimal.ZERO,
+                p50 = BigDecimal.ZERO,
+                p75 = BigDecimal.ZERO,
+                p95 = BigDecimal.ZERO
+            )
+        }
+
+        val sorted = values.sorted()
+        val n = sorted.size
+
+        // Standard deviation (sample)
+        val mean = sorted.average()
+        val variance = if (n > 1) {
+            sorted.sumOf { (it - mean) * (it - mean) } / (n - 1)
+        } else 0.0
+        val stdDev = sqrt(variance)
+
+        return VarianceMetrics(
+            stdDev = BigDecimal(stdDev).setScale(8, RoundingMode.HALF_UP),
+            min = BigDecimal(sorted.first()).setScale(8, RoundingMode.HALF_UP),
+            max = BigDecimal(sorted.last()).setScale(8, RoundingMode.HALF_UP),
+            p5 = percentile(sorted, 0.05),
+            p25 = percentile(sorted, 0.25),
+            p50 = percentile(sorted, 0.50),
+            p75 = percentile(sorted, 0.75),
+            p95 = percentile(sorted, 0.95)
+        )
+    }
+
+    private fun percentile(sortedValues: List<Double>, percentile: Double): BigDecimal {
+        if (sortedValues.isEmpty()) return BigDecimal.ZERO
+        val index = (percentile * (sortedValues.size - 1)).toInt()
+        return BigDecimal(sortedValues[index.coerceIn(0, sortedValues.size - 1)])
+            .setScale(8, RoundingMode.HALF_UP)
+    }
 }
