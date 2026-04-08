@@ -4,622 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coin Flip Trading Bot - Experiments</title>
-    <script src="formatters.js"></script>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 95%;
-            margin: 0 auto;
-        }
-
-        .header {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .subtitle {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .nav-tabs {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 20px;
-        }
-
-        .nav-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 10px 20px;
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            border: 2px solid #e0e0e0;
-            border-radius: 25px;
-            background: #f8f9fa;
-            transition: all 0.2s ease;
-        }
-
-        .nav-link:hover {
-            border-color: #667eea;
-            background: #f0f4ff;
-            transform: translateY(-1px);
-        }
-
-        .nav-link.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-color: transparent;
-        }
-
-        .card {
-            background: white;
-            border-radius: 10px;
-            padding: 25px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #333;
-        }
-
-        select, input, textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-
-        select:focus, input:focus, textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        button {
-            flex: 1;
-            min-width: 150px;
-            padding: 14px 28px;
-            font-size: 16px;
-            font-weight: 600;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-            flex: 0;
-            min-width: auto;
-            padding: 8px 16px;
-            font-size: 14px;
-        }
-
-        .btn-secondary:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(245, 87, 108, 0.4);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            color: white;
-            min-width: auto;
-            flex: 0;
-            padding: 8px 16px;
-            font-size: 14px;
-        }
-
-        .btn-info {
-            background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
-            color: white;
-            min-width: auto;
-            flex: 0;
-            padding: 8px 16px;
-            font-size: 14px;
-        }
-
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #667eea;
-        }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .grid-2 {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 15px;
-        }
-
-        .grid-3 {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .error {
-            background: #fee;
-            border: 2px solid #fcc;
-            color: #c33;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-
-        /* Tables */
-        .data-table {
-            width: 100%;
-            overflow-x: auto;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-        }
-
-        th, td {
-            padding: 12px 8px;
-            text-align: left;
-            border-bottom: 1px solid #e0e0e0;
-            white-space: nowrap;
-            font-size: 13px;
-        }
-
-        th {
-            background: #f5f7fa;
-            font-weight: 600;
-            color: #333;
-            font-size: 12px;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        th.sortable {
-            cursor: pointer;
-            user-select: none;
-        }
-
-        th.sortable:hover {
-            background: #e5e9f2;
-        }
-
-        th.sortable .sort-indicator::after {
-            content: '';
-            display: inline-block;
-            margin-left: 4px;
-            opacity: 0.3;
-        }
-
-        th.sortable.sort-asc .sort-indicator::after {
-            content: '▲';
-            opacity: 1;
-        }
-
-        th.sortable.sort-desc .sort-indicator::after {
-            content: '▼';
-            opacity: 1;
-        }
-
-        tr:hover {
-            background: #f9fafb;
-        }
-
-        .positive {
-            color: #10b981;
-            font-weight: 600;
-        }
-
-        .negative {
-            color: #ef4444;
-            font-weight: 600;
-        }
-
-        /* Metrics grid */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .metric-card {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .metric-label {
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            margin-bottom: 6px;
-        }
-
-        .metric-value {
-            font-size: 18px;
-            font-weight: bold;
-            color: #333;
-            word-break: break-word;
-        }
-
-        /* Trades table */
-        .trades-table {
-            width: 100%;
-            overflow-x: auto;
-            overflow-y: auto;
-            max-height: 500px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-        }
-
-        /* Checkbox styling */
-        input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        }
-
-        /* Actions column */
-        .actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        /* Name column - allow full experiment names to display */
-        .name-column {
-            min-width: 200px;
-            white-space: normal;
-            word-break: break-word;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .section-title {
-            margin-bottom: 20px;
-            color: #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        /* Navigation bar for back buttons */
-        .nav-bar {
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            padding: 16px 24px;
-            margin: -25px -25px 25px -25px;
-            border-bottom: 1px solid #e2e8f0;
-            border-radius: 10px 10px 0 0;
-        }
-
-        .back-btn {
-            background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
-            color: white;
-            padding: 16px 32px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            flex: 0;
-            min-width: auto;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-        }
-
-        .back-btn:hover {
-            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
-        }
-
-        .back-btn::before {
-            content: '\2190';
-            font-size: 20px;
-        }
-
-        /* Action bar for compare button */
-        .action-bar {
-            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-            padding: 20px 24px;
-            margin: 20px -25px -25px -25px;
-            border-top: 1px solid #bbf7d0;
-            border-radius: 0 0 10px 10px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-        }
-
-        .action-bar-text {
-            font-size: 14px;
-            color: #166534;
-            font-weight: 500;
-        }
-
-        .btn-compare {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            padding: 16px 32px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            min-width: 220px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
-        }
-
-        .btn-compare:hover:not(:disabled) {
-            background: linear-gradient(135deg, #059669 0%, #047857 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(16, 185, 129, 0.4);
-        }
-
-        .btn-compare:disabled {
-            background: #9ca3af;
-            color: #f3f4f6;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
-
-        .btn-compare::before {
-            content: '\2194';
-            font-size: 20px;
-        }
-
-        .btn-compare .count-badge {
-            background: rgba(255, 255, 255, 0.3);
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .btn-compare:disabled .count-badge {
-            background: rgba(0, 0, 0, 0.1);
-        }
-
-        .experiment-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .experiment-title {
-            font-size: 24px;
-            color: #333;
-        }
-
-        .experiment-meta {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 12px;
-            background: #667eea;
-            color: white;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .runs-section {
-            margin-top: 30px;
-        }
-
-        .runs-section h3 {
-            margin-bottom: 15px;
-            color: #333;
-        }
-
-        /* Charts */
-        .charts-section {
-            margin-top: 30px;
-            margin-bottom: 30px;
-        }
-
-        .charts-section h3 {
-            margin-bottom: 20px;
-            color: #333;
-        }
-
-        .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 20px;
-        }
-
-        .chart-container {
-            background: #f8fafc;
-            border-radius: 8px;
-            padding: 20px;
-            height: 300px;
-            position: relative;
-        }
-
-        .chart-container.full-width {
-            grid-column: 1 / -1;
-            height: 400px;
-        }
-
-        .chart-container h4 {
-            margin-bottom: 15px;
-            color: #333;
-            font-size: 14px;
-            text-align: center;
-        }
-
-        .chart-container .remove-chart {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            cursor: pointer;
-            font-size: 14px;
-            line-height: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .chart-container .remove-chart:hover {
-            background: #dc2626;
-        }
-
-        .add-chart-dropdown {
-            position: relative;
-            display: inline-block;
-        }
-
-        .chart-menu {
-            position: absolute;
-            right: 0;
-            top: 100%;
-            background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 100;
-            min-width: 200px;
-        }
-
-        .chart-menu-item {
-            padding: 12px 16px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .chart-menu-item:hover {
-            background: #f5f7fa;
-        }
-
-        .chart-menu-item:first-child {
-            border-radius: 6px 6px 0 0;
-        }
-
-        .chart-menu-item:last-child {
-            border-radius: 0 0 6px 6px;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Van Tharp Coin-Flip Trading Bot</h1>
-            <p class="subtitle">Experiments - Run and Compare Multiple Backtests</p>
-            <div class="nav-tabs">
-                <a href="index.html" class="nav-link">Backtest</a>
-                <a href="simulation.html" class="nav-link">Simulation</a>
-                <a href="experiments.html" class="nav-link active">Experiments</a>
-                <a href="data.html" class="nav-link">Data</a>
-            </div>
-        </div>
+        <div id="app-header"></div>
 
         <!-- Create Experiment Form -->
         <div class="card" id="createForm">
-            <h2 style="margin-bottom: 20px;">Create New Experiment</h2>
+            <h2>Create New Experiment</h2>
 
             <div class="grid-3">
                 <div class="form-group">
@@ -671,8 +67,8 @@
             <div class="spinner"></div>
             <p id="loadingText">Running experiment... This may take a few moments.</p>
             <div id="progressContainer" class="hidden" style="margin-top: 20px;">
-                <div style="background: #e0e0e0; border-radius: 10px; height: 20px; overflow: hidden;">
-                    <div id="progressBar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                <div style="background: var(--border-color); border-radius: 10px; height: 20px; overflow: hidden;">
+                    <div id="progressBar" style="background: var(--primary-gradient); height: 100%; width: 0%; transition: width 0.3s;"></div>
                 </div>
                 <p id="progressText" style="margin-top: 10px; font-size: 14px;">0% complete</p>
                 <button class="btn-danger" id="cancelBtn" onclick="cancelCurrentExperiment()" style="margin-top: 15px;">Cancel Experiment</button>
@@ -683,7 +79,7 @@
 
         <!-- Experiment History -->
         <div class="card" id="historySection">
-            <h2 style="margin-bottom: 20px;">Experiment History</h2>
+            <h2>Experiment History</h2>
 
             <div class="data-table">
                 <table>
@@ -727,7 +123,7 @@
                 <button class="back-btn" onclick="hideComparison()">Back to History</button>
             </div>
 
-            <h2 style="margin-bottom: 20px;">Experiment Comparison</h2>
+            <h2>Experiment Comparison</h2>
 
             <div class="data-table">
                 <table id="comparisonTable">
@@ -753,14 +149,14 @@
             <div id="detailNotes" class="hidden" style="background: #f0f9ff; padding: 15px; border-radius: 6px; margin-bottom: 20px; color: #0369a1;">
             </div>
 
-            <h3 style="margin-bottom: 15px;">Aggregated Metrics (averaged across all runs)</h3>
+            <h3>Aggregated Metrics (averaged across all runs)</h3>
             <div class="metrics-grid" id="detailMetrics"></div>
 
             <div class="charts-section">
                 <div class="section-title">
                     <h3>Performance Charts</h3>
                     <div class="add-chart-dropdown">
-                        <button class="btn-secondary" onclick="toggleChartMenu()">+ Add Chart</button>
+                        <button class="btn-secondary btn-small" onclick="toggleChartMenu()">+ Add Chart</button>
                         <div id="chartMenu" class="chart-menu hidden">
                             <div class="chart-menu-item" onclick="addChart('returnDist')">Return Distribution</div>
                             <div class="chart-menu-item" onclick="addChart('winLoss')">Win/Loss Ratio</div>
@@ -811,10 +207,10 @@
                 </div>
             </div>
 
-            <h3 style="margin-bottom: 15px;">Run Metrics</h3>
+            <h3>Run Metrics</h3>
             <div class="metrics-grid" id="runMetrics"></div>
 
-            <h3 style="margin-bottom: 15px;">Trade History</h3>
+            <h3>Trade History</h3>
             <div class="trades-table">
                 <table>
                     <thead>
@@ -841,7 +237,14 @@
         </div>
     </div>
 
-    <script src="experiments-charts.js"></script>
-    <script src="experiments.js"></script>
+    <script src="js/components/theme.js"></script>
+    <script src="js/components/header.js"></script>
+    <script src="js/components/loading.js"></script>
+    <script src="js/formatters.js"></script>
+    <script src="js/experiments-charts.js"></script>
+    <script src="js/experiments.js"></script>
+    <script>
+        initHeader('experiments');
+    </script>
 </body>
 </html>

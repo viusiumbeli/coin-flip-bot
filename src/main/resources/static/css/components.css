@@ -1,0 +1,631 @@
+/* Components CSS - Cards, Buttons, Forms, Metrics, Tables */
+
+/* ===== CARDS ===== */
+.card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    box-shadow: var(--shadow-card);
+    margin-bottom: var(--spacing-lg);
+}
+
+/* ===== BUTTONS ===== */
+button {
+    flex: 1;
+    min-width: 150px;
+    padding: 14px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: var(--primary-gradient);
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: var(--secondary-gradient);
+    color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(245, 87, 108, 0.4);
+}
+
+.btn-success {
+    background: var(--success-gradient);
+    color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-warning {
+    background: var(--warning-gradient);
+    color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(245, 158, 11, 0.4);
+}
+
+.btn-danger {
+    background: var(--danger-gradient);
+    color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(239, 68, 68, 0.4);
+}
+
+.btn-info {
+    background: var(--info-gradient);
+    color: white;
+}
+
+.btn-info:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(6, 182, 212, 0.4);
+}
+
+.btn-small {
+    min-width: auto;
+    flex: 0;
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+.back-btn {
+    background: var(--neutral-gradient);
+    color: white;
+    padding: 16px 32px;
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    flex: 0;
+    min-width: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.back-btn:hover {
+    background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+.back-btn::before {
+    content: '\2190';
+    font-size: 20px;
+}
+
+.btn-compare {
+    background: var(--success-gradient);
+    color: white;
+    padding: 16px 32px;
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    min-width: 220px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+}
+
+.btn-compare:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-compare:disabled {
+    background: #9ca3af;
+    color: #f3f4f6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.btn-compare::before {
+    content: '\2194';
+    font-size: 20px;
+}
+
+.btn-compare .count-badge {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.btn-compare:disabled .count-badge {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.button-group {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+/* ===== FORMS ===== */
+.form-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+select,
+input[type="text"],
+input[type="number"],
+input[type="datetime-local"],
+textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    transition: border-color 0.3s;
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+select:focus,
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="datetime-local"]:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+/* ===== METRICS ===== */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xxl);
+}
+
+.metric-card {
+    background: var(--metric-gradient);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    text-align: center;
+}
+
+.metric-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.metric-value {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text-primary);
+    word-break: break-word;
+    cursor: help;
+}
+
+.metric-value.positive {
+    color: var(--success-color);
+}
+
+.metric-value.negative {
+    color: var(--danger-color);
+}
+
+/* ===== TABLES ===== */
+.data-table,
+.trades-table {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.trades-table {
+    overflow-y: auto;
+    max-height: 500px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-card);
+}
+
+th,
+td {
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+    font-size: 13px;
+}
+
+th {
+    background: var(--bg-light);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+th.sortable:hover {
+    background: var(--table-header-hover);
+}
+
+th.sortable .sort-indicator::after {
+    content: '';
+    display: inline-block;
+    margin-left: 4px;
+    opacity: 0.3;
+}
+
+th.sortable.sort-asc .sort-indicator::after {
+    content: '▲';
+    opacity: 1;
+}
+
+th.sortable.sort-desc .sort-indicator::after {
+    content: '▼';
+    opacity: 1;
+}
+
+tr:hover {
+    background: var(--table-row-hover);
+}
+
+.trade-profit {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.trade-loss {
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+.name-column {
+    min-width: 200px;
+    white-space: normal;
+    word-break: break-word;
+}
+
+/* ===== LOADING & ERROR STATES ===== */
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--primary-color);
+}
+
+.error {
+    background: var(--error-bg);
+    border: 2px solid var(--error-border);
+    color: var(--error-text);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-lg);
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.loading-overlay.show {
+    display: flex;
+}
+
+.loading-box {
+    background: var(--bg-card);
+    padding: 30px 50px;
+    border-radius: var(--radius-lg);
+    text-align: center;
+}
+
+/* ===== INFO BOXES ===== */
+.config-info {
+    background: var(--info-bg);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    color: var(--info-text);
+    margin-bottom: var(--spacing-lg);
+}
+
+/* ===== STATUS CLASSES ===== */
+.status-outdated {
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+.status-uptodate {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.status-nodata {
+    color: var(--warning-color);
+    font-weight: 600;
+}
+
+.sync-result {
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.sync-result.success {
+    color: var(--success-color);
+}
+
+.sync-result.error {
+    color: var(--danger-color);
+}
+
+/* ===== PROGRESS BAR ===== */
+.progress-bar {
+    background: var(--border-color);
+    height: 30px;
+    border-radius: 15px;
+    overflow: hidden;
+    margin-bottom: var(--spacing-sm);
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--primary-gradient);
+    transition: width 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* ===== CANDLE INFO (simulation page) ===== */
+.candle-info {
+    background: var(--metric-gradient);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    margin-bottom: 0;
+}
+
+.previous-candle-info {
+    background: var(--candle-previous-bg);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-sm);
+    opacity: 0.85;
+}
+
+.previous-candle-info .candle-label {
+    color: var(--text-muted);
+}
+
+.previous-candle-info .candle-value {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.candle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.candle-item {
+    text-align: center;
+}
+
+.candle-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+
+.candle-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+/* ===== BADGES ===== */
+.badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* ===== CHARTS (experiments page) ===== */
+.charts-section {
+    margin-top: var(--spacing-xxl);
+    margin-bottom: var(--spacing-xxl);
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.chart-container {
+    background: var(--bg-light);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    height: 300px;
+    position: relative;
+}
+
+.chart-container.full-width {
+    grid-column: 1 / -1;
+    height: 400px;
+}
+
+.chart-container h4 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+    font-size: 14px;
+    text-align: center;
+}
+
+.chart-container .remove-chart {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--danger-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: auto;
+    padding: 0;
+    flex: 0;
+}
+
+.chart-container .remove-chart:hover {
+    background: #dc2626;
+}
+
+.add-chart-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.chart-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    min-width: 200px;
+}
+
+.chart-menu-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.chart-menu-item:hover {
+    background: var(--bg-light);
+}
+
+.chart-menu-item:first-child {
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.chart-menu-item:last-child {
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+/* ===== EXPERIMENT DETAILS ===== */
+.experiment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.experiment-title {
+    font-size: 24px;
+    color: var(--text-primary);
+}
+
+.experiment-meta {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.runs-section,
+.trades-section {
+    margin-top: var(--spacing-xxl);
+}
+
+/* ===== ACTIONS ===== */
+.actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* ===== RESULTS (backtest page) ===== */
+.results {
+    display: none;
+}
+
+.results.show {
+    display: block;
+}

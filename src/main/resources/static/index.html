@@ -4,312 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coin Flip Trading Bot - Backtest System</title>
-    <script src="formatters.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 95%;
-            margin: 0 auto;
-        }
-
-        .header {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .subtitle {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .nav-tabs {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 20px;
-        }
-
-        .nav-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 10px 20px;
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            border: 2px solid #e0e0e0;
-            border-radius: 25px;
-            background: #f8f9fa;
-            transition: all 0.2s ease;
-        }
-
-        .nav-link:hover {
-            border-color: #667eea;
-            background: #f0f4ff;
-            transform: translateY(-1px);
-        }
-
-        .nav-link.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-color: transparent;
-        }
-
-        .card {
-            background: white;
-            border-radius: 10px;
-            padding: 25px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #333;
-        }
-
-        select, input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-
-        select:focus, input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        button {
-            flex: 1;
-            min-width: 150px;
-            padding: 14px 28px;
-            font-size: 16px;
-            font-weight: 600;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-        }
-
-        .btn-secondary:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(245, 87, 108, 0.4);
-        }
-
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #667eea;
-        }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .results {
-            display: none;
-        }
-
-        .results.show {
-            display: block;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .metric-card {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .metric-label {
-            font-size: 12px;
-            color: #666;
-            text-transform: uppercase;
-            margin-bottom: 8px;
-        }
-
-        .metric-value {
-            font-size: 20px;
-            font-weight: bold;
-            color: #333;
-            word-break: break-word;
-            cursor: help;
-        }
-
-        .metric-value.positive {
-            color: #10b981;
-        }
-
-        .metric-value.negative {
-            color: #ef4444;
-        }
-
-        .trades-section {
-            margin-top: 30px;
-        }
-
-        .trades-table {
-            width: 100%;
-            overflow-x: auto;
-            overflow-y: auto;
-            max-height: 600px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-        }
-
-        th, td {
-            padding: 12px 8px;
-            text-align: left;
-            border-bottom: 1px solid #e0e0e0;
-            white-space: nowrap;
-            font-size: 13px;
-        }
-
-        th {
-            background: #f5f7fa;
-            font-weight: 600;
-            color: #333;
-            font-size: 12px;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        tr:hover {
-            background: #f9fafb;
-        }
-
-        .trade-profit {
-            color: #10b981;
-            font-weight: 600;
-        }
-
-        .trade-loss {
-            color: #ef4444;
-            font-weight: 600;
-        }
-
-        .error {
-            background: #fee;
-            border: 2px solid #fcc;
-            color: #c33;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-
-        .config-info {
-            background: #f0f9ff;
-            padding: 15px;
-            border-radius: 6px;
-            font-size: 14px;
-            color: #0369a1;
-            margin-bottom: 20px;
-        }
-
-        .grid-2 {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 15px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Van Tharp Coin-Flip Trading Bot</h1>
-            <p class="subtitle">Backtest System - Web Interface</p>
-            <div class="nav-tabs">
-                <a href="index.html" class="nav-link active">Backtest</a>
-                <a href="simulation.html" class="nav-link">Simulation</a>
-                <a href="experiments.html" class="nav-link">Experiments</a>
-                <a href="data.html" class="nav-link">Data</a>
-            </div>
-        </div>
+        <div id="app-header"></div>
 
         <div class="card">
-            <h2 style="margin-bottom: 20px;">Run Backtest</h2>
+            <h2>Run Backtest</h2>
 
             <div class="config-info" id="configInfo" style="display: none;">
                 Loading configuration...
@@ -359,7 +63,13 @@
         </div>
     </div>
 
+    <script src="js/components/theme.js"></script>
+    <script src="js/components/header.js"></script>
+    <script src="js/components/loading.js"></script>
+    <script src="js/formatters.js"></script>
     <script>
+        initHeader('backtest');
+
         const API_BASE = '/api/backtest';
 
         // Load configuration on page load
@@ -412,7 +122,7 @@
                 return;
             }
 
-            showLoading(true);
+            setLoading(true);
             hideError();
             hideResults();
 
@@ -439,12 +149,12 @@
             } catch (error) {
                 showError('Failed to run backtest: ' + error.message);
             } finally {
-                showLoading(false);
+                setLoading(false);
             }
         }
 
         async function runAllBacktests() {
-            showLoading(true);
+            setLoading(true);
             hideError();
             hideResults();
 
@@ -462,7 +172,7 @@
             } catch (error) {
                 showError('Failed to run backtests: ' + error.message);
             } finally {
-                showLoading(false);
+                setLoading(false);
             }
         }
 
@@ -485,7 +195,7 @@
             const isProfit = result.totalReturnPercent >= 0;
 
             card.innerHTML = `
-                <h2 style="margin-bottom: 20px; color: ${isProfit ? '#10b981' : '#ef4444'};">
+                <h2 style="margin-bottom: 20px; color: ${isProfit ? 'var(--success-color)' : 'var(--danger-color)'};">
                     ${result.symbol} - ${result.timeframe}
                     <span style="float: right; font-size: 18px;">
                         ${formatNumber(result.totalReturnPercent)}% Return
@@ -562,7 +272,7 @@
                 </div>
 
                 <div class="trades-section">
-                    <h3 style="margin-bottom: 15px;">Trade History (${result.trades.length} trades)</h3>
+                    <h3>Trade History (${result.trades.length} trades)</h3>
                     <div class="trades-table">
                         <table>
                             <thead>
@@ -615,20 +325,10 @@
             return card;
         }
 
-        function showLoading(show) {
+        function setLoading(show) {
             document.getElementById('loading').style.display = show ? 'block' : 'none';
             document.getElementById('runBtn').disabled = show;
             document.getElementById('runAllBtn').disabled = show;
-        }
-
-        function showError(message) {
-            const errorDiv = document.getElementById('error');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-        }
-
-        function hideError() {
-            document.getElementById('error').style.display = 'none';
         }
 
         function hideResults() {
