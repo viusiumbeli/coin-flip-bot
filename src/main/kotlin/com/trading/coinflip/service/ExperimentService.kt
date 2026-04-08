@@ -71,7 +71,8 @@ class ExperimentService(
             averageLoss = results.map { it.averageLoss }.averageBigDecimal(),
             largestWin = results.map { it.largestWin }.averageBigDecimal(),
             largestLoss = results.map { it.largestLoss }.averageBigDecimal(),
-            averageTradeDuration = averageLong(results.map { it.averageTradeDuration }).toLong()
+            averageTradeDuration = averageLong(results.map { it.averageTradeDuration }).toLong(),
+            runsBeatBuyHold = results.count { it.totalReturnPercent >= it.buyAndHoldReturnPercent }
         )
 
         // Use first result for buy & hold (same for all runs)
@@ -113,7 +114,8 @@ class ExperimentService(
             largestLoss = aggregated.largestLoss,
             averageTradeDuration = aggregated.averageTradeDuration,
             buyAndHoldReturn = firstResult.buyAndHoldReturn,
-            buyAndHoldReturnPercent = firstResult.buyAndHoldReturnPercent
+            buyAndHoldReturnPercent = firstResult.buyAndHoldReturnPercent,
+            runsBeatBuyHold = aggregated.runsBeatBuyHold
         )
 
         val savedExperiment = experimentRepository.save(experiment)
@@ -452,6 +454,7 @@ class ExperimentService(
         val averageLoss: BigDecimal,
         val largestWin: BigDecimal,
         val largestLoss: BigDecimal,
-        val averageTradeDuration: Long
+        val averageTradeDuration: Long,
+        val runsBeatBuyHold: Int
     )
 }

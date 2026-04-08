@@ -63,6 +63,7 @@ data class ExperimentSummaryDto(
     val numBacktests: Int,
     val totalTrades: Int,
     val totalReturnPercent: BigDecimal,
+    val buyAndHoldReturnPercent: BigDecimal,
     val winRate: BigDecimal,
     val maxDrawdownPercent: BigDecimal,
     val sharpeRatio: BigDecimal,
@@ -146,6 +147,7 @@ data class ExperimentDetailDto(
     val averageTradeDuration: Long,
     val buyAndHoldReturn: BigDecimal,
     val buyAndHoldReturnPercent: BigDecimal,
+    val runsBeatBuyHold: Int,
 
     // Individual runs
     val runs: List<BacktestRunSummaryDto>
@@ -193,6 +195,7 @@ fun Experiment.toSummaryDto() = ExperimentSummaryDto(
     numBacktests = numBacktests,
     totalTrades = totalTrades,
     totalReturnPercent = totalReturnPercent,
+    buyAndHoldReturnPercent = buyAndHoldReturnPercent,
     winRate = winRate,
     maxDrawdownPercent = maxDrawdownPercent,
     sharpeRatio = sharpeRatio,
@@ -237,6 +240,7 @@ fun Experiment.toDetailDto(runs: List<BacktestRun>) = ExperimentDetailDto(
     averageTradeDuration = averageTradeDuration,
     buyAndHoldReturn = buyAndHoldReturn,
     buyAndHoldReturnPercent = buyAndHoldReturnPercent,
+    runsBeatBuyHold = runsBeatBuyHold,
     runs = runs.map { it.toSummaryDto() }
 )
 

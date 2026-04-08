@@ -36,6 +36,11 @@ const CHART_TYPES = {
         title: 'Std Dev of P/L Per Run',
         render: renderStdDevChart,
         needsRuns: true
+    },
+    beatBuyHold: {
+        title: 'Strategy vs Buy & Hold',
+        render: renderBeatBuyHoldPie,
+        needsRuns: false
     }
 };
 
@@ -104,12 +109,31 @@ function clearAllCharts() {
     }
 }
 
+async function fetchAllRunSummaries(experimentId) {
+    const allRuns = [];
+    let page = 0;
+    const size = 500;
+    let totalPages = 1;
+
+    while (page < totalPages) {
+        const response = await fetch(`${API_BASE}/experiments/${experimentId}/runs?page=${page}&size=${size}`);
+        if (!response.ok) break;
+        const data = await response.json();
+        allRuns.push(...data.runs);
+        totalPages = data.totalPages;
+        page++;
+    }
+    return allRuns;
+}
+
 async function renderSingleChart(type, chartId) {
     const chartInfo = CHART_TYPES[type];
     const canvasId = `canvas_${chartId}`;
 
-    // Check for large experiment
-    if (currentExperiment && currentExperiment.numBacktests > 1000 && chartInfo.needsRuns) {
+    console.log('renderSingleChart:', { type, chartId, canvasId, needsRuns: chartInfo.needsRuns, currentExperiment: currentExperiment?.id });
+
+    // Check for large experiment - skip for summaryOnly charts
+    if (currentExperiment && currentExperiment.numBacktests > 1000 && chartInfo.needsRuns && !chartInfo.summaryOnly) {
         const container = document.getElementById(chartId);
         if (container) {
             container.innerHTML = `
@@ -123,12 +147,24 @@ async function renderSingleChart(type, chartId) {
         return;
     }
 
-    // Fetch runs if needed and not cached
-    if (chartInfo.needsRuns && !cachedRuns) {
+    // Fetch runs if needed
+    let runsData = cachedRuns;
+    const needsFetch = chartInfo.needsRuns && (!runsData || runsData.length === 0);
+    const isLargeExperiment = currentExperiment && currentExperiment.numBacktests > 1000;
+
+    if (needsFetch) {
         try {
-            const response = await fetch(`${API_BASE}/experiments/${currentExperiment.id}/runs?page=0&size=1000`);
-            if (response.ok) {
-                cachedRuns = (await response.json()).runs;
+            if (chartInfo.summaryOnly && isLargeExperiment) {
+                // Fetch all runs using pagination for summaryOnly charts
+                console.log(`Fetching all runs for large experiment ${currentExperiment.id}...`);
+                runsData = await fetchAllRunSummaries(currentExperiment.id);
+                console.log(`Fetched ${runsData.length} runs`);
+            } else {
+                const response = await fetch(`${API_BASE}/experiments/${currentExperiment.id}/runs?page=0&size=1000`);
+                if (response.ok) {
+                    runsData = (await response.json()).runs;
+                    cachedRuns = runsData;
+                }
             }
         } catch (e) {
             console.error('Failed to fetch runs:', e);
@@ -137,11 +173,15 @@ async function renderSingleChart(type, chartId) {
     }
 
     try {
+        const dataToPass = chartInfo.needsRuns ? runsData : currentExperiment;
+        console.log('renderSingleChart calling render with:', { type, dataToPass: dataToPass ? (Array.isArray(dataToPass) ? `${dataToPass.length} runs` : dataToPass) : 'null' });
+
         const chart = await chartInfo.render(
             canvasId,
-            chartInfo.needsRuns ? cachedRuns : currentExperiment
+            dataToPass
         );
 
+        console.log('renderSingleChart result:', { type, chartCreated: !!chart });
         if (chart) {
             activeCharts.set(chartId, chart);
         }
@@ -563,6 +603,67 @@ async function renderStdDevChart(canvasId, runs) {
                 y: {
                     title: { display: true, text: 'Std Dev ($)' },
                     beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function renderBeatBuyHoldPie(canvasId, experiment) {
+    if (!experiment) {
+        console.error('renderBeatBuyHoldPie: no experiment data');
+        return null;
+    }
+
+    const beat = experiment.runsBeatBuyHold ?? 0;
+    const total = experiment.numBacktests ?? 0;
+    const below = total - beat;
+    const benchmark = parseFloat(experiment.buyAndHoldReturnPercent) || 0;
+
+    console.log('renderBeatBuyHoldPie:', { beat, total, below, benchmark, runsBeatBuyHold: experiment.runsBeatBuyHold });
+
+    // Don't render if no data
+    if (total === 0) {
+        console.warn('renderBeatBuyHoldPie: no backtests');
+        return null;
+    }
+
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        console.error('renderBeatBuyHoldPie: canvas not found:', canvasId);
+        return null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    return new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: [`Beat B&H (${beat})`, `Below B&H (${below})`],
+            datasets: [{
+                data: [beat, below],
+                backgroundColor: ['rgba(16, 185, 129, 0.7)', 'rgba(239, 68, 68, 0.7)'],
+                borderColor: ['rgba(16, 185, 129, 1)', 'rgba(239, 68, 68, 1)'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                title: {
+                    display: true,
+                    text: `B&H Return: ${benchmark.toFixed(2)}%`
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            const pct = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return `${context.label}: ${pct}%`;
+                        }
+                    }
                 }
             }
         }

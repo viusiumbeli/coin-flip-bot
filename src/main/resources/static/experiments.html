@@ -690,6 +690,7 @@
                     <thead>
                         <tr>
                             <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+                            <th>ID</th>
                             <th class="name-column">Name</th>
                             <th>Status</th>
                             <th>Runs</th>
@@ -697,6 +698,7 @@
                             <th>TF</th>
                             <th>Date Range</th>
                             <th>Avg Return %</th>
+                            <th>B&H %</th>
                             <th>Avg Win Rate</th>
                             <th>Avg Sharpe</th>
                             <th>Created</th>
@@ -705,7 +707,7 @@
                     </thead>
                     <tbody id="experimentsBody">
                         <tr>
-                            <td colspan="12" style="text-align: center; padding: 40px;">Loading experiments...</td>
+                            <td colspan="14" style="text-align: center; padding: 40px;">Loading experiments...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -767,6 +769,7 @@
                             <div class="chart-menu-item" onclick="addChart('expectancyDist')">Expectancy Distribution</div>
                             <div class="chart-menu-item" onclick="addChart('cumulativeExpectancy')">Cumulative Expectancy</div>
                             <div class="chart-menu-item" onclick="addChart('stdDev')">Std Dev of P/L</div>
+                            <div class="chart-menu-item" onclick="addChart('beatBuyHold')">Strategy vs Buy & Hold</div>
                         </div>
                     </div>
                 </div>
