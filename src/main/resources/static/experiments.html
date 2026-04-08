@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/components.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
 </head>
 <body>
     <div class="container">
@@ -161,6 +162,8 @@
                         <button class="btn-secondary btn-small" onclick="toggleChartMenu()">+ Add Chart</button>
                         <div id="chartMenu" class="chart-menu hidden">
                             <div class="chart-menu-item" onclick="addChart('returnDist')">Return Distribution</div>
+                            <div class="chart-menu-item" onclick="addChart('returnHistogram')">Return Histogram</div>
+                            <div class="chart-menu-item" onclick="addChart('returnBoxPlot')">Return Box Plot</div>
                             <div class="chart-menu-item" onclick="addChart('winLoss')">Win/Loss Ratio</div>
                             <div class="chart-menu-item" onclick="addChart('equity')">Equity Curves</div>
                             <div class="chart-menu-item" onclick="addChart('expectancyPerRun')">Expectancy Per Run</div>

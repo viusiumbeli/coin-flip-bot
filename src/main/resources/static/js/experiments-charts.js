@@ -5,6 +5,16 @@ const CHART_TYPES = {
         render: renderReturnDistribution,
         needsRuns: true
     },
+    returnHistogram: {
+        title: 'Return Distribution (Histogram)',
+        render: renderReturnHistogram,
+        needsRuns: true
+    },
+    returnBoxPlot: {
+        title: 'Return Distribution (Box Plot)',
+        render: renderReturnBoxPlot,
+        needsRuns: false
+    },
     winLoss: {
         title: 'Win/Loss Ratio',
         render: renderWinLossPie,
@@ -664,6 +674,265 @@ function renderBeatBuyHoldPie(canvasId, experiment) {
                             return `${context.label}: ${pct}%`;
                         }
                     }
+                }
+            }
+        }
+    });
+}
+
+function renderReturnHistogram(canvasId, runs) {
+    if (!runs || runs.length === 0) return null;
+
+    const returns = runs.map(r => parseFloat(r.totalReturnPercent));
+    const min = Math.min(...returns);
+    const max = Math.max(...returns);
+    const range = max - min;
+    const binCount = Math.min(12, Math.max(5, Math.ceil(runs.length / 3)));
+    const binSize = range / binCount || 1;
+
+    // Create bins
+    const bins = Array(binCount).fill(0);
+    returns.forEach(r => {
+        const binIndex = Math.min(Math.floor((r - min) / binSize), binCount - 1);
+        bins[binIndex]++;
+    });
+
+    // Labels for bins
+    const labels = bins.map((_, i) => {
+        const start = min + i * binSize;
+        const end = start + binSize;
+        return `${start.toFixed(0)}–${end.toFixed(0)}%`;
+    });
+
+    // Calculate mean and median for annotations
+    const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+    const sortedReturns = [...returns].sort((a, b) => a - b);
+    const median = sortedReturns.length % 2 === 0
+        ? (sortedReturns[sortedReturns.length / 2 - 1] + sortedReturns[sortedReturns.length / 2]) / 2
+        : sortedReturns[Math.floor(sortedReturns.length / 2)];
+
+    // Find bin index for mean and median
+    const meanBinIndex = Math.min(Math.floor((mean - min) / binSize), binCount - 1);
+    const medianBinIndex = Math.min(Math.floor((median - min) / binSize), binCount - 1);
+
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    return new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Number of Runs',
+                data: bins,
+                backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                borderColor: 'rgba(59, 130, 246, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: { display: false },
+                annotation: {
+                    annotations: {
+                        meanLine: {
+                            type: 'line',
+                            xMin: meanBinIndex,
+                            xMax: meanBinIndex,
+                            borderColor: 'rgba(239, 68, 68, 0.8)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            label: {
+                                display: true,
+                                content: `Mean: ${mean.toFixed(1)}%`,
+                                position: 'start',
+                                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                                color: 'white',
+                                font: { size: 11 }
+                            }
+                        },
+                        medianLine: {
+                            type: 'line',
+                            xMin: medianBinIndex + 0.2,
+                            xMax: medianBinIndex + 0.2,
+                            borderColor: 'rgba(16, 185, 129, 0.8)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            label: {
+                                display: true,
+                                content: `Median: ${median.toFixed(1)}%`,
+                                position: 'end',
+                                backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                                color: 'white',
+                                font: { size: 11 }
+                            }
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Return Range' }
+                },
+                y: {
+                    title: { display: true, text: 'Number of Runs' },
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+}
+
+function renderReturnBoxPlot(canvasId, experiment) {
+    if (!experiment) return null;
+
+    const p5 = parseFloat(experiment.returnP5) || 0;
+    const p25 = parseFloat(experiment.returnP25) || 0;
+    const p50 = parseFloat(experiment.returnP50) || 0;
+    const p75 = parseFloat(experiment.returnP75) || 0;
+    const p95 = parseFloat(experiment.returnP95) || 0;
+    const minVal = parseFloat(experiment.returnMin) || 0;
+    const maxVal = parseFloat(experiment.returnMax) || 0;
+    const mean = parseFloat(experiment.totalReturnPercent) || 0;
+
+    // Calculate chart range with padding
+    const dataMin = Math.min(minVal, p5) - 10;
+    const dataMax = Math.max(maxVal, p95) + 10;
+
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    return new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Return %'],
+            datasets: [
+                // Left whisker (p5 to p25)
+                {
+                    label: 'P5-P25',
+                    data: [[p5, p25]],
+                    backgroundColor: 'rgba(148, 163, 184, 0.5)',
+                    borderColor: 'rgba(100, 116, 139, 1)',
+                    borderWidth: 1,
+                    barPercentage: 0.3
+                },
+                // Box (p25 to p75)
+                {
+                    label: 'P25-P75 (IQR)',
+                    data: [[p25, p75]],
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    borderColor: 'rgba(37, 99, 235, 1)',
+                    borderWidth: 2,
+                    barPercentage: 0.5
+                },
+                // Right whisker (p75 to p95)
+                {
+                    label: 'P75-P95',
+                    data: [[p75, p95]],
+                    backgroundColor: 'rgba(148, 163, 184, 0.5)',
+                    borderColor: 'rgba(100, 116, 139, 1)',
+                    borderWidth: 1,
+                    barPercentage: 0.3
+                }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const data = context.raw;
+                            return `${context.dataset.label}: ${data[0].toFixed(1)}% – ${data[1].toFixed(1)}%`;
+                        }
+                    }
+                },
+                annotation: {
+                    annotations: {
+                        medianLine: {
+                            type: 'line',
+                            xMin: p50,
+                            xMax: p50,
+                            borderColor: 'rgba(234, 179, 8, 1)',
+                            borderWidth: 3,
+                            label: {
+                                display: true,
+                                content: `Median: ${p50.toFixed(1)}%`,
+                                position: 'start',
+                                backgroundColor: 'rgba(234, 179, 8, 0.9)',
+                                color: 'black',
+                                font: { size: 11, weight: 'bold' }
+                            }
+                        },
+                        meanLine: {
+                            type: 'line',
+                            xMin: mean,
+                            xMax: mean,
+                            borderColor: 'rgba(239, 68, 68, 0.8)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            label: {
+                                display: true,
+                                content: `Mean: ${mean.toFixed(1)}%`,
+                                position: 'end',
+                                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                                color: 'white',
+                                font: { size: 11 }
+                            }
+                        },
+                        minPoint: {
+                            type: 'point',
+                            xValue: minVal,
+                            yValue: 0,
+                            backgroundColor: 'rgba(239, 68, 68, 1)',
+                            radius: 6,
+                            borderWidth: 2,
+                            borderColor: 'white'
+                        },
+                        maxPoint: {
+                            type: 'point',
+                            xValue: maxVal,
+                            yValue: 0,
+                            backgroundColor: 'rgba(16, 185, 129, 1)',
+                            radius: 6,
+                            borderWidth: 2,
+                            borderColor: 'white'
+                        },
+                        minLabel: {
+                            type: 'label',
+                            xValue: minVal,
+                            yValue: 0,
+                            yAdjust: 25,
+                            content: `Min: ${minVal.toFixed(1)}%`,
+                            backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                            color: 'white',
+                            font: { size: 10 }
+                        },
+                        maxLabel: {
+                            type: 'label',
+                            xValue: maxVal,
+                            yValue: 0,
+                            yAdjust: 25,
+                            content: `Max: ${maxVal.toFixed(1)}%`,
+                            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                            color: 'white',
+                            font: { size: 10 }
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    min: dataMin,
+                    max: dataMax,
+                    title: { display: true, text: 'Return %' }
+                },
+                y: {
+                    display: false
                 }
             }
         }
