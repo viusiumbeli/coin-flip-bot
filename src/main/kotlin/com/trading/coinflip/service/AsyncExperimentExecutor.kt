@@ -141,7 +141,7 @@ class AsyncExperimentExecutor(
 
         // Start persistence consumer in a separate coroutine (outside coroutineScope so it doesn't block)
         val persistenceJob = scope.launch {
-            batchPersistenceService.consumeResults(experimentId, resultChannel, aggregator)
+            batchPersistenceService.consumeResults(experimentId, resultChannel, aggregator, numBacktests)
         }
 
         // Run all backtests - coroutineScope waits for all child coroutines

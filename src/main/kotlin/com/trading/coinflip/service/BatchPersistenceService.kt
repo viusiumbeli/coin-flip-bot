@@ -2,10 +2,11 @@ package com.trading.coinflip.service
 
 import com.trading.coinflip.data.BacktestRunRepository
 import com.trading.coinflip.data.ExperimentRepository
+import com.trading.coinflip.data.ExperimentTradeRepository
 import com.trading.coinflip.model.BacktestResult
 import com.trading.coinflip.model.BacktestRun
-import com.trading.coinflip.model.Experiment
 import com.trading.coinflip.model.ExperimentStatus
+import com.trading.coinflip.model.ExperimentTrade
 import kotlinx.coroutines.channels.ReceiveChannel
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
@@ -30,6 +31,7 @@ data class BacktestResultWithRunNumber(
 class BatchPersistenceService(
     private val backtestRunRepository: BacktestRunRepository,
     private val experimentRepository: ExperimentRepository,
+    private val experimentTradeRepository: ExperimentTradeRepository,
     private val transactionTemplate: TransactionTemplate
 ) {
     private val batchSize = 1000
@@ -41,11 +43,13 @@ class BatchPersistenceService(
      * @param experimentId The experiment ID to associate results with
      * @param channel The channel to receive results from
      * @param aggregator The running aggregator to track statistics
+     * @param numBacktests The total number of backtests (trades saved only if <= 100)
      */
     suspend fun consumeResults(
         experimentId: Long,
         channel: ReceiveChannel<BacktestResultWithRunNumber>,
-        aggregator: RunningAggregator
+        aggregator: RunningAggregator,
+        numBacktests: Int
     ) {
         val batch = mutableListOf<BacktestResultWithRunNumber>()
 
@@ -54,7 +58,7 @@ class BatchPersistenceService(
             aggregator.add(resultWithNumber.result)
 
             if (batch.size >= batchSize) {
-                persistBatch(experimentId, batch)
+                persistBatch(experimentId, batch, numBacktests)
                 updateProgress(experimentId, aggregator.getCount())
                 batch.clear()
             }
@@ -62,7 +66,7 @@ class BatchPersistenceService(
 
         // Persist any remaining results
         if (batch.isNotEmpty()) {
-            persistBatch(experimentId, batch)
+            persistBatch(experimentId, batch, numBacktests)
             updateProgress(experimentId, aggregator.getCount())
         }
 
@@ -71,8 +75,9 @@ class BatchPersistenceService(
 
     /**
      * Persists a batch of backtest results in a single transaction.
+     * Saves trades only for small experiments (numBacktests <= 100).
      */
-    private fun persistBatch(experimentId: Long, batch: List<BacktestResultWithRunNumber>) {
+    private fun persistBatch(experimentId: Long, batch: List<BacktestResultWithRunNumber>, numBacktests: Int) {
         transactionTemplate.execute {
             val experiment = experimentRepository.getReferenceById(experimentId)
 
@@ -101,8 +106,46 @@ class BatchPersistenceService(
                 )
             }
 
-            backtestRunRepository.saveAll(runs)
+            val savedRuns = backtestRunRepository.saveAll(runs)
             log.debug { "Persisted batch of ${runs.size} backtest runs for experiment $experimentId" }
+
+            // Save trades only for small experiments
+            if (numBacktests <= 100) {
+                val allTrades = mutableListOf<ExperimentTrade>()
+
+                savedRuns.forEachIndexed { index, savedRun ->
+                    val result = batch[index].result
+                    val trades = result.trades.mapIndexed { tradeIndex, trade ->
+                        ExperimentTrade(
+                            backtestRun = savedRun,
+                            tradeNumber = tradeIndex + 1,
+                            symbol = trade.symbol,
+                            timeframe = trade.timeframe,
+                            side = trade.side,
+                            entryTime = trade.entryTime,
+                            entryPrice = trade.entryPrice,
+                            exitTime = trade.exitTime,
+                            exitPrice = trade.exitPrice,
+                            positionSize = trade.positionSize,
+                            initialStopLoss = trade.initialStopLoss,
+                            trailingStop = trade.trailingStop,
+                            profitLoss = trade.profitLoss,
+                            profitLossPercent = trade.profitLossPercent,
+                            exitReason = trade.exitReason,
+                            balanceBeforeOpen = trade.balanceBeforeOpen,
+                            balanceAfterOpen = trade.balanceAfterOpen,
+                            balanceBeforeClose = trade.balanceBeforeClose,
+                            balanceAfterClose = trade.balanceAfterClose
+                        )
+                    }
+                    allTrades.addAll(trades)
+                }
+
+                if (allTrades.isNotEmpty()) {
+                    experimentTradeRepository.saveAll(allTrades)
+                    log.debug { "Persisted ${allTrades.size} trades for experiment $experimentId" }
+                }
+            }
         }
     }
 

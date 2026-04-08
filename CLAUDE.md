@@ -8,3 +8,4 @@
 - Database migrations are in `src/main/resources/db/migration/` using Flyway (V1, V2, V3...)
 - DTOs and entity extension functions are in `dto/ExperimentDtos.kt`
 - Frontend is vanilla JS with Chart.js for visualizations
+- Trades are saved to `experiment_trades` table only for experiments with ≤100 backtests (to avoid DB bloat for large experiments)
