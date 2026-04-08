@@ -103,10 +103,12 @@ class ExperimentController(
     fun getExperimentRuns(
         @PathVariable id: Long,
         @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "100") size: Int
+        @RequestParam(defaultValue = "100") size: Int,
+        @RequestParam(defaultValue = "runNumber") sortBy: String,
+        @RequestParam(defaultValue = "asc") sortDir: String
     ): ResponseEntity<PaginatedRunsDto> {
         return try {
-            val runs = experimentService.getExperimentRuns(id, page, size)
+            val runs = experimentService.getExperimentRuns(id, page, size, sortBy, sortDir)
             ResponseEntity.ok(runs)
         } catch (e: IllegalArgumentException) {
             ResponseEntity.notFound().build()

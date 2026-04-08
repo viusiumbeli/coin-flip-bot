@@ -31,6 +31,8 @@ interface BacktestRunRepository : JpaRepository<BacktestRun, Long> {
 
     fun findByExperimentIdOrderByRunNumberAsc(experimentId: Long, pageable: Pageable): Page<BacktestRun>
 
+    fun findByExperimentId(experimentId: Long, pageable: Pageable): Page<BacktestRun>
+
     @Query("SELECT COUNT(r) FROM BacktestRun r WHERE r.experiment.id = :experimentId")
     fun countByExperimentId(experimentId: Long): Long
 }
