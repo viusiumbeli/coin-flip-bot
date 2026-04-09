@@ -14,8 +14,6 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 
-private val log = KotlinLogging.logger {}
-
 /**
  * Data class for backtest result with run number.
  */
@@ -36,6 +34,8 @@ class BatchPersistenceService(
     private val transactionTemplate: TransactionTemplate,
     private val properties: BacktestProperties
 ) {
+
+    private val log = KotlinLogging.logger {}
 
     /**
      * Consumes backtest results from the channel and persists them in batches.

@@ -8,13 +8,13 @@ import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.math.RoundingMode
 
-private val log = KotlinLogging.logger {}
-
 @Service
 class BacktestEngine(
     private val strategy: CoinFlipStrategy,
     private val analytics: PerformanceAnalytics
 ) {
+
+    private val log = KotlinLogging.logger {}
 
     fun runBacktest(config: BacktestConfig, candles: List<Candle>): BacktestResult {
         log.debug { "Starting backtest for ${config.symbol} ${config.timeframe.label}" }

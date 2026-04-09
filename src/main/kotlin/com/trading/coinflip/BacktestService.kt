@@ -11,8 +11,6 @@ import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import java.time.Instant
 
-private val log = KotlinLogging.logger {}
-
 @Service
 class BacktestService(
     private val properties: BacktestProperties,
@@ -20,6 +18,8 @@ class BacktestService(
     private val backtestEngine: BacktestEngine,
     private val reportGenerator: ReportGenerator
 ) {
+
+    private val log = KotlinLogging.logger {}
 
     fun runBacktest(): List<BacktestResult> {
         log.info { "=".repeat(80) }
