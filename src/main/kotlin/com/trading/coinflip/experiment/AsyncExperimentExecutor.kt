@@ -1,13 +1,13 @@
-package com.trading.coinflip.service
+package com.trading.coinflip.experiment
 
-import com.trading.coinflip.backtesting.BacktestEngine
-import com.trading.coinflip.config.BacktestProperties
+import com.trading.coinflip.backtest.BacktestEngine
+import com.trading.coinflip.common.config.BacktestProperties
+import com.trading.coinflip.common.dto.CreateExperimentRequest
+import com.trading.coinflip.common.model.BacktestConfig
+import com.trading.coinflip.common.model.ExperimentStatus
+import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.DataService
 import com.trading.coinflip.data.ExperimentRepository
-import com.trading.coinflip.dto.CreateExperimentRequest
-import com.trading.coinflip.model.BacktestConfig
-import com.trading.coinflip.model.ExperimentStatus
-import com.trading.coinflip.model.Timeframe
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope

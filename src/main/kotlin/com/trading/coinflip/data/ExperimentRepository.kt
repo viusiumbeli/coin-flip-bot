@@ -1,9 +1,9 @@
 package com.trading.coinflip.data
 
-import com.trading.coinflip.model.BacktestRun
-import com.trading.coinflip.model.Experiment
-import com.trading.coinflip.model.ExperimentTrade
-import com.trading.coinflip.model.Timeframe
+import com.trading.coinflip.common.model.BacktestRun
+import com.trading.coinflip.common.model.Experiment
+import com.trading.coinflip.common.model.ExperimentTrade
+import com.trading.coinflip.common.model.Timeframe
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository

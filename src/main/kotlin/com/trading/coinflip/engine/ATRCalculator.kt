@@ -1,6 +1,6 @@
-package com.trading.coinflip.strategy
+package com.trading.coinflip.engine
 
-import com.trading.coinflip.model.Candle
+import com.trading.coinflip.common.model.Candle
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode

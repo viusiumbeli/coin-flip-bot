@@ -1,11 +1,11 @@
-package com.trading.coinflip.backtesting
+package com.trading.coinflip.backtest
 
 import com.trading.coinflip.analytics.PerformanceAnalytics
-import com.trading.coinflip.model.BacktestConfig
-import com.trading.coinflip.model.BacktestResult
-import com.trading.coinflip.model.Candle
-import com.trading.coinflip.trading.TradingProcessor
-import com.trading.coinflip.trading.TradingState
+import com.trading.coinflip.common.model.BacktestConfig
+import com.trading.coinflip.common.model.BacktestResult
+import com.trading.coinflip.common.model.Candle
+import com.trading.coinflip.engine.TradingProcessor
+import com.trading.coinflip.engine.TradingState
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal

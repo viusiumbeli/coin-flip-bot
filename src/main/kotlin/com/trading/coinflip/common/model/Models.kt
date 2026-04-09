@@ -1,4 +1,4 @@
-package com.trading.coinflip.model
+package com.trading.coinflip.common.model
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -196,7 +196,7 @@ data class BacktestConfig(
     val symbol: String,
     val timeframe: Timeframe,
     val initialCapital: BigDecimal,
-    val trading: com.trading.coinflip.config.TradingConfig,
+    val trading: com.trading.coinflip.common.config.TradingConfig,
     val startDate: Instant? = null,
     val endDate: Instant? = null,
 )

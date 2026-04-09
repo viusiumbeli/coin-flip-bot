@@ -1,10 +1,10 @@
-package com.trading.coinflip.dto
+package com.trading.coinflip.common.dto
 
-import com.trading.coinflip.model.BacktestRun
-import com.trading.coinflip.model.Experiment
-import com.trading.coinflip.model.ExperimentStatus
-import com.trading.coinflip.model.ExperimentTrade
-import com.trading.coinflip.model.PositionSide
+import com.trading.coinflip.common.model.BacktestRun
+import com.trading.coinflip.common.model.Experiment
+import com.trading.coinflip.common.model.ExperimentStatus
+import com.trading.coinflip.common.model.ExperimentTrade
+import com.trading.coinflip.common.model.PositionSide
 import java.math.BigDecimal
 import java.time.Instant
 
