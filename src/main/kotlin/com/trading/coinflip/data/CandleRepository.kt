@@ -30,12 +30,6 @@ interface CandleRepository : JpaRepository<Candle, Long> {
         startTime: Instant,
     ): List<Candle>
 
-    fun existsBySymbolAndTimeframeAndOpenTime(
-        symbol: String,
-        timeframe: Timeframe,
-        openTime: Instant,
-    ): Boolean
-
     @Query("SELECT MIN(c.openTime) FROM Candle c WHERE c.symbol = :symbol AND c.timeframe = :timeframe")
     fun findEarliestCandleTime(
         symbol: String,
@@ -53,10 +47,4 @@ interface CandleRepository : JpaRepository<Candle, Long> {
         symbol: String,
         timeframe: Timeframe,
     ): Long
-
-    @Query("SELECT c FROM Candle c WHERE c.symbol = :symbol AND c.timeframe = :timeframe AND c.atr IS NULL ORDER BY c.openTime ASC")
-    fun findCandlesWithoutATR(
-        symbol: String,
-        timeframe: Timeframe,
-    ): List<Candle>
 }
