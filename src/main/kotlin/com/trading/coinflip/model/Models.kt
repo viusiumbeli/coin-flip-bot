@@ -181,6 +181,7 @@ data class BacktestConfig(
     val atrMultiplier: BigDecimal = BigDecimal("3.0"),
     val transactionCostPercent: BigDecimal = BigDecimal("0.1"), // 0.1%
     val maxConcurrentPositions: Int = 5,
+    val entryFrequency: Double = 0.1, // Probability of entering a trade on each candle
     val startDate: Instant? = null,
     val endDate: Instant? = null
 )

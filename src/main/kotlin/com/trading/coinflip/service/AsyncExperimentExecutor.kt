@@ -44,7 +44,8 @@ class AsyncExperimentExecutor(
     private val activeJobs = ConcurrentHashMap<Long, Job>()
 
     // Limit concurrent backtests to prevent CPU/memory saturation
-    private val parallelism = (Runtime.getRuntime().availableProcessors() * 2).coerceIn(4, 32)
+    private val parallelism = (Runtime.getRuntime().availableProcessors() * 2)
+        .coerceIn(properties.parallelismMin, properties.parallelismMax)
 
     init {
         log.info { "AsyncExperimentExecutor initialized with parallelism=$parallelism" }
@@ -80,7 +81,7 @@ class AsyncExperimentExecutor(
 
         val startDate = Instant.parse(request.startDate)
         val endDate = Instant.parse(request.endDate)
-        val numBacktests = request.numBacktests.coerceIn(1, 10_000_000)
+        val numBacktests = request.numBacktests.coerceIn(1, properties.asyncBacktestLimit)
 
         log.info { "Starting experiment $experimentId: ${request.symbol} ${timeframe.label} with $numBacktests backtests" }
 
@@ -125,12 +126,13 @@ class AsyncExperimentExecutor(
             atrMultiplier = properties.atrMultiplier,
             transactionCostPercent = properties.transactionCostPercent,
             maxConcurrentPositions = properties.maxConcurrentPositions,
+            entryFrequency = properties.entryFrequency,
             startDate = startDate,
             endDate = endDate
         )
 
         // Step 3: Create result channel and aggregator
-        val resultChannel = Channel<BacktestResultWithRunNumber>(capacity = 1000)
+        val resultChannel = Channel<BacktestResultWithRunNumber>(capacity = properties.channelCapacity)
         val aggregator = RunningAggregator()
 
         // Step 4: Run backtests with semaphore-limited parallelism
@@ -161,7 +163,7 @@ class AsyncExperimentExecutor(
                             resultChannel.send(BacktestResultWithRunNumber(result, runNumber))
 
                             // Log progress periodically
-                            if (runNumber % 10000 == 0 || runNumber == numBacktests) {
+                            if (runNumber % properties.progressLogInterval == 0 || runNumber == numBacktests) {
                                 val elapsed = System.currentTimeMillis() - backtestStartTime
                                 val rate = runNumber * 1000.0 / elapsed
                                 log.info { "Experiment $experimentId: $runNumber/$numBacktests complete (${String.format("%.1f", rate)} runs/sec)" }
@@ -243,7 +245,7 @@ class AsyncExperimentExecutor(
         scope.cancel()
 
         runBlocking {
-            withTimeoutOrNull(30_000) {
+            withTimeoutOrNull(properties.shutdownTimeoutMs) {
                 activeJobs.values.forEach { it.join() }
             } ?: log.warn { "Shutdown timeout - some jobs did not complete" }
         }

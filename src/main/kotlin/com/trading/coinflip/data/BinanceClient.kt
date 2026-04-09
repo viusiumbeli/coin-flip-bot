@@ -1,6 +1,7 @@
 package com.trading.coinflip.data
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.trading.coinflip.config.BacktestProperties
 import com.trading.coinflip.model.Candle
 import com.trading.coinflip.model.Timeframe
 import io.ktor.client.*
@@ -16,11 +17,12 @@ private val log = KotlinLogging.logger {}
 
 @Service
 class BinanceClient(
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val properties: BacktestProperties
 ) {
     private val client = HttpClient(CIO) {
         engine {
-            requestTimeout = 30000
+            requestTimeout = properties.httpTimeoutMs
         }
     }
 
@@ -105,7 +107,7 @@ class BinanceClient(
             currentStartTime = candles.last().openTime.plusMillis(timeframe.minutes * 60 * 1000L)
 
             // Rate limiting
-            kotlinx.coroutines.delay(100)
+            kotlinx.coroutines.delay(properties.rateLimitDelayMs)
         }
 
         log.info { "Completed fetching ${allCandles.size} candles for $symbol $timeframe" }

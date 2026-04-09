@@ -8,4 +8,11 @@
 - Database migrations are in `src/main/resources/db/migration/` using Flyway (V1, V2, V3...)
 - DTOs and entity extension functions are in `dto/ExperimentDtos.kt`
 - Frontend is vanilla JS with Chart.js for visualizations
-- Trades are saved to `experiment_trades` table only for experiments with ≤100 backtests (to avoid DB bloat for large experiments)
+- Trades are saved to `experiment_trades` table only for experiments with ≤`tradesThreshold` backtests (configurable, default 100)
+
+## Configuration
+All runtime constants are centralized in `BacktestProperties` (`config/BacktestProperties.kt`) and configurable via `application.yml`:
+- **Strategy**: `entry-frequency` (trade entry probability per candle)
+- **Experiment limits**: `sync-backtest-limit`, `async-backtest-limit`, `trades-threshold`
+- **Async execution**: `parallelism-min/max`, `channel-capacity`, `batch-size`, `shutdown-timeout-ms`, `progress-log-interval`
+- **API**: `max-page-size`, `http-timeout-ms`, `rate-limit-delay-ms`
