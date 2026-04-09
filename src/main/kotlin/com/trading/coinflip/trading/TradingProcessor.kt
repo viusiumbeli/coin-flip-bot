@@ -15,9 +15,7 @@ import java.math.BigDecimal
  * Encapsulates position processing, P&L calculation, and drawdown tracking.
  * Thread-safe when used with separate TradingState instances.
  */
-class TradingProcessor(
-    private val strategy: CoinFlipStrategy,
-) {
+class TradingProcessor {
     private val log = KotlinLogging.logger {}
 
     /**
@@ -34,7 +32,7 @@ class TradingProcessor(
         val positionsToClose = mutableListOf<Position>()
         for (position in state.openPositions) {
             val shouldClose =
-                strategy.updatePosition(
+                CoinFlipStrategy.updatePosition(
                     position = position,
                     candle = candle,
                     candles = candles,
@@ -66,7 +64,7 @@ class TradingProcessor(
                 // Random entry frequency based on config
                 if (kotlin.random.Random.nextDouble() < config.entryFrequency) {
                     val newPosition =
-                        strategy.createPosition(
+                        CoinFlipStrategy.createPosition(
                             candle = candle,
                             candles = candles,
                             candleIndex = candleIndex,
@@ -74,6 +72,7 @@ class TradingProcessor(
                             riskPercent = config.riskPerTrade,
                             atrMultiplier = config.atrMultiplier,
                             balanceBeforeOpen = availableBalance,
+                            positionId = ++state.positionIdCounter,
                         )
 
                     if (newPosition != null) {
@@ -148,12 +147,5 @@ class TradingProcessor(
         position.status = PositionStatus.CLOSED
 
         return closePosition(state, position, transactionCostPercent)
-    }
-
-    /**
-     * Reset the underlying strategy state.
-     */
-    fun resetStrategy() {
-        strategy.reset()
     }
 }

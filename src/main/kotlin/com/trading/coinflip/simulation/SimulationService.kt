@@ -100,7 +100,6 @@ class SimulationService(
             processor = tradingProcessorFactory.create()
             tradingState = TradingState.create(initialCapital)
             tradingConfig = properties.trading
-            processor!!.resetStrategy()
             initialized = true
 
             log.info { "Simulation initialized with ${candles.size} candles (${loadedCandles.size} total available)" }
@@ -153,7 +152,6 @@ class SimulationService(
 
             currentCandleIndex = -1
             tradingState!!.reset(initialCapital)
-            processor!!.resetStrategy()
 
             log.info { "Simulation reset" }
             getCurrentStateInternal()
@@ -186,7 +184,6 @@ class SimulationService(
     private fun replayToCurrentIndex() {
         // Reset state
         tradingState!!.reset(initialCapital)
-        processor!!.resetStrategy()
 
         // Replay all candles up to current index
         for (i in 0..currentCandleIndex) {
