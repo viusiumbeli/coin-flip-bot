@@ -8,7 +8,6 @@ import java.math.RoundingMode
 
 @Component
 class ReportGenerator {
-
     private val log = KotlinLogging.logger {}
 
     fun printResult(result: BacktestResult) {
@@ -42,11 +41,12 @@ class ReportGenerator {
 
         // Performance vs Buy & Hold
         val outperformance = result.totalReturnPercent - result.buyAndHoldReturnPercent
-        val outperformanceStr = if (outperformance > 0.toBigDecimal()) {
-            "OUTPERFORMED by ${outperformance.setScale(2, RoundingMode.HALF_UP)}%"
-        } else {
-            "UNDERPERFORMED by ${outperformance.abs().setScale(2, RoundingMode.HALF_UP)}%"
-        }
+        val outperformanceStr =
+            if (outperformance > 0.toBigDecimal()) {
+                "OUTPERFORMED by ${outperformance.setScale(2, RoundingMode.HALF_UP)}%"
+            } else {
+                "UNDERPERFORMED by ${outperformance.abs().setScale(2, RoundingMode.HALF_UP)}%"
+            }
         log.info { "vs Buy & Hold:    $outperformanceStr" }
         log.info { "-".repeat(80) }
     }
@@ -55,13 +55,25 @@ class ReportGenerator {
         if (results.isEmpty()) return
 
         log.info { "\n" }
-        log.info { String.format("%-15s %-10s %12s %12s %12s %10s %10s %10s",
-            "Symbol", "Timeframe", "Return %", "B&H %", "Trades", "Win %", "Sharpe", "Max DD %") }
+        log.info {
+            String.format(
+                "%-15s %-10s %12s %12s %12s %10s %10s %10s",
+                "Symbol",
+                "Timeframe",
+                "Return %",
+                "B&H %",
+                "Trades",
+                "Win %",
+                "Sharpe",
+                "Max DD %",
+            )
+        }
         log.info { "-".repeat(100) }
 
         for (result in results) {
             log.info {
-                String.format("%-15s %-10s %11.2f%% %11.2f%% %12d %9.2f%% %10.2f %9.2f%%",
+                String.format(
+                    "%-15s %-10s %11.2f%% %11.2f%% %12d %9.2f%% %10.2f %9.2f%%",
                     result.config.symbol,
                     result.config.timeframe.label,
                     result.totalReturnPercent.toDouble(),
@@ -69,7 +81,7 @@ class ReportGenerator {
                     result.totalTrades,
                     result.winRate.toDouble(),
                     result.sharpeRatio.toDouble(),
-                    result.maxDrawdownPercent.toDouble()
+                    result.maxDrawdownPercent.toDouble(),
                 )
             }
         }
@@ -83,14 +95,24 @@ class ReportGenerator {
         val avgSharpe = results.map { it.sharpeRatio.toDouble() }.average()
 
         log.info { "\nAVERAGE ACROSS ALL TESTS:" }
-        log.info { String.format("Return: %.2f%% | Buy&Hold: %.2f%% | Win Rate: %.2f%% | Sharpe: %.2f",
-            avgReturn, avgBuyHold, avgWinRate, avgSharpe) }
+        log.info {
+            String.format(
+                "Return: %.2f%% | Buy&Hold: %.2f%% | Win Rate: %.2f%% | Sharpe: %.2f",
+                avgReturn,
+                avgBuyHold,
+                avgWinRate,
+                avgSharpe,
+            )
+        }
 
         val outperformedCount = results.count { it.totalReturnPercent > it.buyAndHoldReturnPercent }
         log.info { "\nOutperformed Buy & Hold: $outperformedCount / ${results.size} (${outperformedCount * 100 / results.size}%)" }
     }
 
-    fun exportResultsToCsv(results: List<BacktestResult>, filename: String) {
+    fun exportResultsToCsv(
+        results: List<BacktestResult>,
+        filename: String,
+    ) {
         try {
             val file = File(filename)
             file.bufferedWriter().use { writer ->

@@ -43,7 +43,7 @@ class RunningAggregator {
 
     // Welford's online algorithm for variance (totalReturnPercent)
     private var returnMean = 0.0
-    private var returnM2 = 0.0  // Sum of squared differences
+    private var returnM2 = 0.0 // Sum of squared differences
 
     // Min/Max tracking for totalReturnPercent
     private var returnMin: BigDecimal? = null
@@ -137,7 +137,6 @@ class RunningAggregator {
             buyAndHoldReturn = buyAndHoldReturn ?: BigDecimal.ZERO,
             buyAndHoldReturnPercent = buyAndHoldReturnPercent ?: BigDecimal.ZERO,
             runsBeatBuyHold = runsBeatBuyHold,
-
             // Variance metrics
             returnStdDev = calculateStdDev(n),
             returnMin = returnMin ?: BigDecimal.ZERO,
@@ -146,13 +145,13 @@ class RunningAggregator {
             returnP25 = BigDecimal(returnTDigest.quantile(0.25)).setScale(8, RoundingMode.HALF_UP),
             returnP50 = BigDecimal(returnTDigest.quantile(0.50)).setScale(8, RoundingMode.HALF_UP),
             returnP75 = BigDecimal(returnTDigest.quantile(0.75)).setScale(8, RoundingMode.HALF_UP),
-            returnP95 = BigDecimal(returnTDigest.quantile(0.95)).setScale(8, RoundingMode.HALF_UP)
+            returnP95 = BigDecimal(returnTDigest.quantile(0.95)).setScale(8, RoundingMode.HALF_UP),
         )
     }
 
     private fun calculateStdDev(n: Int): BigDecimal {
         if (n < 2) return BigDecimal.ZERO
-        val variance = returnM2 / (n - 1)  // Sample variance
+        val variance = returnM2 / (n - 1) // Sample variance
         return BigDecimal(sqrt(variance)).setScale(8, RoundingMode.HALF_UP)
     }
 }
@@ -180,7 +179,6 @@ data class AggregatedStats(
     val buyAndHoldReturn: BigDecimal,
     val buyAndHoldReturnPercent: BigDecimal,
     val runsBeatBuyHold: Int,
-
     // Variance/distribution metrics for totalReturnPercent
     val returnStdDev: BigDecimal,
     val returnMin: BigDecimal,
@@ -189,37 +187,38 @@ data class AggregatedStats(
     val returnP25: BigDecimal,
     val returnP50: BigDecimal,
     val returnP75: BigDecimal,
-    val returnP95: BigDecimal
+    val returnP95: BigDecimal,
 ) {
     companion object {
-        fun empty() = AggregatedStats(
-            finalCapital = BigDecimal.ZERO,
-            totalReturn = BigDecimal.ZERO,
-            totalReturnPercent = BigDecimal.ZERO,
-            maxDrawdown = BigDecimal.ZERO,
-            maxDrawdownPercent = BigDecimal.ZERO,
-            winRate = BigDecimal.ZERO,
-            profitFactor = BigDecimal.ZERO,
-            sharpeRatio = BigDecimal.ZERO,
-            totalTrades = 0,
-            winningTrades = 0,
-            losingTrades = 0,
-            averageWin = BigDecimal.ZERO,
-            averageLoss = BigDecimal.ZERO,
-            largestWin = BigDecimal.ZERO,
-            largestLoss = BigDecimal.ZERO,
-            averageTradeDuration = 0,
-            buyAndHoldReturn = BigDecimal.ZERO,
-            buyAndHoldReturnPercent = BigDecimal.ZERO,
-            runsBeatBuyHold = 0,
-            returnStdDev = BigDecimal.ZERO,
-            returnMin = BigDecimal.ZERO,
-            returnMax = BigDecimal.ZERO,
-            returnP5 = BigDecimal.ZERO,
-            returnP25 = BigDecimal.ZERO,
-            returnP50 = BigDecimal.ZERO,
-            returnP75 = BigDecimal.ZERO,
-            returnP95 = BigDecimal.ZERO
-        )
+        fun empty() =
+            AggregatedStats(
+                finalCapital = BigDecimal.ZERO,
+                totalReturn = BigDecimal.ZERO,
+                totalReturnPercent = BigDecimal.ZERO,
+                maxDrawdown = BigDecimal.ZERO,
+                maxDrawdownPercent = BigDecimal.ZERO,
+                winRate = BigDecimal.ZERO,
+                profitFactor = BigDecimal.ZERO,
+                sharpeRatio = BigDecimal.ZERO,
+                totalTrades = 0,
+                winningTrades = 0,
+                losingTrades = 0,
+                averageWin = BigDecimal.ZERO,
+                averageLoss = BigDecimal.ZERO,
+                largestWin = BigDecimal.ZERO,
+                largestLoss = BigDecimal.ZERO,
+                averageTradeDuration = 0,
+                buyAndHoldReturn = BigDecimal.ZERO,
+                buyAndHoldReturnPercent = BigDecimal.ZERO,
+                runsBeatBuyHold = 0,
+                returnStdDev = BigDecimal.ZERO,
+                returnMin = BigDecimal.ZERO,
+                returnMax = BigDecimal.ZERO,
+                returnP5 = BigDecimal.ZERO,
+                returnP25 = BigDecimal.ZERO,
+                returnP50 = BigDecimal.ZERO,
+                returnP75 = BigDecimal.ZERO,
+                returnP95 = BigDecimal.ZERO,
+            )
     }
 }

@@ -16,9 +16,8 @@ class BacktestService(
     private val properties: BacktestProperties,
     private val dataService: DataService,
     private val backtestEngine: BacktestEngine,
-    private val reportGenerator: ReportGenerator
+    private val reportGenerator: ReportGenerator,
 ) {
-
     private val log = KotlinLogging.logger {}
 
     fun runBacktest(): List<BacktestResult> {
@@ -40,18 +39,19 @@ class BacktestService(
                     dataService.loadHistoricalData(
                         symbol = symbol,
                         timeframe = timeframe,
-                        startDate = properties.startDate ?: java.time.Instant.parse("2017-01-01T00:00:00Z")
+                        startDate = properties.startDate ?: java.time.Instant.parse("2017-01-01T00:00:00Z"),
                     )
 
                     log.info { dataService.getDataSummary(symbol, timeframe) }
 
                     // Get candles for backtest
-                    val candles = dataService.getCandlesForBacktest(
-                        symbol = symbol,
-                        timeframe = timeframe,
-                        startDate = properties.startDate,
-                        endDate = properties.endDate
-                    )
+                    val candles =
+                        dataService.getCandlesForBacktest(
+                            symbol = symbol,
+                            timeframe = timeframe,
+                            startDate = properties.startDate,
+                            endDate = properties.endDate,
+                        )
 
                     if (candles.isEmpty()) {
                         log.warn { "No candles available for $symbol ${timeframe.label}" }
@@ -59,18 +59,19 @@ class BacktestService(
                     }
 
                     // Create backtest config
-                    val config = BacktestConfig(
-                        symbol = symbol,
-                        timeframe = timeframe,
-                        initialCapital = properties.initialCapital,
-                        riskPerTrade = properties.riskPerTrade,
-                        atrPeriod = properties.atrPeriod,
-                        atrMultiplier = properties.atrMultiplier,
-                        transactionCostPercent = properties.transactionCostPercent,
-                        maxConcurrentPositions = properties.maxConcurrentPositions,
-                        startDate = properties.startDate,
-                        endDate = properties.endDate
-                    )
+                    val config =
+                        BacktestConfig(
+                            symbol = symbol,
+                            timeframe = timeframe,
+                            initialCapital = properties.initialCapital,
+                            riskPerTrade = properties.riskPerTrade,
+                            atrPeriod = properties.atrPeriod,
+                            atrMultiplier = properties.atrMultiplier,
+                            transactionCostPercent = properties.transactionCostPercent,
+                            maxConcurrentPositions = properties.maxConcurrentPositions,
+                            startDate = properties.startDate,
+                            endDate = properties.endDate,
+                        )
 
                     // Run backtest
                     val result = backtestEngine.runBacktest(config, candles)
@@ -78,7 +79,6 @@ class BacktestService(
 
                     // Print individual result
                     reportGenerator.printResult(result)
-
                 } catch (e: Exception) {
                     log.error(e) { "Error processing $symbol ${timeframe.label}" }
                 }
@@ -105,7 +105,7 @@ class BacktestService(
         symbol: String,
         timeframe: Timeframe,
         startDate: Instant? = null,
-        endDate: Instant? = null
+        endDate: Instant? = null,
     ): BacktestResult {
         log.debug { "Processing: $symbol - ${timeframe.label}" }
 
@@ -113,34 +113,36 @@ class BacktestService(
         dataService.loadHistoricalData(
             symbol = symbol,
             timeframe = timeframe,
-            startDate = startDate ?: properties.startDate ?: Instant.parse("2017-01-01T00:00:00Z")
+            startDate = startDate ?: properties.startDate ?: Instant.parse("2017-01-01T00:00:00Z"),
         )
 
         log.debug { dataService.getDataSummary(symbol, timeframe) }
 
         // Get candles for backtest
-        val candles = dataService.getCandlesForBacktest(
-            symbol = symbol,
-            timeframe = timeframe,
-            startDate = startDate ?: properties.startDate,
-            endDate = endDate ?: properties.endDate
-        )
+        val candles =
+            dataService.getCandlesForBacktest(
+                symbol = symbol,
+                timeframe = timeframe,
+                startDate = startDate ?: properties.startDate,
+                endDate = endDate ?: properties.endDate,
+            )
 
         require(candles.isNotEmpty()) { "No candles available for $symbol ${timeframe.label}" }
 
         // Create backtest config
-        val config = BacktestConfig(
-            symbol = symbol,
-            timeframe = timeframe,
-            initialCapital = properties.initialCapital,
-            riskPerTrade = properties.riskPerTrade,
-            atrPeriod = properties.atrPeriod,
-            atrMultiplier = properties.atrMultiplier,
-            transactionCostPercent = properties.transactionCostPercent,
-            maxConcurrentPositions = properties.maxConcurrentPositions,
-            startDate = startDate ?: properties.startDate,
-            endDate = endDate ?: properties.endDate
-        )
+        val config =
+            BacktestConfig(
+                symbol = symbol,
+                timeframe = timeframe,
+                initialCapital = properties.initialCapital,
+                riskPerTrade = properties.riskPerTrade,
+                atrPeriod = properties.atrPeriod,
+                atrMultiplier = properties.atrMultiplier,
+                transactionCostPercent = properties.transactionCostPercent,
+                maxConcurrentPositions = properties.maxConcurrentPositions,
+                startDate = startDate ?: properties.startDate,
+                endDate = endDate ?: properties.endDate,
+            )
 
         // Run backtest
         return backtestEngine.runBacktest(config, candles)

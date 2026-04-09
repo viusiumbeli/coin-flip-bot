@@ -1,5 +1,6 @@
 package com.trading.coinflip.service
 
+import com.trading.coinflip.config.BacktestProperties
 import com.trading.coinflip.data.BacktestRunRepository
 import com.trading.coinflip.data.ExperimentRepository
 import com.trading.coinflip.data.ExperimentTradeRepository
@@ -8,7 +9,6 @@ import com.trading.coinflip.model.BacktestRun
 import com.trading.coinflip.model.ExperimentStatus
 import com.trading.coinflip.model.ExperimentTrade
 import kotlinx.coroutines.channels.ReceiveChannel
-import com.trading.coinflip.config.BacktestProperties
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
@@ -19,7 +19,7 @@ import java.time.Instant
  */
 data class BacktestResultWithRunNumber(
     val result: BacktestResult,
-    val runNumber: Int
+    val runNumber: Int,
 )
 
 /**
@@ -32,9 +32,8 @@ class BatchPersistenceService(
     private val experimentRepository: ExperimentRepository,
     private val experimentTradeRepository: ExperimentTradeRepository,
     private val transactionTemplate: TransactionTemplate,
-    private val properties: BacktestProperties
+    private val properties: BacktestProperties,
 ) {
-
     private val log = KotlinLogging.logger {}
 
     /**
@@ -50,7 +49,7 @@ class BatchPersistenceService(
         experimentId: Long,
         channel: ReceiveChannel<BacktestResultWithRunNumber>,
         aggregator: RunningAggregator,
-        numBacktests: Int
+        numBacktests: Int,
     ) {
         val batch = mutableListOf<BacktestResultWithRunNumber>()
 
@@ -78,34 +77,39 @@ class BatchPersistenceService(
      * Persists a batch of backtest results in a single transaction.
      * Saves trades only for small experiments (numBacktests <= 100).
      */
-    private fun persistBatch(experimentId: Long, batch: List<BacktestResultWithRunNumber>, numBacktests: Int) {
+    private fun persistBatch(
+        experimentId: Long,
+        batch: List<BacktestResultWithRunNumber>,
+        numBacktests: Int,
+    ) {
         transactionTemplate.execute {
             val experiment = experimentRepository.getReferenceById(experimentId)
 
-            val runs = batch.map { (result, runNumber) ->
-                BacktestRun(
-                    experiment = experiment,
-                    runNumber = runNumber,
-                    finalCapital = result.finalCapital,
-                    totalReturn = result.totalReturn,
-                    totalReturnPercent = result.totalReturnPercent,
-                    maxDrawdown = result.maxDrawdown,
-                    maxDrawdownPercent = result.maxDrawdownPercent,
-                    winRate = result.winRate,
-                    profitFactor = result.profitFactor,
-                    sharpeRatio = result.sharpeRatio,
-                    totalTrades = result.totalTrades,
-                    winningTrades = result.winningTrades,
-                    losingTrades = result.losingTrades,
-                    averageWin = result.averageWin,
-                    averageLoss = result.averageLoss,
-                    largestWin = result.largestWin,
-                    largestLoss = result.largestLoss,
-                    averageTradeDuration = result.averageTradeDuration,
-                    buyAndHoldReturn = result.buyAndHoldReturn,
-                    buyAndHoldReturnPercent = result.buyAndHoldReturnPercent
-                )
-            }
+            val runs =
+                batch.map { (result, runNumber) ->
+                    BacktestRun(
+                        experiment = experiment,
+                        runNumber = runNumber,
+                        finalCapital = result.finalCapital,
+                        totalReturn = result.totalReturn,
+                        totalReturnPercent = result.totalReturnPercent,
+                        maxDrawdown = result.maxDrawdown,
+                        maxDrawdownPercent = result.maxDrawdownPercent,
+                        winRate = result.winRate,
+                        profitFactor = result.profitFactor,
+                        sharpeRatio = result.sharpeRatio,
+                        totalTrades = result.totalTrades,
+                        winningTrades = result.winningTrades,
+                        losingTrades = result.losingTrades,
+                        averageWin = result.averageWin,
+                        averageLoss = result.averageLoss,
+                        largestWin = result.largestWin,
+                        largestLoss = result.largestLoss,
+                        averageTradeDuration = result.averageTradeDuration,
+                        buyAndHoldReturn = result.buyAndHoldReturn,
+                        buyAndHoldReturnPercent = result.buyAndHoldReturnPercent,
+                    )
+                }
 
             val savedRuns = backtestRunRepository.saveAll(runs)
             log.debug { "Persisted batch of ${runs.size} backtest runs for experiment $experimentId" }
@@ -116,29 +120,30 @@ class BatchPersistenceService(
 
                 savedRuns.forEachIndexed { index, savedRun ->
                     val result = batch[index].result
-                    val trades = result.trades.mapIndexed { tradeIndex, trade ->
-                        ExperimentTrade(
-                            backtestRun = savedRun,
-                            tradeNumber = tradeIndex + 1,
-                            symbol = trade.symbol,
-                            timeframe = trade.timeframe,
-                            side = trade.side,
-                            entryTime = trade.entryTime,
-                            entryPrice = trade.entryPrice,
-                            exitTime = trade.exitTime,
-                            exitPrice = trade.exitPrice,
-                            positionSize = trade.positionSize,
-                            initialStopLoss = trade.initialStopLoss,
-                            trailingStop = trade.trailingStop,
-                            profitLoss = trade.profitLoss,
-                            profitLossPercent = trade.profitLossPercent,
-                            exitReason = trade.exitReason,
-                            balanceBeforeOpen = trade.balanceBeforeOpen,
-                            balanceAfterOpen = trade.balanceAfterOpen,
-                            balanceBeforeClose = trade.balanceBeforeClose,
-                            balanceAfterClose = trade.balanceAfterClose
-                        )
-                    }
+                    val trades =
+                        result.trades.mapIndexed { tradeIndex, trade ->
+                            ExperimentTrade(
+                                backtestRun = savedRun,
+                                tradeNumber = tradeIndex + 1,
+                                symbol = trade.symbol,
+                                timeframe = trade.timeframe,
+                                side = trade.side,
+                                entryTime = trade.entryTime,
+                                entryPrice = trade.entryPrice,
+                                exitTime = trade.exitTime,
+                                exitPrice = trade.exitPrice,
+                                positionSize = trade.positionSize,
+                                initialStopLoss = trade.initialStopLoss,
+                                trailingStop = trade.trailingStop,
+                                profitLoss = trade.profitLoss,
+                                profitLossPercent = trade.profitLossPercent,
+                                exitReason = trade.exitReason,
+                                balanceBeforeOpen = trade.balanceBeforeOpen,
+                                balanceAfterOpen = trade.balanceAfterOpen,
+                                balanceBeforeClose = trade.balanceBeforeClose,
+                                balanceAfterClose = trade.balanceAfterClose,
+                            )
+                        }
                     allTrades.addAll(trades)
                 }
 
@@ -153,7 +158,10 @@ class BatchPersistenceService(
     /**
      * Updates the experiment's completed runs count.
      */
-    private fun updateProgress(experimentId: Long, completedRuns: Int) {
+    private fun updateProgress(
+        experimentId: Long,
+        completedRuns: Int,
+    ) {
         transactionTemplate.execute {
             val experiment = experimentRepository.findById(experimentId).orElse(null)
             if (experiment != null) {
@@ -166,10 +174,17 @@ class BatchPersistenceService(
     /**
      * Finalizes the experiment with aggregated statistics.
      */
-    fun finalizeExperiment(experimentId: Long, aggregator: RunningAggregator, startDate: Instant, endDate: Instant) {
+    fun finalizeExperiment(
+        experimentId: Long,
+        aggregator: RunningAggregator,
+        startDate: Instant,
+        endDate: Instant,
+    ) {
         transactionTemplate.execute {
-            val experiment = experimentRepository.findById(experimentId)
-                .orElseThrow { IllegalArgumentException("Experiment not found: $experimentId") }
+            val experiment =
+                experimentRepository
+                    .findById(experimentId)
+                    .orElseThrow { IllegalArgumentException("Experiment not found: $experimentId") }
 
             val stats = aggregator.computeAverages()
 
@@ -220,7 +235,10 @@ class BatchPersistenceService(
     /**
      * Marks an experiment as failed.
      */
-    fun markExperimentFailed(experimentId: Long, errorMessage: String) {
+    fun markExperimentFailed(
+        experimentId: Long,
+        errorMessage: String,
+    ) {
         transactionTemplate.execute {
             val experiment = experimentRepository.findById(experimentId).orElse(null)
             if (experiment != null) {

@@ -8,7 +8,7 @@ data class SimulationInitRequest(
     val symbol: String,
     val timeframe: String,
     val startDate: String? = null,
-    val endDate: String? = null
+    val endDate: String? = null,
 )
 
 data class CandleDto(
@@ -18,7 +18,7 @@ data class CandleDto(
     val low: BigDecimal,
     val close: BigDecimal,
     val volume: BigDecimal,
-    val atr: BigDecimal?
+    val atr: BigDecimal?,
 )
 
 data class OpenPositionDto(
@@ -33,7 +33,7 @@ data class OpenPositionDto(
     val trailingStop: BigDecimal,
     val unrealizedPnL: BigDecimal,
     val unrealizedPnLPercent: BigDecimal,
-    val allocatedCapital: BigDecimal
+    val allocatedCapital: BigDecimal,
 )
 
 data class SimulationMetricsDto(
@@ -47,7 +47,7 @@ data class SimulationMetricsDto(
     val winRate: BigDecimal,
     val openPositions: Int,
     val allocatedCapital: BigDecimal,
-    val availableCapital: BigDecimal
+    val availableCapital: BigDecimal,
 )
 
 data class SimulationStateDto(
@@ -60,5 +60,5 @@ data class SimulationStateDto(
     val previousCandle: CandleDto?,
     val metrics: SimulationMetricsDto,
     val openPositions: List<OpenPositionDto>,
-    val closedTrades: List<TradeDto>
+    val closedTrades: List<TradeDto>,
 )

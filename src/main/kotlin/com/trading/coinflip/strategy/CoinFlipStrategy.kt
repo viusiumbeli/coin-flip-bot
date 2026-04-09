@@ -12,9 +12,8 @@ import kotlin.random.Random
 
 @Component
 class CoinFlipStrategy(
-    private val atrCalculator: ATRCalculator
+    private val atrCalculator: ATRCalculator,
 ) {
-
     private val log = KotlinLogging.logger {}
 
     private var positionIdCounter = 0L
@@ -35,7 +34,7 @@ class CoinFlipStrategy(
         accountBalance: BigDecimal,
         riskPercent: BigDecimal,
         entryPrice: BigDecimal,
-        stopLoss: BigDecimal
+        stopLoss: BigDecimal,
     ): BigDecimal {
         // Ensure proper scale for division to avoid precision loss
         val riskAmount = accountBalance * riskPercent.divide(BigDecimal(100), 8, RoundingMode.HALF_UP)
@@ -61,7 +60,7 @@ class CoinFlipStrategy(
         accountBalance: BigDecimal,
         riskPercent: BigDecimal,
         atrMultiplier: BigDecimal,
-        balanceBeforeOpen: BigDecimal
+        balanceBeforeOpen: BigDecimal,
     ): Position? {
         val atr = atrCalculator.getATRForCandle(candles, candleIndex)
         if (atr == null || atr <= BigDecimal.ZERO) {
@@ -73,10 +72,11 @@ class CoinFlipStrategy(
         val entryPrice = candle.close
 
         // Calculate initial stop loss based on ATR
-        val initialStopLoss = when (side) {
-            PositionSide.LONG -> entryPrice - (atr * atrMultiplier)
-            PositionSide.SHORT -> entryPrice + (atr * atrMultiplier)
-        }
+        val initialStopLoss =
+            when (side) {
+                PositionSide.LONG -> entryPrice - (atr * atrMultiplier)
+                PositionSide.SHORT -> entryPrice + (atr * atrMultiplier)
+            }
 
         // Check minimum balance requirement before calculating position size
         val riskAmount = accountBalance * riskPercent.divide(BigDecimal(100), 8, RoundingMode.HALF_UP)
@@ -85,18 +85,19 @@ class CoinFlipStrategy(
         if (riskAmount < minRiskAmount) {
             log.debug {
                 "Insufficient balance to open position. " +
-                "Available: $accountBalance, Risk amount: $riskAmount, Minimum required: $minRiskAmount"
+                    "Available: $accountBalance, Risk amount: $riskAmount, Minimum required: $minRiskAmount"
             }
             return null
         }
 
         // Calculate position size based on risk
-        var positionSize = calculatePositionSize(
-            accountBalance = accountBalance,
-            riskPercent = riskPercent,
-            entryPrice = entryPrice,
-            stopLoss = initialStopLoss
-        )
+        var positionSize =
+            calculatePositionSize(
+                accountBalance = accountBalance,
+                riskPercent = riskPercent,
+                entryPrice = entryPrice,
+                stopLoss = initialStopLoss,
+            )
 
         if (positionSize <= BigDecimal.ZERO) {
             log.warn { "Invalid position size calculated: $positionSize" }
@@ -110,7 +111,7 @@ class CoinFlipStrategy(
             positionSize = accountBalance.divide(entryPrice, 8, RoundingMode.DOWN)
             log.debug {
                 "Position size capped to $positionSize due to insufficient balance. " +
-                "Required: $positionValue, Available: $accountBalance"
+                    "Required: $positionValue, Available: $accountBalance"
             }
 
             // After capping, check if position size is still valid
@@ -125,22 +126,23 @@ class CoinFlipStrategy(
         val allocatedCapital = positionSize * entryPrice
         val balanceAfterOpen = balanceBeforeOpen - allocatedCapital
 
-        val position = Position(
-            id = ++positionIdCounter,
-            symbol = candle.symbol,
-            timeframe = candle.timeframe,
-            side = side,
-            entryTime = candle.openTime,
-            entryPrice = entryPrice,
-            positionSize = positionSize,
-            initialStopLoss = initialStopLoss,
-            trailingStop = initialStopLoss,
-            highestFavorablePrice = entryPrice,
-            status = PositionStatus.OPEN,
-            balanceBeforeOpen = balanceBeforeOpen,
-            balanceAfterOpen = balanceAfterOpen,
-            allocatedCapital = allocatedCapital
-        )
+        val position =
+            Position(
+                id = ++positionIdCounter,
+                symbol = candle.symbol,
+                timeframe = candle.timeframe,
+                side = side,
+                entryTime = candle.openTime,
+                entryPrice = entryPrice,
+                positionSize = positionSize,
+                initialStopLoss = initialStopLoss,
+                trailingStop = initialStopLoss,
+                highestFavorablePrice = entryPrice,
+                status = PositionStatus.OPEN,
+                balanceBeforeOpen = balanceBeforeOpen,
+                balanceAfterOpen = balanceAfterOpen,
+                allocatedCapital = allocatedCapital,
+            )
 
         log.debug {
             "Created ${side.name} position for ${candle.symbol} at $entryPrice, " +
@@ -158,7 +160,7 @@ class CoinFlipStrategy(
         candle: Candle,
         candles: List<Candle>,
         candleIndex: Int,
-        atrMultiplier: BigDecimal
+        atrMultiplier: BigDecimal,
     ): Boolean {
         val atr = atrCalculator.getATRForCandle(candles, candleIndex)
         if (atr == null || atr <= BigDecimal.ZERO) {
