@@ -10,10 +10,7 @@ import mu.KotlinLogging
 import java.math.BigDecimal
 import java.math.RoundingMode
 
-class BacktestEngine(
-    private val processor: TradingProcessor,
-    private val analytics: PerformanceAnalytics,
-) {
+object BacktestEngine {
     private val log = KotlinLogging.logger {}
 
     fun runBacktest(
@@ -45,14 +42,14 @@ class BacktestEngine(
         // Walk through each candle
         for (i in backtestCandles.indices) {
             val candle = backtestCandles[i]
-            processor.processCandle(state, candle, backtestCandles, i, config.trading)
+            TradingProcessor.processCandle(state, candle, backtestCandles, i, config.trading)
         }
 
         // Close any remaining open positions at the last candle price
         val lastCandle = backtestCandles.last()
         val remainingPositions = state.openPositions.toList()
         for (position in remainingPositions) {
-            processor.forceClosePosition(
+            TradingProcessor.forceClosePosition(
                 state = state,
                 position = position,
                 exitPrice = lastCandle.close,
@@ -75,7 +72,7 @@ class BacktestEngine(
         // Calculate buy and hold performance
         val buyAndHoldReturn = calculateBuyAndHoldReturn(backtestCandles, config.initialCapital)
 
-        return analytics.calculatePerformance(
+        return PerformanceAnalytics.calculatePerformance(
             config = config,
             trades = state.closedTrades,
             finalCapital = state.accountBalance,

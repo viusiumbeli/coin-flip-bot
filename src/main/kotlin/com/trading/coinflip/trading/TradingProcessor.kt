@@ -15,7 +15,7 @@ import java.math.BigDecimal
  * Encapsulates position processing, P&L calculation, and drawdown tracking.
  * Thread-safe when used with separate TradingState instances.
  */
-class TradingProcessor {
+object TradingProcessor {
     private val log = KotlinLogging.logger {}
 
     /**
