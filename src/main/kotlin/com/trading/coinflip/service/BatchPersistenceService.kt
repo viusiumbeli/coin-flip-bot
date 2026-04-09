@@ -57,7 +57,7 @@ class BatchPersistenceService(
             batch.add(resultWithNumber)
             aggregator.add(resultWithNumber.result)
 
-            if (batch.size >= properties.batchSize) {
+            if (batch.size >= properties.async.batchSize) {
                 persistBatch(experimentId, batch, numBacktests)
                 updateProgress(experimentId, aggregator.getCount())
                 batch.clear()
@@ -115,7 +115,7 @@ class BatchPersistenceService(
             log.debug { "Persisted batch of ${runs.size} backtest runs for experiment $experimentId" }
 
             // Save trades only for small experiments
-            if (numBacktests <= properties.tradesThreshold) {
+            if (numBacktests <= properties.experiment.tradesThreshold) {
                 val allTrades = mutableListOf<ExperimentTrade>()
 
                 savedRuns.forEachIndexed { index, savedRun ->

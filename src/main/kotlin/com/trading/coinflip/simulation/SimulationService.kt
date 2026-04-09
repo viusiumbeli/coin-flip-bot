@@ -1,6 +1,7 @@
 package com.trading.coinflip.simulation
 
 import com.trading.coinflip.config.BacktestProperties
+import com.trading.coinflip.config.TradingConfig
 import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.dto.CandleDto
 import com.trading.coinflip.dto.OpenPositionDto
@@ -11,7 +12,6 @@ import com.trading.coinflip.dto.TradeDto
 import com.trading.coinflip.model.Candle
 import com.trading.coinflip.model.PositionSide
 import com.trading.coinflip.model.Timeframe
-import com.trading.coinflip.trading.TradingConfig
 import com.trading.coinflip.trading.TradingProcessor
 import com.trading.coinflip.trading.TradingProcessorFactory
 import com.trading.coinflip.trading.TradingState
@@ -99,14 +99,7 @@ class SimulationService(
             // Create new processor and state
             processor = tradingProcessorFactory.create()
             tradingState = TradingState.create(initialCapital)
-            tradingConfig =
-                TradingConfig(
-                    atrMultiplier = properties.atrMultiplier,
-                    riskPerTrade = properties.riskPerTrade,
-                    maxConcurrentPositions = properties.maxConcurrentPositions,
-                    transactionCostPercent = properties.transactionCostPercent,
-                    entryFrequency = properties.entryFrequency,
-                )
+            tradingConfig = properties.trading
             processor!!.resetStrategy()
             initialized = true
 

@@ -39,7 +39,7 @@ class BacktestService(
                     dataService.loadHistoricalData(
                         symbol = symbol,
                         timeframe = timeframe,
-                        startDate = properties.startDate ?: java.time.Instant.parse("2017-01-01T00:00:00Z"),
+                        startDate = properties.startDate ?: Instant.parse("2017-01-01T00:00:00Z"),
                     )
 
                     log.info { dataService.getDataSummary(symbol, timeframe) }
@@ -64,11 +64,7 @@ class BacktestService(
                             symbol = symbol,
                             timeframe = timeframe,
                             initialCapital = properties.initialCapital,
-                            riskPerTrade = properties.riskPerTrade,
-                            atrPeriod = properties.atrPeriod,
-                            atrMultiplier = properties.atrMultiplier,
-                            transactionCostPercent = properties.transactionCostPercent,
-                            maxConcurrentPositions = properties.maxConcurrentPositions,
+                            trading = properties.trading,
                             startDate = properties.startDate,
                             endDate = properties.endDate,
                         )
@@ -136,11 +132,7 @@ class BacktestService(
                 symbol = symbol,
                 timeframe = timeframe,
                 initialCapital = properties.initialCapital,
-                riskPerTrade = properties.riskPerTrade,
-                atrPeriod = properties.atrPeriod,
-                atrMultiplier = properties.atrMultiplier,
-                transactionCostPercent = properties.transactionCostPercent,
-                maxConcurrentPositions = properties.maxConcurrentPositions,
+                trading = properties.trading,
                 startDate = startDate ?: properties.startDate,
                 endDate = endDate ?: properties.endDate,
             )

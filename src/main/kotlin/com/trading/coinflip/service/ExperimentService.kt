@@ -50,7 +50,7 @@ class ExperimentService(
 
     @Transactional
     fun createExperiment(request: CreateExperimentRequest): ExperimentDetailDto {
-        val numBacktests = request.numBacktests.coerceIn(1, properties.syncBacktestLimit)
+        val numBacktests = request.numBacktests.coerceIn(1, properties.experiment.syncBacktestLimit)
         log.info { "Creating experiment for ${request.symbol} ${request.timeframe} with $numBacktests backtests" }
 
         val timeframe =
@@ -116,11 +116,11 @@ class ExperimentService(
                 endDate = firstResult.endDate,
                 numBacktests = numBacktests,
                 initialCapital = firstResult.initialCapital,
-                riskPerTrade = firstResult.config.riskPerTrade,
-                atrPeriod = firstResult.config.atrPeriod,
-                atrMultiplier = firstResult.config.atrMultiplier,
-                transactionCostPercent = firstResult.config.transactionCostPercent,
-                maxConcurrentPositions = firstResult.config.maxConcurrentPositions,
+                riskPerTrade = firstResult.config.trading.riskPerTrade,
+                atrPeriod = firstResult.config.trading.atrPeriod,
+                atrMultiplier = firstResult.config.trading.atrMultiplier,
+                transactionCostPercent = firstResult.config.trading.transactionCostPercent,
+                maxConcurrentPositions = firstResult.config.trading.maxConcurrentPositions,
                 finalCapital = aggregated.finalCapital,
                 totalReturn = aggregated.totalReturn,
                 totalReturnPercent = aggregated.totalReturnPercent,
@@ -253,7 +253,7 @@ class ExperimentService(
                 if (sortDir.equals("desc", ignoreCase = true)) Sort.Direction.DESC else Sort.Direction.ASC,
                 validSortBy,
             )
-        val pageable = PageRequest.of(page.coerceAtLeast(0), size.coerceIn(1, properties.maxPageSize), sort)
+        val pageable = PageRequest.of(page.coerceAtLeast(0), size.coerceIn(1, properties.api.maxPageSize), sort)
         val runsPage = backtestRunRepository.findByExperimentId(id, pageable)
 
         return PaginatedRunsDto(
@@ -339,7 +339,7 @@ class ExperimentService(
      */
     @Transactional
     fun initiateExperiment(request: CreateExperimentRequest): Experiment {
-        val numBacktests = request.numBacktests.coerceIn(1, properties.asyncBacktestLimit)
+        val numBacktests = request.numBacktests.coerceIn(1, properties.experiment.asyncBacktestLimit)
         log.info { "Initiating async experiment for ${request.symbol} ${request.timeframe} with $numBacktests backtests" }
 
         val timeframe =
@@ -364,11 +364,11 @@ class ExperimentService(
                 endDate = endDate,
                 numBacktests = numBacktests,
                 initialCapital = properties.initialCapital,
-                riskPerTrade = properties.riskPerTrade,
-                atrPeriod = properties.atrPeriod,
-                atrMultiplier = properties.atrMultiplier,
-                transactionCostPercent = properties.transactionCostPercent,
-                maxConcurrentPositions = properties.maxConcurrentPositions,
+                riskPerTrade = properties.trading.riskPerTrade,
+                atrPeriod = properties.trading.atrPeriod,
+                atrMultiplier = properties.trading.atrMultiplier,
+                transactionCostPercent = properties.trading.transactionCostPercent,
+                maxConcurrentPositions = properties.trading.maxConcurrentPositions,
                 // Placeholder values - will be updated when experiment completes
                 finalCapital = BigDecimal.ZERO,
                 totalReturn = BigDecimal.ZERO,

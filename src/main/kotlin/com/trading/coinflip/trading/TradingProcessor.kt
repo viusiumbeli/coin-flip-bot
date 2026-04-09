@@ -1,5 +1,6 @@
 package com.trading.coinflip.trading
 
+import com.trading.coinflip.config.TradingConfig
 import com.trading.coinflip.model.Candle
 import com.trading.coinflip.model.Position
 import com.trading.coinflip.model.PositionSide

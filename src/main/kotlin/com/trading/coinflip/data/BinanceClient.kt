@@ -24,7 +24,7 @@ class BinanceClient(
     private val client =
         HttpClient(CIO) {
             engine {
-                requestTimeout = properties.httpTimeoutMs
+                requestTimeout = properties.api.httpTimeoutMs
             }
         }
 
@@ -112,7 +112,7 @@ class BinanceClient(
             currentStartTime = candles.last().openTime.plusMillis(timeframe.minutes * 60 * 1000L)
 
             // Rate limiting
-            kotlinx.coroutines.delay(properties.rateLimitDelayMs)
+            kotlinx.coroutines.delay(properties.api.rateLimitDelayMs)
         }
 
         log.info { "Completed fetching ${allCandles.size} candles for $symbol $timeframe" }
