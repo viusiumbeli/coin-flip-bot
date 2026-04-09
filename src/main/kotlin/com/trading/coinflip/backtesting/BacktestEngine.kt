@@ -7,10 +7,15 @@ import com.trading.coinflip.model.Candle
 import com.trading.coinflip.trading.TradingProcessor
 import com.trading.coinflip.trading.TradingState
 import mu.KotlinLogging
+import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
 
-object BacktestEngine {
+@Component
+class BacktestEngine(
+    private val processor: TradingProcessor,
+    private val analytics: PerformanceAnalytics,
+) {
     private val log = KotlinLogging.logger {}
 
     fun runBacktest(
@@ -42,14 +47,14 @@ object BacktestEngine {
         // Walk through each candle
         for (i in backtestCandles.indices) {
             val candle = backtestCandles[i]
-            TradingProcessor.processCandle(state, candle, backtestCandles, i, config.trading)
+            processor.processCandle(state, candle, backtestCandles, i, config.trading)
         }
 
         // Close any remaining open positions at the last candle price
         val lastCandle = backtestCandles.last()
         val remainingPositions = state.openPositions.toList()
         for (position in remainingPositions) {
-            TradingProcessor.forceClosePosition(
+            processor.forceClosePosition(
                 state = state,
                 position = position,
                 exitPrice = lastCandle.close,
@@ -72,7 +77,7 @@ object BacktestEngine {
         // Calculate buy and hold performance
         val buyAndHoldReturn = calculateBuyAndHoldReturn(backtestCandles, config.initialCapital)
 
-        return PerformanceAnalytics.calculatePerformance(
+        return analytics.calculatePerformance(
             config = config,
             trades = state.closedTrades,
             finalCapital = state.accountBalance,

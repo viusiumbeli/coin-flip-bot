@@ -27,6 +27,7 @@ import kotlin.concurrent.write
 class SimulationService(
     private val candleRepository: CandleRepository,
     private val properties: BacktestProperties,
+    private val tradingProcessor: TradingProcessor,
 ) {
     private val log = KotlinLogging.logger {}
 
@@ -170,7 +171,7 @@ class SimulationService(
         }
 
         val candle = candles[currentCandleIndex]
-        TradingProcessor.processCandle(tradingState!!, candle, candles, currentCandleIndex, tradingConfig!!)
+        tradingProcessor.processCandle(tradingState!!, candle, candles, currentCandleIndex, tradingConfig!!)
     }
 
     /**
