@@ -1,0 +1,39 @@
+package com.trading.coinflip.trading
+
+import com.trading.coinflip.model.Position
+import com.trading.coinflip.model.Trade
+import java.math.BigDecimal
+
+/**
+ * Mutable state container for trading operations.
+ * Used by TradingProcessor to track account state during backtest/simulation.
+ */
+data class TradingState(
+    var accountBalance: BigDecimal,
+    var peakBalance: BigDecimal,
+    var maxDrawdown: BigDecimal,
+    val openPositions: MutableList<Position>,
+    val closedTrades: MutableList<Trade>,
+    var tradeIdCounter: Long,
+) {
+    companion object {
+        fun create(initialCapital: BigDecimal): TradingState =
+            TradingState(
+                accountBalance = initialCapital,
+                peakBalance = initialCapital,
+                maxDrawdown = BigDecimal.ZERO,
+                openPositions = mutableListOf(),
+                closedTrades = mutableListOf(),
+                tradeIdCounter = 0L,
+            )
+    }
+
+    fun reset(initialCapital: BigDecimal) {
+        accountBalance = initialCapital
+        peakBalance = initialCapital
+        maxDrawdown = BigDecimal.ZERO
+        openPositions.clear()
+        closedTrades.clear()
+        tradeIdCounter = 0L
+    }
+}
