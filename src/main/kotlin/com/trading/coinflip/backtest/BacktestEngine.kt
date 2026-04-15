@@ -3,7 +3,7 @@ package com.trading.coinflip.backtest
 import com.trading.coinflip.analytics.PerformanceAnalytics
 import com.trading.coinflip.common.model.BacktestConfig
 import com.trading.coinflip.common.model.BacktestResult
-import com.trading.coinflip.common.model.Candle
+import com.trading.coinflip.common.model.CandleEntity
 import com.trading.coinflip.engine.TradingProcessor
 import com.trading.coinflip.engine.TradingState
 import mu.KotlinLogging
@@ -20,7 +20,7 @@ class BacktestEngine(
 
     fun runBacktest(
         config: BacktestConfig,
-        candles: List<Candle>,
+        candles: List<CandleEntity>,
     ): BacktestResult {
         log.debug { "Starting backtest for ${config.symbol} ${config.timeframe.label}" }
         log.debug { "Initial capital: ${config.initialCapital}, Risk per trade: ${config.trading.riskPerTrade}%" }
@@ -90,7 +90,7 @@ class BacktestEngine(
     }
 
     private fun calculateBuyAndHoldReturn(
-        candles: List<Candle>,
+        candles: List<CandleEntity>,
         initialCapital: BigDecimal,
     ): BigDecimal {
         if (candles.isEmpty()) return BigDecimal.ZERO
@@ -105,7 +105,7 @@ class BacktestEngine(
 
     private fun createEmptyResult(
         config: BacktestConfig,
-        candles: List<Candle>,
+        candles: List<CandleEntity>,
     ): BacktestResult {
         val startDate = candles.firstOrNull()?.openTime ?: config.startDate ?: java.time.Instant.now()
         val endDate = candles.lastOrNull()?.openTime ?: config.endDate ?: java.time.Instant.now()

@@ -4,9 +4,9 @@ import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.data.DataService
-import com.trading.coinflip.data.DataStatus
+import com.trading.coinflip.data.DataStatusResponse
 import com.trading.coinflip.data.SyncRequest
-import com.trading.coinflip.data.SyncResult
+import com.trading.coinflip.data.SyncResponse
 import mu.KotlinLogging
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.CrossOrigin
@@ -29,8 +29,8 @@ class DataController(
     private val log = KotlinLogging.logger {}
 
     @GetMapping("/status")
-    fun getDataStatus(): ResponseEntity<List<DataStatus>> {
-        val statusList = mutableListOf<DataStatus>()
+    fun getDataStatus(): ResponseEntity<List<DataStatusResponse>> {
+        val statusList = mutableListOf<DataStatusResponse>()
         val now = Instant.now()
 
         for (symbol in properties.symbols) {
@@ -54,7 +54,7 @@ class DataController(
                     }
 
                 statusList.add(
-                    DataStatus(
+                    DataStatusResponse(
                         symbol = symbol,
                         timeframe = timeframe.label,
                         candleCount = count,
@@ -72,14 +72,14 @@ class DataController(
     @PostMapping("/sync")
     fun syncData(
         @RequestBody request: SyncRequest,
-    ): ResponseEntity<SyncResult> {
+    ): ResponseEntity<SyncResponse> {
         return try {
             log.info { "Sync request for ${request.symbol} ${request.timeframe}" }
 
             val timeframe =
                 Timeframe.fromLabel(request.timeframe)
                     ?: return ResponseEntity.badRequest().body(
-                        SyncResult(
+                        SyncResponse(
                             symbol = request.symbol,
                             timeframe = request.timeframe,
                             newCandlesAdded = 0,
@@ -91,7 +91,7 @@ class DataController(
             val newCandlesAdded = dataService.syncMissingData(request.symbol, timeframe)
 
             ResponseEntity.ok(
-                SyncResult(
+                SyncResponse(
                     symbol = request.symbol,
                     timeframe = request.timeframe,
                     newCandlesAdded = newCandlesAdded,
@@ -101,7 +101,7 @@ class DataController(
         } catch (e: Exception) {
             log.error(e) { "Error syncing data for ${request.symbol} ${request.timeframe}" }
             ResponseEntity.ok(
-                SyncResult(
+                SyncResponse(
                     symbol = request.symbol,
                     timeframe = request.timeframe,
                     newCandlesAdded = 0,
@@ -113,8 +113,8 @@ class DataController(
     }
 
     @PostMapping("/sync-all")
-    fun syncAllData(): ResponseEntity<List<SyncResult>> {
-        val results = mutableListOf<SyncResult>()
+    fun syncAllData(): ResponseEntity<List<SyncResponse>> {
+        val results = mutableListOf<SyncResponse>()
 
         for (symbol in properties.symbols) {
             for (timeframe in properties.timeframes) {
@@ -122,7 +122,7 @@ class DataController(
                     log.info { "Syncing $symbol ${timeframe.label}" }
                     val newCandlesAdded = dataService.syncMissingData(symbol, timeframe)
                     results.add(
-                        SyncResult(
+                        SyncResponse(
                             symbol = symbol,
                             timeframe = timeframe.label,
                             newCandlesAdded = newCandlesAdded,
@@ -132,7 +132,7 @@ class DataController(
                 } catch (e: Exception) {
                     log.error(e) { "Error syncing $symbol ${timeframe.label}" }
                     results.add(
-                        SyncResult(
+                        SyncResponse(
                             symbol = symbol,
                             timeframe = timeframe.label,
                             newCandlesAdded = 0,

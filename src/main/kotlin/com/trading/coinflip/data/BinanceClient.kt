@@ -2,7 +2,7 @@ package com.trading.coinflip.data
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.common.model.Candle
+import com.trading.coinflip.common.model.CandleEntity
 import com.trading.coinflip.common.model.Timeframe
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -36,7 +36,7 @@ class BinanceClient(
         startTime: Instant? = null,
         endTime: Instant? = null,
         limit: Int = 1000,
-    ): List<Candle> {
+    ): List<CandleEntity> {
         val interval =
             when (timeframe) {
                 Timeframe.ONE_HOUR -> "1h"
@@ -64,7 +64,7 @@ class BinanceClient(
             val klines = objectMapper.readValue(body, Array<Array<Any>>::class.java)
 
             klines.map { kline ->
-                Candle(
+                CandleEntity(
                     symbol = symbol,
                     timeframe = timeframe,
                     openTime = Instant.ofEpochMilli((kline[0] as Number).toLong()),
@@ -85,8 +85,8 @@ class BinanceClient(
         symbol: String,
         timeframe: Timeframe,
         startDate: Instant,
-    ): List<Candle> {
-        val allCandles = mutableListOf<Candle>()
+    ): List<CandleEntity> {
+        val allCandles = mutableListOf<CandleEntity>()
         var currentStartTime = startDate
         val now = Instant.now()
 

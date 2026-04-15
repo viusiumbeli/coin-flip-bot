@@ -3,7 +3,7 @@ package com.trading.coinflip.simulation
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.config.TradingConfig
 import com.trading.coinflip.common.dto.TradeDto
-import com.trading.coinflip.common.model.Candle
+import com.trading.coinflip.common.model.CandleEntity
 import com.trading.coinflip.common.model.PositionSide
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.CandleRepository
@@ -33,8 +33,8 @@ class SimulationService(
     private var symbol: String? = null
     private var timeframe: Timeframe? = null
     private var initialCapital: BigDecimal = BigDecimal.ZERO
-    private var candles: List<Candle> = emptyList()
-    private var allCandles: List<Candle> = emptyList() // All loaded candles before filtering
+    private var candles: List<CandleEntity> = emptyList()
+    private var allCandles: List<CandleEntity> = emptyList() // All loaded candles before filtering
     private var currentCandleIndex: Int = -1
 
     // Trading state

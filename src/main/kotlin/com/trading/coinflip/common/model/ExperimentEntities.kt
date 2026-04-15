@@ -31,7 +31,7 @@ enum class ExperimentStatus {
         Index(name = "idx_experiments_created_at", columnList = "createdAt"),
     ],
 )
-data class Experiment(
+data class ExperimentEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
@@ -146,13 +146,13 @@ data class Experiment(
         Index(name = "idx_backtest_runs_experiment_id", columnList = "experiment_id"),
     ],
 )
-data class BacktestRun(
+data class BacktestRunEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "experiment_id", nullable = false)
-    val experiment: Experiment,
+    val experiment: ExperimentEntity,
     @Column(name = "run_number", nullable = false)
     val runNumber: Int,
     // Results for this individual run
@@ -202,13 +202,13 @@ data class BacktestRun(
         Index(name = "idx_experiment_trades_entry_time", columnList = "entryTime"),
     ],
 )
-data class ExperimentTrade(
+data class ExperimentTradeEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "backtest_run_id", nullable = false)
-    val backtestRun: BacktestRun,
+    val backtestRun: BacktestRunEntity,
     @Column(name = "trade_number", nullable = false)
     val tradeNumber: Int,
     @Column(nullable = false)

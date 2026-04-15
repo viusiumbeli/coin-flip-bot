@@ -1,6 +1,6 @@
 package com.trading.coinflip.data
 
-import com.trading.coinflip.common.model.Candle
+import com.trading.coinflip.common.model.CandleEntity
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.engine.ATRCalculator
 import kotlinx.coroutines.runBlocking
@@ -59,7 +59,7 @@ class DataService(
     fun saveCandles(
         symbol: String,
         timeframe: Timeframe,
-        candles: List<Candle>,
+        candles: List<CandleEntity>,
     ) {
         // Fetch all existing open times in a single query
         val existingOpenTimes =
@@ -158,7 +158,7 @@ class DataService(
         timeframe: Timeframe,
         startDate: Instant? = null,
         endDate: Instant? = null,
-    ): List<Candle> =
+    ): List<CandleEntity> =
         if (startDate != null && endDate != null) {
             candleRepository.findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc(
                 symbol,

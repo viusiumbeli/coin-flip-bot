@@ -9,7 +9,7 @@ Feature-based organization under `com.trading.coinflip` with **one class per fil
 ├── common/        # Shared code
 │   ├── config/    # BacktestProperties, JacksonConfig
 │   ├── dto/       # Shared DTOs only (TradeDto)
-│   └── model/     # Domain models, JPA entities
+│   └── model/     # Domain models, JPA entities (CandleEntity, ExperimentEntity, etc.)
 ├── engine/        # Core trading (TradingProcessor, CoinFlipStrategy, ATRCalculator)
 ├── backtest/      # BacktestEngine, BacktestService, BacktestRequest, BacktestResponse
 ├── experiment/    # ExperimentService, AsyncExperimentExecutor + experiment DTOs
@@ -18,9 +18,16 @@ Feature-based organization under `com.trading.coinflip` with **one class per fil
 └── analytics/     # PerformanceAnalytics, ReportGenerator
 ```
 
+**Naming Conventions:**
+- `***Request` - API request bodies (e.g., `BacktestRequest`, `SyncRequest`)
+- `***Response` - API responses (e.g., `BacktestResponse`, `SyncResponse`, `DataStatusResponse`)
+- `***Entity` - JPA entities from DB (e.g., `CandleEntity`, `ExperimentEntity`, `BacktestRunEntity`)
+- `***Config` - Configuration classes from application.yaml (e.g., `TradingConfig`, `AsyncConfig`)
+- `***Dto` - Other data transfer objects (e.g., `TradeDto`, `ExperimentDetailDto`)
+
 **DTOs live in their feature packages** (not common/dto/):
 - `backtest/`: BacktestRequest, BacktestResponse
-- `data/`: DataStatus, SyncRequest, SyncResult, AvailableSymbolsResponse
+- `data/`: DataStatusResponse, SyncRequest, SyncResponse, AvailableSymbolsResponse
 - `experiment/`: CreateExperimentRequest, ExperimentDetailDto, ExperimentMappers, etc.
 - `simulation/`: SimulationInitRequest, SimulationStateDto, CandleDto, etc.
 - `common/dto/`: TradeDto (shared between simulation and backtest)

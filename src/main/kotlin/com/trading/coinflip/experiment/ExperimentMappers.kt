@@ -1,10 +1,10 @@
 package com.trading.coinflip.experiment
 
-import com.trading.coinflip.common.model.BacktestRun
-import com.trading.coinflip.common.model.Experiment
-import com.trading.coinflip.common.model.ExperimentTrade
+import com.trading.coinflip.common.model.BacktestRunEntity
+import com.trading.coinflip.common.model.ExperimentEntity
+import com.trading.coinflip.common.model.ExperimentTradeEntity
 
-fun Experiment.toSummaryDto() =
+fun ExperimentEntity.toSummaryDto() =
     ExperimentSummaryDto(
         id = id!!,
         name = name,
@@ -27,7 +27,7 @@ fun Experiment.toSummaryDto() =
         progressPercent = if (numBacktests > 0) (completedRuns.toDouble() / numBacktests) * 100 else 0.0,
     )
 
-fun Experiment.toDetailDto(runs: List<BacktestRun>) =
+fun ExperimentEntity.toDetailDto(runs: List<BacktestRunEntity>) =
     ExperimentDetailDto(
         id = id!!,
         name = name,
@@ -75,7 +75,7 @@ fun Experiment.toDetailDto(runs: List<BacktestRun>) =
         runs = runs.map { it.toSummaryDto() },
     )
 
-fun BacktestRun.toSummaryDto() =
+fun BacktestRunEntity.toSummaryDto() =
     BacktestRunSummaryDto(
         id = id!!,
         runNumber = runNumber,
@@ -87,7 +87,7 @@ fun BacktestRun.toSummaryDto() =
         totalTrades = totalTrades,
     )
 
-fun BacktestRun.toDetailDto(trades: List<ExperimentTrade>) =
+fun BacktestRunEntity.toDetailDto(trades: List<ExperimentTradeEntity>) =
     BacktestRunDetailDto(
         id = id!!,
         runNumber = runNumber,
@@ -112,7 +112,7 @@ fun BacktestRun.toDetailDto(trades: List<ExperimentTrade>) =
         trades = trades.map { it.toDto() },
     )
 
-fun ExperimentTrade.toDto() =
+fun ExperimentTradeEntity.toDto() =
     ExperimentTradeDto(
         id = id!!,
         tradeNumber = tradeNumber,
