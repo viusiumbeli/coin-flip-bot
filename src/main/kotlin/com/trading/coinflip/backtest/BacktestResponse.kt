@@ -1,16 +1,9 @@
-package com.trading.coinflip.common.dto
+package com.trading.coinflip.backtest
 
+import com.trading.coinflip.common.dto.TradeDto
 import com.trading.coinflip.common.model.BacktestResult
-import com.trading.coinflip.common.model.PositionSide
 import java.math.BigDecimal
 import java.time.Instant
-
-data class BacktestRequest(
-    val symbol: String,
-    val timeframe: String,
-    val startDate: String? = null,
-    val endDate: String? = null,
-)
 
 data class BacktestResponse(
     val symbol: String,
@@ -37,29 +30,6 @@ data class BacktestResponse(
     val buyAndHoldReturn: BigDecimal,
     val buyAndHoldReturnPercent: BigDecimal,
     val trades: List<TradeDto>,
-)
-
-data class TradeDto(
-    val id: Long,
-    val symbol: String,
-    val side: PositionSide,
-    val entryTime: Instant,
-    val entryPrice: BigDecimal,
-    val exitTime: Instant,
-    val exitPrice: BigDecimal,
-    val positionSize: BigDecimal,
-    val profitLoss: BigDecimal,
-    val profitLossPercent: BigDecimal,
-    val exitReason: String,
-    val balanceBeforeOpen: BigDecimal,
-    val balanceAfterOpen: BigDecimal,
-    val balanceBeforeClose: BigDecimal,
-    val balanceAfterClose: BigDecimal,
-)
-
-data class AvailableSymbolsResponse(
-    val symbols: List<String>,
-    val timeframes: List<String>,
 )
 
 fun BacktestResult.toDto(): BacktestResponse =

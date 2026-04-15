@@ -2,7 +2,6 @@ package com.trading.coinflip.experiment
 
 import com.trading.coinflip.backtest.BacktestEngine
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.common.dto.CreateExperimentRequest
 import com.trading.coinflip.common.model.BacktestConfig
 import com.trading.coinflip.common.model.ExperimentStatus
 import com.trading.coinflip.common.model.Timeframe

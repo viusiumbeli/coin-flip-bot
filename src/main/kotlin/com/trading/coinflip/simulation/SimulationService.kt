@@ -2,11 +2,6 @@ package com.trading.coinflip.simulation
 
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.config.TradingConfig
-import com.trading.coinflip.common.dto.CandleDto
-import com.trading.coinflip.common.dto.OpenPositionDto
-import com.trading.coinflip.common.dto.SimulationInitRequest
-import com.trading.coinflip.common.dto.SimulationMetricsDto
-import com.trading.coinflip.common.dto.SimulationStateDto
 import com.trading.coinflip.common.dto.TradeDto
 import com.trading.coinflip.common.model.Candle
 import com.trading.coinflip.common.model.PositionSide

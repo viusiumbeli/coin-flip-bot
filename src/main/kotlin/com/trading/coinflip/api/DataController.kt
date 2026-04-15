@@ -1,12 +1,12 @@
 package com.trading.coinflip.api
 
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.common.dto.DataStatus
-import com.trading.coinflip.common.dto.SyncRequest
-import com.trading.coinflip.common.dto.SyncResult
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.data.DataService
+import com.trading.coinflip.data.DataStatus
+import com.trading.coinflip.data.SyncRequest
+import com.trading.coinflip.data.SyncResult
 import mu.KotlinLogging
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.CrossOrigin
