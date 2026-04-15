@@ -1,7 +1,6 @@
 package com.trading.coinflip.experiment
 
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.common.model.BacktestResult
 import com.trading.coinflip.common.model.BacktestRunEntity
 import com.trading.coinflip.common.model.ExperimentStatus
 import com.trading.coinflip.common.model.ExperimentTradeEntity
@@ -13,14 +12,6 @@ import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
-
-/**
- * Data class for backtest result with run number.
- */
-data class BacktestResultWithRunNumber(
-    val result: BacktestResult,
-    val runNumber: Int,
-)
 
 /**
  * Service for batch persisting backtest results to the database.

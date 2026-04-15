@@ -16,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
@@ -244,11 +245,6 @@ class AsyncExperimentExecutor(
     }
 
     /**
-     * Checks if an experiment is currently running.
-     */
-    fun isRunning(experimentId: Long): Boolean = activeJobs[experimentId]?.isActive == true
-
-    /**
      * Graceful shutdown - cancel all running experiments and wait for completion.
      */
     @PreDestroy
@@ -265,7 +261,7 @@ class AsyncExperimentExecutor(
 
         runBlocking {
             withTimeoutOrNull(properties.async.shutdownTimeoutMs) {
-                activeJobs.values.forEach { it.join() }
+                activeJobs.values.joinAll()
             } ?: log.warn { "Shutdown timeout - some jobs did not complete" }
         }
 

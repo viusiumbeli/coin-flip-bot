@@ -95,3 +95,6 @@ All trading components are Spring `@Component` beans with constructor injection:
 - `TradingConfig` - Reusable config from `BacktestProperties.trading`, passed to processor
 - `BacktestEngine` (`backtest/`) uses `TradingProcessor` for backtesting
 - `SimulationService` (`simulation/`) uses `TradingProcessor` for step-by-step simulation
+
+## Summary
+This codebase follows strict conventions: one class per file, feature-based package organization, and consistent naming (`*Request`, `*Response`, `*Entity`, `*Config`, `*Dto`). All configuration is centralized in `BacktestProperties`, ktlint enforces code style, and `TradingProcessor` is the single source of truth for trading logic. When adding new features, place classes in the appropriate feature package and follow existing patterns.
