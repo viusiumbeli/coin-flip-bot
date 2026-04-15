@@ -22,7 +22,7 @@ class BacktestController(
     private val log = KotlinLogging.logger {}
 
     @PostMapping("/run")
-    fun runBacktest(
+    suspend fun runBacktest(
         @RequestBody request: BacktestRequest,
     ): BacktestResponse {
         log.info { "Received backtest request for ${request.symbol} ${request.timeframe.label}" }
@@ -39,7 +39,7 @@ class BacktestController(
     }
 
     @PostMapping("/run-all")
-    fun runAllBacktests(): List<BacktestResponse> {
+    suspend fun runAllBacktests(): List<BacktestResponse> {
         log.info { "Received request to run all backtests" }
 
         val results = backtestService.runBacktest()

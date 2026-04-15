@@ -2,7 +2,6 @@ package com.trading.coinflip.data
 
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -16,17 +15,17 @@ class DataService(
 ) {
     private val log = KotlinLogging.logger {}
 
-    fun loadHistoricalData(
+    suspend fun loadHistoricalData(
         symbol: String,
         timeframe: Timeframe,
         startDate: Instant,
-    ) = runBlocking {
+    ) {
         val existingCount = candleRepository.countBySymbolAndTimeframeFromDate(symbol, timeframe, startDate)
         if (existingCount > 0) {
             log.info { "Found $existingCount existing candles for $symbol $timeframe, skipping download" }
             // Still calculate ATR for any candles that don't have it
             candlePersistenceService.calculateAndSaveATR(symbol, timeframe)
-            return@runBlocking
+            return
         }
 
         log.info { "Loading historical data for $symbol $timeframe from $startDate" }
@@ -34,7 +33,7 @@ class DataService(
 
         if (candles.isEmpty()) {
             log.warn { "No candles fetched for $symbol $timeframe" }
-            return@runBlocking
+            return
         }
 
         // Save candles in a separate transaction
@@ -73,42 +72,41 @@ class DataService(
             """.trimIndent()
     }
 
-    fun syncMissingData(
+    suspend fun syncMissingData(
         symbol: String,
         timeframe: Timeframe,
-    ): Int =
-        runBlocking {
-            val latestCandleTime = candleRepository.findLatestCandleTime(symbol, timeframe)
+    ): Int {
+        val latestCandleTime = candleRepository.findLatestCandleTime(symbol, timeframe)
 
-            val startTime =
-                if (latestCandleTime != null) {
-                    // Start from the next candle after the latest one
-                    latestCandleTime.plusSeconds(timeframe.minutes * 60L)
-                } else {
-                    // No data exists, use configured start date
-                    properties.startDate
-                }
-
-            val now = Instant.now()
-            if (!startTime.isBefore(now)) {
-                log.info { "Data for $symbol ${timeframe.label} is already up to date" }
-                return@runBlocking 0
+        val startTime =
+            if (latestCandleTime != null) {
+                // Start from the next candle after the latest one
+                latestCandleTime.plusSeconds(timeframe.minutes * 60L)
+            } else {
+                // No data exists, use configured start date
+                properties.startDate
             }
 
-            log.info { "Syncing missing data for $symbol ${timeframe.label} from $startTime" }
-            val candles = binanceClient.fetchAllHistoricalData(symbol, timeframe, startTime)
-
-            if (candles.isEmpty()) {
-                log.info { "No new candles fetched for $symbol ${timeframe.label}" }
-                return@runBlocking 0
-            }
-
-            val newCandlesAdded = candlePersistenceService.saveCandles(symbol, timeframe, candles)
-
-            // Calculate ATR for new candles
-            candlePersistenceService.calculateAndSaveATR(symbol, timeframe)
-
-            log.info { "Synced $newCandlesAdded new candles for $symbol ${timeframe.label}" }
-            return@runBlocking newCandlesAdded
+        val now = Instant.now()
+        if (!startTime.isBefore(now)) {
+            log.info { "Data for $symbol ${timeframe.label} is already up to date" }
+            return 0
         }
+
+        log.info { "Syncing missing data for $symbol ${timeframe.label} from $startTime" }
+        val candles = binanceClient.fetchAllHistoricalData(symbol, timeframe, startTime)
+
+        if (candles.isEmpty()) {
+            log.info { "No new candles fetched for $symbol ${timeframe.label}" }
+            return 0
+        }
+
+        val newCandlesAdded = candlePersistenceService.saveCandles(symbol, timeframe, candles)
+
+        // Calculate ATR for new candles
+        candlePersistenceService.calculateAndSaveATR(symbol, timeframe)
+
+        log.info { "Synced $newCandlesAdded new candles for $symbol ${timeframe.label}" }
+        return newCandlesAdded
+    }
 }

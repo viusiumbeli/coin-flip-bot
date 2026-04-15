@@ -9,13 +9,12 @@ import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.engine.TradingProcessor
 import com.trading.coinflip.engine.TradingState
 import com.trading.coinflip.engine.model.PositionSide
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.read
-import kotlin.concurrent.write
 
 @Service
 class SimulationService(
@@ -25,7 +24,7 @@ class SimulationService(
 ) {
     private val log = KotlinLogging.logger {}
 
-    private val lock = ReentrantReadWriteLock()
+    private val mutex = Mutex()
 
     // Global simulation state
     private var initialized = false
@@ -42,8 +41,8 @@ class SimulationService(
     /**
      * Initialize simulation with symbol and timeframe
      */
-    fun initialize(request: SimulationInitRequest): SimulationStateDto =
-        lock.write {
+    suspend fun initialize(request: SimulationInitRequest): SimulationStateDto =
+        mutex.withLock {
             log.info { "Initializing simulation for ${request.symbol} ${request.timeframe.label}" }
 
             // Load candles from database
@@ -92,8 +91,8 @@ class SimulationService(
     /**
      * Advance to next candle
      */
-    fun advanceCandle(): SimulationStateDto =
-        lock.write {
+    suspend fun advanceCandle(): SimulationStateDto =
+        mutex.withLock {
             checkInitialized()
 
             if (currentCandleIndex >= candles.size - 1) {
@@ -110,8 +109,8 @@ class SimulationService(
     /**
      * Go back to previous candle
      */
-    fun previousCandle(): SimulationStateDto =
-        lock.write {
+    suspend fun previousCandle(): SimulationStateDto =
+        mutex.withLock {
             checkInitialized()
 
             if (currentCandleIndex <= 0) {
@@ -128,8 +127,8 @@ class SimulationService(
     /**
      * Reset simulation to beginning
      */
-    fun reset(): SimulationStateDto =
-        lock.write {
+    suspend fun reset(): SimulationStateDto =
+        mutex.withLock {
             checkInitialized()
 
             currentCandleIndex = -1
@@ -142,8 +141,8 @@ class SimulationService(
     /**
      * Get current simulation state
      */
-    fun getCurrentState(): SimulationStateDto =
-        lock.read {
+    suspend fun getCurrentState(): SimulationStateDto =
+        mutex.withLock {
             getCurrentStateInternal()
         }
 
