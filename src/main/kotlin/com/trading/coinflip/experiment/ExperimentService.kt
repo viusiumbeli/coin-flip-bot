@@ -166,17 +166,10 @@ class ExperimentService(
     @Transactional
     fun initiateExperiment(request: CreateExperimentRequest): ExperimentEntity {
         val numBacktests = request.numBacktests.coerceIn(1, properties.experiment.asyncBacktestLimit)
-        log.info { "Initiating async experiment for ${request.symbol} ${request.timeframe} with $numBacktests backtests" }
-
-        val timeframe =
-            Timeframe.fromLabel(request.timeframe)
-                ?: throw IllegalArgumentException("Invalid timeframe: ${request.timeframe}")
-
-        val startDate = Instant.parse(request.startDate)
-        val endDate = Instant.parse(request.endDate)
+        log.info { "Initiating async experiment for ${request.symbol} ${request.timeframe.label} with $numBacktests backtests" }
 
         // Generate auto name
-        val autoName = generateExperimentName(request.symbol, timeframe, startDate, endDate, numBacktests)
+        val autoName = generateExperimentName(request.symbol, request.timeframe, request.startDate, request.endDate, numBacktests)
 
         // Create experiment with PENDING status and placeholder values for aggregated stats
         val experiment =
@@ -185,9 +178,9 @@ class ExperimentService(
                 customName = request.customName?.takeIf { it.isNotBlank() },
                 notes = request.notes?.takeIf { it.isNotBlank() },
                 symbol = request.symbol,
-                timeframe = timeframe,
-                startDate = startDate,
-                endDate = endDate,
+                timeframe = request.timeframe,
+                startDate = request.startDate,
+                endDate = request.endDate,
                 numBacktests = numBacktests,
                 initialCapital = properties.initialCapital,
                 riskPerTrade = properties.trading.riskPerTrade,

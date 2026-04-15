@@ -1,6 +1,5 @@
 package com.trading.coinflip.data
 
-import com.trading.coinflip.common.model.CandleEntity
 import com.trading.coinflip.common.model.Timeframe
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query

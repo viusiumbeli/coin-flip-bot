@@ -1,9 +1,9 @@
 package com.trading.coinflip.engine
 
-import com.trading.coinflip.common.model.CandleEntity
-import com.trading.coinflip.common.model.Position
-import com.trading.coinflip.common.model.PositionSide
-import com.trading.coinflip.common.model.PositionStatus
+import com.trading.coinflip.data.CandleEntity
+import com.trading.coinflip.engine.model.Position
+import com.trading.coinflip.engine.model.PositionSide
+import com.trading.coinflip.engine.model.PositionStatus
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal

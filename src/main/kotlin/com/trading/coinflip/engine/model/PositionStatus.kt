@@ -1,4 +1,4 @@
-package com.trading.coinflip.common.model
+package com.trading.coinflip.engine.model
 
 enum class PositionStatus {
     OPEN,

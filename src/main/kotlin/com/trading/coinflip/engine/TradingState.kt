@@ -1,7 +1,7 @@
 package com.trading.coinflip.engine
 
-import com.trading.coinflip.common.model.Position
 import com.trading.coinflip.common.model.Trade
+import com.trading.coinflip.engine.model.Position
 import java.math.BigDecimal
 
 /**

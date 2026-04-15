@@ -1,8 +1,11 @@
 package com.trading.coinflip.api.backtest
 
+import com.trading.coinflip.common.model.Timeframe
+import java.time.Instant
+
 data class BacktestRequest(
     val symbol: String,
-    val timeframe: String,
-    val startDate: String? = null,
-    val endDate: String? = null,
+    val timeframe: Timeframe,
+    val startDate: Instant? = null,
+    val endDate: Instant? = null,
 )
