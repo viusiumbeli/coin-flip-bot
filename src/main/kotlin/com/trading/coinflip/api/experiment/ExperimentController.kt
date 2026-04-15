@@ -4,7 +4,6 @@ import com.trading.coinflip.common.dto.BacktestRunDetailDto
 import com.trading.coinflip.experiment.CreateExperimentRequest
 import com.trading.coinflip.experiment.ExperimentDetailResponse
 import com.trading.coinflip.experiment.ExperimentService
-import com.trading.coinflip.api.experiment.ExperimentStatusResponse
 import com.trading.coinflip.experiment.PaginatedRunsDto
 import mu.KotlinLogging
 import org.springframework.http.HttpStatus

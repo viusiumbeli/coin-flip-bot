@@ -3,7 +3,6 @@ package com.trading.coinflip.experiment
 import com.trading.coinflip.common.dto.BacktestRunDetailDto
 import com.trading.coinflip.common.dto.BacktestRunSummaryDto
 import com.trading.coinflip.common.model.BacktestRunEntity
-import com.trading.coinflip.common.model.ExperimentEntity
 import com.trading.coinflip.common.model.ExperimentTradeEntity
 
 fun BacktestRunEntity.toSummaryDto() =

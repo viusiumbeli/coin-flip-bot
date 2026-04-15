@@ -1,9 +1,9 @@
 package com.trading.coinflip.api.backtest
 
+import com.trading.coinflip.api.data.AvailableSymbolsResponse
 import com.trading.coinflip.backtest.BacktestService
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
-import com.trading.coinflip.api.data.AvailableSymbolsResponse
 import mu.KotlinLogging
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*

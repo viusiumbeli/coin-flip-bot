@@ -1,6 +1,5 @@
 package com.trading.coinflip.api.simulation
 
-import com.trading.coinflip.api.simulation.SimulationInitRequest
 import com.trading.coinflip.simulation.SimulationService
 import com.trading.coinflip.simulation.SimulationStateDto
 import mu.KotlinLogging

@@ -2,7 +2,6 @@ package com.trading.coinflip.simulation
 
 import com.trading.coinflip.api.simulation.SimulationInitRequest
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.common.config.TradingConfig
 import com.trading.coinflip.common.dto.TradeDto
 import com.trading.coinflip.common.model.CandleEntity
 import com.trading.coinflip.common.model.PositionSide
@@ -39,8 +38,7 @@ class SimulationService(
     private var currentCandleIndex: Int = -1
 
     // Trading state
-    private var tradingState: TradingState? = null
-    private var tradingConfig: TradingConfig? = null
+    private lateinit var tradingState: TradingState
 
     /**
      * Initialize simulation with symbol and timeframe
@@ -92,7 +90,6 @@ class SimulationService(
 
             // Create new state
             tradingState = TradingState.create(initialCapital)
-            tradingConfig = properties.trading
             initialized = true
 
             log.info { "Simulation initialized with ${candles.size} candles (${loadedCandles.size} total available)" }
@@ -144,7 +141,7 @@ class SimulationService(
             checkInitialized()
 
             currentCandleIndex = -1
-            tradingState!!.reset(initialCapital)
+            tradingState.reset(initialCapital)
 
             log.info { "Simulation reset" }
             getCurrentStateInternal()
@@ -167,7 +164,7 @@ class SimulationService(
         }
 
         val candle = candles[currentCandleIndex]
-        tradingProcessor.processCandle(tradingState!!, candle, candles, currentCandleIndex, tradingConfig!!)
+        tradingProcessor.processCandle(tradingState, candle, candles, currentCandleIndex, properties.trading)
     }
 
     /**
@@ -176,7 +173,7 @@ class SimulationService(
      */
     private fun replayToCurrentIndex() {
         // Reset state
-        tradingState!!.reset(initialCapital)
+        tradingState.reset(initialCapital)
 
         // Replay all candles up to current index
         for (i in 0..currentCandleIndex) {
@@ -191,26 +188,8 @@ class SimulationService(
      * Build current state DTO (internal, no locking)
      */
     private fun getCurrentStateInternal(): SimulationStateDto {
-        val state = tradingState
-        val currentCandle =
-            if (currentCandleIndex >= 0 && currentCandleIndex < candles.size) {
-                candles[currentCandleIndex]
-            } else {
-                null
-            }
-
-        val previousCandle =
-            if (currentCandleIndex > 0 && currentCandleIndex <= candles.size) {
-                candles[currentCandleIndex - 1]
-            } else {
-                null
-            }
-
-        // Calculate current price for unrealized P/L
-        val currentPrice = currentCandle?.close ?: BigDecimal.ZERO
-
         // Handle uninitialized state
-        if (state == null) {
+        if (!initialized) {
             return SimulationStateDto(
                 initialized = false,
                 symbol = null,
@@ -238,18 +217,35 @@ class SimulationService(
             )
         }
 
+        val currentCandle =
+            if (currentCandleIndex >= 0 && currentCandleIndex < candles.size) {
+                candles[currentCandleIndex]
+            } else {
+                null
+            }
+
+        val previousCandle =
+            if (currentCandleIndex > 0 && currentCandleIndex <= candles.size) {
+                candles[currentCandleIndex - 1]
+            } else {
+                null
+            }
+
+        // Calculate current price for unrealized P/L
+        val currentPrice = currentCandle?.close ?: BigDecimal.ZERO
+
         // Calculate allocated capital
-        val allocatedCapital = state.openPositions.sumOf { it.allocatedCapital }
-        val availableCapital = state.accountBalance - allocatedCapital
+        val allocatedCapital = tradingState.openPositions.sumOf { it.allocatedCapital }
+        val availableCapital = tradingState.accountBalance - allocatedCapital
 
         // Calculate win rate using compareTo for safer BigDecimal comparison
-        val winningTrades = state.closedTrades.count { it.profitLoss > BigDecimal.ZERO }
-        val losingTrades = state.closedTrades.count { it.profitLoss < BigDecimal.ZERO }
+        val winningTrades = tradingState.closedTrades.count { it.profitLoss > BigDecimal.ZERO }
+        val losingTrades = tradingState.closedTrades.count { it.profitLoss < BigDecimal.ZERO }
         val winRate =
-            if (state.closedTrades.isNotEmpty()) {
+            if (tradingState.closedTrades.isNotEmpty()) {
                 // Use divide() with scale to prevent truncation: 1/2 = 0.5, not 0
                 BigDecimal(winningTrades)
-                    .divide(BigDecimal(state.closedTrades.size), 4, RoundingMode.HALF_UP)
+                    .divide(BigDecimal(tradingState.closedTrades.size), 4, RoundingMode.HALF_UP)
                     .multiply(BigDecimal(100))
                     .setScale(2, RoundingMode.HALF_UP)
             } else {
@@ -258,14 +254,14 @@ class SimulationService(
 
         // Calculate drawdown percent
         val drawdownPercent =
-            if (state.peakBalance > BigDecimal.ZERO) {
-                (state.maxDrawdown / state.peakBalance * BigDecimal(100)).setScale(2, RoundingMode.HALF_UP)
+            if (tradingState.peakBalance > BigDecimal.ZERO) {
+                (tradingState.maxDrawdown / tradingState.peakBalance * BigDecimal(100)).setScale(2, RoundingMode.HALF_UP)
             } else {
                 BigDecimal.ZERO
             }
 
         return SimulationStateDto(
-            initialized = initialized,
+            initialized = true,
             symbol = symbol,
             timeframe = timeframe?.label,
             currentCandleIndex = currentCandleIndex,
@@ -296,20 +292,20 @@ class SimulationService(
                 },
             metrics =
                 SimulationMetricsDto(
-                    accountBalance = state.accountBalance.setScale(2, RoundingMode.HALF_UP),
-                    peakBalance = state.peakBalance.setScale(2, RoundingMode.HALF_UP),
-                    drawdown = state.maxDrawdown.setScale(2, RoundingMode.HALF_UP),
+                    accountBalance = tradingState.accountBalance.setScale(2, RoundingMode.HALF_UP),
+                    peakBalance = tradingState.peakBalance.setScale(2, RoundingMode.HALF_UP),
+                    drawdown = tradingState.maxDrawdown.setScale(2, RoundingMode.HALF_UP),
                     drawdownPercent = drawdownPercent,
-                    totalTrades = state.closedTrades.size,
+                    totalTrades = tradingState.closedTrades.size,
                     winningTrades = winningTrades,
                     losingTrades = losingTrades,
                     winRate = winRate,
-                    openPositions = state.openPositions.size,
+                    openPositions = tradingState.openPositions.size,
                     allocatedCapital = allocatedCapital.setScale(2, RoundingMode.HALF_UP),
                     availableCapital = availableCapital.setScale(2, RoundingMode.HALF_UP),
                 ),
             openPositions =
-                state.openPositions.map { position ->
+                tradingState.openPositions.map { position ->
                     val unrealizedPnL =
                         when (position.side) {
                             PositionSide.LONG -> (currentPrice - position.entryPrice) * position.positionSize
@@ -339,7 +335,7 @@ class SimulationService(
                     )
                 },
             closedTrades =
-                state.closedTrades.map { trade ->
+                tradingState.closedTrades.map { trade ->
                     TradeDto(
                         id = trade.id,
                         symbol = trade.symbol,
