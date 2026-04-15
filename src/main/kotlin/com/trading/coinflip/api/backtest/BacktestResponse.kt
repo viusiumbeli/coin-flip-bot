@@ -1,4 +1,4 @@
-package com.trading.coinflip.backtest
+package com.trading.coinflip.api.backtest
 
 import com.trading.coinflip.common.dto.TradeDto
 import com.trading.coinflip.common.model.BacktestResult
@@ -32,7 +32,7 @@ data class BacktestResponse(
     val trades: List<TradeDto>,
 )
 
-fun BacktestResult.toDto(): BacktestResponse =
+fun BacktestResult.toResponse(): BacktestResponse =
     BacktestResponse(
         symbol = config.symbol,
         timeframe = config.timeframe.label,

@@ -1,4 +1,4 @@
-package com.trading.coinflip.data
+package com.trading.coinflip.api.data
 
 data class AvailableSymbolsResponse(
     val symbols: List<String>,

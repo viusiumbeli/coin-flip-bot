@@ -1,4 +1,4 @@
-package com.trading.coinflip.simulation
+package com.trading.coinflip.api.simulation
 
 data class SimulationInitRequest(
     val symbol: String,

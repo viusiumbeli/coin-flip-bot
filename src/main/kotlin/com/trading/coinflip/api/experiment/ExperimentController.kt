@@ -1,14 +1,10 @@
-package com.trading.coinflip.api
+package com.trading.coinflip.api.experiment
 
-import com.trading.coinflip.experiment.BacktestRunDetailDto
-import com.trading.coinflip.experiment.CompareExperimentsRequest
+import com.trading.coinflip.common.dto.BacktestRunDetailDto
 import com.trading.coinflip.experiment.CreateExperimentRequest
-import com.trading.coinflip.experiment.CreateExperimentResponse
-import com.trading.coinflip.experiment.ExperimentComparisonDto
-import com.trading.coinflip.experiment.ExperimentDetailDto
+import com.trading.coinflip.experiment.ExperimentDetailResponse
 import com.trading.coinflip.experiment.ExperimentService
-import com.trading.coinflip.experiment.ExperimentStatusDto
-import com.trading.coinflip.experiment.ExperimentSummaryDto
+import com.trading.coinflip.api.experiment.ExperimentStatusResponse
 import com.trading.coinflip.experiment.PaginatedRunsDto
 import mu.KotlinLogging
 import org.springframework.http.HttpStatus
@@ -63,7 +59,7 @@ class ExperimentController(
     @GetMapping("/{id}/status")
     fun getExperimentStatus(
         @PathVariable id: Long,
-    ): ResponseEntity<ExperimentStatusDto> =
+    ): ResponseEntity<ExperimentStatusResponse> =
         try {
             val status = experimentService.getExperimentStatus(id)
             ResponseEntity.ok(status)
@@ -80,7 +76,7 @@ class ExperimentController(
     @PostMapping("/{id}/cancel")
     fun cancelExperiment(
         @PathVariable id: Long,
-    ): ResponseEntity<ExperimentStatusDto> =
+    ): ResponseEntity<ExperimentStatusResponse> =
         try {
             val status = experimentService.cancelExperiment(id)
             ResponseEntity.ok(status)
@@ -93,7 +89,7 @@ class ExperimentController(
         }
 
     @GetMapping
-    fun listExperiments(): ResponseEntity<List<ExperimentSummaryDto>> =
+    fun listExperiments(): ResponseEntity<List<ExperimentSummaryResponse>> =
         try {
             val experiments = experimentService.listExperiments()
             ResponseEntity.ok(experiments)
@@ -105,7 +101,7 @@ class ExperimentController(
     @GetMapping("/{id}")
     fun getExperiment(
         @PathVariable id: Long,
-    ): ResponseEntity<ExperimentDetailDto> =
+    ): ResponseEntity<ExperimentDetailResponse> =
         try {
             val experiment = experimentService.getExperiment(id)
             ResponseEntity.ok(experiment)
@@ -151,7 +147,7 @@ class ExperimentController(
     @PostMapping("/compare")
     fun compareExperiments(
         @RequestBody request: CompareExperimentsRequest,
-    ): ResponseEntity<ExperimentComparisonDto> {
+    ): ResponseEntity<ExperimentComparisonResponse> {
         return try {
             if (request.experimentIds.size < 2) {
                 return ResponseEntity.badRequest().build()

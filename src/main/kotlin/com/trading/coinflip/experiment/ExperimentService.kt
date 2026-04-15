@@ -1,9 +1,12 @@
 package com.trading.coinflip.experiment
 
+import com.trading.coinflip.api.experiment.ComparisonMetricResponse
+import com.trading.coinflip.api.experiment.ExperimentComparisonResponse
+import com.trading.coinflip.api.experiment.ExperimentStatusResponse
+import com.trading.coinflip.api.experiment.ExperimentSummaryResponse
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.common.model.ExperimentEntity
-import com.trading.coinflip.common.model.ExperimentStatus
-import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.common.dto.BacktestRunDetailDto
+import com.trading.coinflip.common.model.*
 import com.trading.coinflip.data.BacktestRunRepository
 import com.trading.coinflip.data.ExperimentRepository
 import com.trading.coinflip.data.ExperimentTradeRepository
@@ -32,19 +35,19 @@ class ExperimentService(
             .ofPattern("yyyy-MM-dd")
             .withZone(ZoneId.of("UTC"))
 
-    fun listExperiments(): List<ExperimentSummaryDto> =
+    fun listExperiments(): List<ExperimentSummaryResponse> =
         experimentRepository
             .findAllByOrderByCreatedAtDesc()
-            .map { it.toSummaryDto() }
+            .map { it.toExperimentSummaryResponse() }
 
-    fun getExperiment(id: Long): ExperimentDetailDto {
+    fun getExperiment(id: Long): ExperimentDetailResponse {
         val experiment =
             experimentRepository
                 .findById(id)
                 .orElseThrow { IllegalArgumentException("Experiment not found: $id") }
 
         // Don't load all runs - frontend will fetch them via paginated endpoint
-        return experiment.toDetailDto(emptyList())
+        return experiment.toExperimentDetailResponse(emptyList())
     }
 
     fun getExperimentRuns(
@@ -99,14 +102,14 @@ class ExperimentService(
         return run.toDetailDto(trades)
     }
 
-    fun compareExperiments(experimentIds: List<Long>): ExperimentComparisonDto {
+    fun compareExperiments(experimentIds: List<Long>): ExperimentComparisonResponse {
         val experiments = experimentRepository.findByIdIn(experimentIds)
 
         if (experiments.size != experimentIds.size) {
             throw IllegalArgumentException("Some experiments not found")
         }
 
-        val summaries = experiments.map { it.toSummaryDto() }
+        val summaries = experiments.map { it.toExperimentSummaryResponse() }
 
         // Build comparison metrics
         val metrics =
@@ -138,7 +141,7 @@ class ExperimentService(
                 },
             )
 
-        return ExperimentComparisonDto(
+        return ExperimentComparisonResponse(
             experiments = summaries,
             metrics = metrics,
         )
@@ -232,13 +235,13 @@ class ExperimentService(
     /**
      * Gets the current status of an experiment.
      */
-    fun getExperimentStatus(id: Long): ExperimentStatusDto {
+    fun getExperimentStatus(id: Long): ExperimentStatusResponse {
         val experiment =
             experimentRepository
                 .findById(id)
                 .orElseThrow { IllegalArgumentException("Experiment not found: $id") }
 
-        return ExperimentStatusDto(
+        return ExperimentStatusResponse(
             id = experiment.id!!,
             status = experiment.status,
             totalRuns = experiment.numBacktests,
@@ -259,7 +262,7 @@ class ExperimentService(
     /**
      * Cancels a running experiment.
      */
-    fun cancelExperiment(id: Long): ExperimentStatusDto {
+    fun cancelExperiment(id: Long): ExperimentStatusResponse {
         val experiment =
             experimentRepository
                 .findById(id)
@@ -291,8 +294,8 @@ class ExperimentService(
         label: String,
         experiments: List<ExperimentEntity>,
         extractor: (ExperimentEntity) -> String,
-    ): ComparisonMetricDto =
-        ComparisonMetricDto(
+    ): ComparisonMetricResponse =
+        ComparisonMetricResponse(
             label = label,
             values = experiments.associate { it.id!! to extractor(it) },
         )

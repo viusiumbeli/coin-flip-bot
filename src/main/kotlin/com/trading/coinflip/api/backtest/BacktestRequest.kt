@@ -1,4 +1,4 @@
-package com.trading.coinflip.backtest
+package com.trading.coinflip.api.backtest
 
 data class BacktestRequest(
     val symbol: String,

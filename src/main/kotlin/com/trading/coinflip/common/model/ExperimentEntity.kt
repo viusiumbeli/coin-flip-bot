@@ -1,5 +1,8 @@
 package com.trading.coinflip.common.model
 
+import com.trading.coinflip.api.experiment.ExperimentSummaryResponse
+import com.trading.coinflip.experiment.ExperimentDetailResponse
+import com.trading.coinflip.experiment.toSummaryDto
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -127,3 +130,74 @@ data class ExperimentEntity(
     @Column(name = "error_message", columnDefinition = "TEXT")
     var errorMessage: String? = null,
 )
+
+fun ExperimentEntity.toExperimentSummaryResponse() =
+    ExperimentSummaryResponse(
+        id = id!!,
+        name = name,
+        customName = customName,
+        symbol = symbol,
+        timeframe = timeframe.label,
+        startDate = startDate,
+        endDate = endDate,
+        createdAt = createdAt,
+        numBacktests = numBacktests,
+        totalTrades = totalTrades,
+        totalReturnPercent = totalReturnPercent,
+        buyAndHoldReturnPercent = buyAndHoldReturnPercent,
+        winRate = winRate,
+        maxDrawdownPercent = maxDrawdownPercent,
+        sharpeRatio = sharpeRatio,
+        profitFactor = profitFactor,
+        status = status,
+        completedRuns = completedRuns,
+        progressPercent = if (numBacktests > 0) (completedRuns.toDouble() / numBacktests) * 100 else 0.0,
+    )
+
+fun ExperimentEntity.toExperimentDetailResponse(runs: List<BacktestRunEntity>) =
+    ExperimentDetailResponse(
+        id = id!!,
+        name = name,
+        customName = customName,
+        notes = notes,
+        symbol = symbol,
+        timeframe = timeframe.label,
+        startDate = startDate,
+        endDate = endDate,
+        createdAt = createdAt,
+        numBacktests = numBacktests,
+        initialCapital = initialCapital,
+        riskPerTrade = riskPerTrade,
+        atrPeriod = atrPeriod,
+        atrMultiplier = atrMultiplier,
+        transactionCostPercent = transactionCostPercent,
+        maxConcurrentPositions = maxConcurrentPositions,
+        finalCapital = finalCapital,
+        totalReturn = totalReturn,
+        totalReturnPercent = totalReturnPercent,
+        maxDrawdown = maxDrawdown,
+        maxDrawdownPercent = maxDrawdownPercent,
+        winRate = winRate,
+        profitFactor = profitFactor,
+        sharpeRatio = sharpeRatio,
+        totalTrades = totalTrades,
+        winningTrades = winningTrades,
+        losingTrades = losingTrades,
+        averageWin = averageWin,
+        averageLoss = averageLoss,
+        largestWin = largestWin,
+        largestLoss = largestLoss,
+        averageTradeDuration = averageTradeDuration,
+        buyAndHoldReturn = buyAndHoldReturn,
+        buyAndHoldReturnPercent = buyAndHoldReturnPercent,
+        runsBeatBuyHold = runsBeatBuyHold,
+        returnStdDev = returnStdDev,
+        returnMin = returnMin,
+        returnMax = returnMax,
+        returnP5 = returnP5,
+        returnP25 = returnP25,
+        returnP50 = returnP50,
+        returnP75 = returnP75,
+        returnP95 = returnP95,
+        runs = runs.map { it.toSummaryDto() },
+    )

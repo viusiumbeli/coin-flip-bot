@@ -1,20 +1,12 @@
-package com.trading.coinflip.api
+package com.trading.coinflip.api.backtest
 
-import com.trading.coinflip.backtest.BacktestRequest
-import com.trading.coinflip.backtest.BacktestResponse
 import com.trading.coinflip.backtest.BacktestService
-import com.trading.coinflip.backtest.toDto
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
-import com.trading.coinflip.data.AvailableSymbolsResponse
+import com.trading.coinflip.api.data.AvailableSymbolsResponse
 import mu.KotlinLogging
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.CrossOrigin
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
 import java.time.Instant
 
 @RestController
@@ -48,7 +40,7 @@ class BacktestController(
                     endDate = endDate,
                 )
 
-            ResponseEntity.ok(result.toDto())
+            ResponseEntity.ok(result.toResponse())
         } catch (e: Exception) {
             log.error(e) { "Error running backtest: ${e.message}" }
             ResponseEntity.internalServerError().build()
@@ -62,7 +54,7 @@ class BacktestController(
 
             val results = backtestService.runBacktest()
 
-            ResponseEntity.ok(results.map { it.toDto() })
+            ResponseEntity.ok(results.map { it.toResponse() })
         } catch (e: Exception) {
             log.error(e) { "Error running backtests: ${e.message}" }
             ResponseEntity.internalServerError().build()

@@ -1,6 +1,7 @@
 package com.trading.coinflip.experiment
 
 import com.trading.coinflip.common.config.BacktestProperties
+import com.trading.coinflip.common.dto.BacktestResultWithRunNumber
 import com.trading.coinflip.common.model.BacktestRunEntity
 import com.trading.coinflip.common.model.ExperimentStatus
 import com.trading.coinflip.common.model.ExperimentTradeEntity

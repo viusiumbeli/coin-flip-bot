@@ -1,5 +1,6 @@
-package com.trading.coinflip.experiment
+package com.trading.coinflip.common.dto
 
+import com.trading.coinflip.experiment.ExperimentTradeDto
 import java.math.BigDecimal
 
 data class BacktestRunDetailDto(

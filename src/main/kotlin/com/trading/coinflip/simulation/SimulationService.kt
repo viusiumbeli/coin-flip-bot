@@ -1,5 +1,6 @@
 package com.trading.coinflip.simulation
 
+import com.trading.coinflip.api.simulation.SimulationInitRequest
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.config.TradingConfig
 import com.trading.coinflip.common.dto.TradeDto

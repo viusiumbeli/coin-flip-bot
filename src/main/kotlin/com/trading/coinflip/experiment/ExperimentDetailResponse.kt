@@ -1,9 +1,10 @@
 package com.trading.coinflip.experiment
 
+import com.trading.coinflip.common.dto.BacktestRunSummaryDto
 import java.math.BigDecimal
 import java.time.Instant
 
-data class ExperimentDetailDto(
+data class ExperimentDetailResponse(
     val id: Long,
     val name: String,
     val customName: String?,
