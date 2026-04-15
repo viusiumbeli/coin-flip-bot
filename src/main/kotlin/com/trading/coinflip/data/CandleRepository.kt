@@ -20,15 +20,6 @@ interface CandleRepository : JpaRepository<CandleEntity, Long> {
         endTime: Instant,
     ): List<CandleEntity>
 
-    @Query(
-        "SELECT c FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe AND c.openTime >= :startTime ORDER BY c.openTime ASC",
-    )
-    fun findBySymbolAndTimeframeFromDate(
-        symbol: String,
-        timeframe: Timeframe,
-        startTime: Instant,
-    ): List<CandleEntity>
-
     @Query("SELECT MIN(c.openTime) FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe")
     fun findEarliestCandleTime(
         symbol: String,
@@ -41,9 +32,43 @@ interface CandleRepository : JpaRepository<CandleEntity, Long> {
         timeframe: Timeframe,
     ): Instant?
 
-    @Query("SELECT COUNT(c) FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe AND c.atr IS NULL")
-    fun countCandlesWithoutATR(
+    // Count queries (avoid loading all entities just to count)
+    @Query("SELECT COUNT(c) FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe")
+    fun countBySymbolAndTimeframe(
         symbol: String,
         timeframe: Timeframe,
     ): Long
+
+    @Query(
+        "SELECT COUNT(c) FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe AND c.openTime >= :startTime",
+    )
+    fun countBySymbolAndTimeframeFromDate(
+        symbol: String,
+        timeframe: Timeframe,
+        startTime: Instant,
+    ): Long
+
+    // Projection query for deduplication (only load openTime, not full entities)
+    @Query("SELECT c.openTime FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe")
+    fun findOpenTimesBySymbolAndTimeframe(
+        symbol: String,
+        timeframe: Timeframe,
+    ): List<Instant>
+
+    // For incremental ATR calculation
+    @Query(
+        "SELECT c FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe AND c.atr IS NOT NULL ORDER BY c.openTime DESC LIMIT 1",
+    )
+    fun findLastCandleWithATR(
+        symbol: String,
+        timeframe: Timeframe,
+    ): CandleEntity?
+
+    @Query(
+        "SELECT c FROM CandleEntity c WHERE c.symbol = :symbol AND c.timeframe = :timeframe AND c.atr IS NULL ORDER BY c.openTime ASC",
+    )
+    fun findCandlesWithoutATR(
+        symbol: String,
+        timeframe: Timeframe,
+    ): List<CandleEntity>
 }

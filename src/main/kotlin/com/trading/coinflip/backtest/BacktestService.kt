@@ -38,7 +38,7 @@ class BacktestService(
                     dataService.loadHistoricalData(
                         symbol = symbol,
                         timeframe = timeframe,
-                        startDate = properties.startDate ?: Instant.parse("2017-01-01T00:00:00Z"),
+                        startDate = properties.startDate,
                     )
 
                     log.info { dataService.getDataSummary(symbol, timeframe) }
@@ -49,7 +49,7 @@ class BacktestService(
                             symbol = symbol,
                             timeframe = timeframe,
                             startDate = properties.startDate,
-                            endDate = properties.endDate,
+                            endDate = Instant.now(),
                         )
 
                     if (candles.isEmpty()) {
@@ -65,7 +65,7 @@ class BacktestService(
                             initialCapital = properties.initialCapital,
                             trading = properties.trading,
                             startDate = properties.startDate,
-                            endDate = properties.endDate,
+                            endDate = Instant.now(),
                         )
 
                     // Run backtest
@@ -108,7 +108,7 @@ class BacktestService(
         dataService.loadHistoricalData(
             symbol = symbol,
             timeframe = timeframe,
-            startDate = startDate ?: properties.startDate ?: Instant.parse("2017-01-01T00:00:00Z"),
+            startDate = startDate ?: properties.startDate,
         )
 
         log.debug { dataService.getDataSummary(symbol, timeframe) }
@@ -119,7 +119,7 @@ class BacktestService(
                 symbol = symbol,
                 timeframe = timeframe,
                 startDate = startDate ?: properties.startDate,
-                endDate = endDate ?: properties.endDate,
+                endDate = endDate ?: Instant.now(),
             )
 
         require(candles.isNotEmpty()) { "No candles available for $symbol ${timeframe.label}" }
@@ -132,7 +132,7 @@ class BacktestService(
                 initialCapital = properties.initialCapital,
                 trading = properties.trading,
                 startDate = startDate ?: properties.startDate,
-                endDate = endDate ?: properties.endDate,
+                endDate = endDate ?: Instant.now(),
             )
 
         // Run backtest

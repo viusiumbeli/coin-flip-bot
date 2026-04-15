@@ -13,7 +13,7 @@ import com.trading.coinflip.common.model.ExperimentStatus
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.common.model.toExperimentDetailResponse
 import com.trading.coinflip.common.model.toExperimentSummaryResponse
-import com.trading.coinflip.data.BacktestRunRepository
+import com.trading.coinflip.backtest.BacktestRunRepository
 import com.trading.coinflip.data.ExperimentRepository
 import com.trading.coinflip.data.ExperimentTradeRepository
 import mu.KotlinLogging

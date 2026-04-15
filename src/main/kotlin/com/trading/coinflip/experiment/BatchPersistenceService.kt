@@ -5,7 +5,7 @@ import com.trading.coinflip.common.dto.BacktestResultWithRunNumber
 import com.trading.coinflip.common.model.BacktestRunEntity
 import com.trading.coinflip.common.model.ExperimentStatus
 import com.trading.coinflip.common.model.ExperimentTradeEntity
-import com.trading.coinflip.data.BacktestRunRepository
+import com.trading.coinflip.backtest.BacktestRunRepository
 import com.trading.coinflip.data.ExperimentRepository
 import com.trading.coinflip.data.ExperimentTradeRepository
 import kotlinx.coroutines.channels.ReceiveChannel

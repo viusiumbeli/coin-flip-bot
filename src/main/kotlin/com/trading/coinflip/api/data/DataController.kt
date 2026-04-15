@@ -34,7 +34,7 @@ class DataController(
                 val latest = candleRepository.findLatestCandleTime(symbol, timeframe)
                 val count =
                     if (earliest != null) {
-                        candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe).size.toLong()
+                        candleRepository.countBySymbolAndTimeframe(symbol, timeframe)
                     } else {
                         0L
                     }
