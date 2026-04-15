@@ -3,131 +3,110 @@ package com.trading.coinflip.common.model
 import com.trading.coinflip.api.experiment.ExperimentSummaryResponse
 import com.trading.coinflip.experiment.ExperimentDetailResponse
 import com.trading.coinflip.experiment.toSummaryDto
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.Index
-import jakarta.persistence.Table
+import org.springframework.data.annotation.Id
+import org.springframework.data.relational.core.mapping.Column
+import org.springframework.data.relational.core.mapping.Table
 import java.math.BigDecimal
 import java.time.Instant
 
-@Entity
-@Table(
-    name = "experiments",
-    indexes = [
-        Index(name = "idx_experiments_symbol_timeframe", columnList = "symbol,timeframe"),
-        Index(name = "idx_experiments_created_at", columnList = "createdAt"),
-    ],
-)
+@Table("experiments")
 data class ExperimentEntity(
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
-    @Column(nullable = false)
     val name: String,
-    @Column(name = "custom_name")
+    @Column("custom_name")
     val customName: String? = null,
-    @Column(columnDefinition = "TEXT")
     val notes: String? = null,
-    @Column(nullable = false)
     val symbol: String,
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     val timeframe: Timeframe,
-    @Column(name = "start_date", nullable = false)
+    @Column("start_date")
     var startDate: Instant,
-    @Column(name = "end_date", nullable = false)
+    @Column("end_date")
     var endDate: Instant,
-    @Column(name = "created_at", nullable = false)
+    @Column("created_at")
     val createdAt: Instant = Instant.now(),
-    @Column(name = "num_backtests", nullable = false)
+    @Column("num_backtests")
     val numBacktests: Int = 1,
     // Configuration
-    @Column(name = "initial_capital", nullable = false, precision = 20, scale = 8)
+    @Column("initial_capital")
     val initialCapital: BigDecimal,
-    @Column(name = "risk_per_trade", nullable = false, precision = 10, scale = 4)
+    @Column("risk_per_trade")
     val riskPerTrade: BigDecimal,
-    @Column(name = "atr_period", nullable = false)
+    @Column("atr_period")
     val atrPeriod: Int,
-    @Column(name = "atr_multiplier", nullable = false, precision = 10, scale = 4)
+    @Column("atr_multiplier")
     val atrMultiplier: BigDecimal,
-    @Column(name = "transaction_cost_percent", nullable = false, precision = 10, scale = 4)
+    @Column("transaction_cost_percent")
     val transactionCostPercent: BigDecimal,
-    @Column(name = "max_concurrent_positions", nullable = false)
+    @Column("max_concurrent_positions")
     val maxConcurrentPositions: Int,
     // Aggregated Results (averages across all runs) - mutable for async updates
-    @Column(name = "final_capital", nullable = false, precision = 20, scale = 8)
+    @Column("final_capital")
     var finalCapital: BigDecimal,
-    @Column(name = "total_return", nullable = false, precision = 20, scale = 8)
+    @Column("total_return")
     var totalReturn: BigDecimal,
-    @Column(name = "total_return_percent", nullable = false, precision = 20, scale = 8)
+    @Column("total_return_percent")
     var totalReturnPercent: BigDecimal,
-    @Column(name = "max_drawdown", nullable = false, precision = 20, scale = 8)
+    @Column("max_drawdown")
     var maxDrawdown: BigDecimal,
-    @Column(name = "max_drawdown_percent", nullable = false, precision = 20, scale = 8)
+    @Column("max_drawdown_percent")
     var maxDrawdownPercent: BigDecimal,
-    @Column(name = "win_rate", nullable = false, precision = 10, scale = 4)
+    @Column("win_rate")
     var winRate: BigDecimal,
-    @Column(name = "profit_factor", nullable = false, precision = 20, scale = 8)
+    @Column("profit_factor")
     var profitFactor: BigDecimal,
-    @Column(name = "sharpe_ratio", nullable = false, precision = 20, scale = 8)
+    @Column("sharpe_ratio")
     var sharpeRatio: BigDecimal,
-    @Column(name = "total_trades", nullable = false)
+    @Column("total_trades")
     var totalTrades: Int,
-    @Column(name = "winning_trades", nullable = false)
+    @Column("winning_trades")
     var winningTrades: Int,
-    @Column(name = "losing_trades", nullable = false)
+    @Column("losing_trades")
     var losingTrades: Int,
-    @Column(name = "average_win", nullable = false, precision = 20, scale = 8)
+    @Column("average_win")
     var averageWin: BigDecimal,
-    @Column(name = "average_loss", nullable = false, precision = 20, scale = 8)
+    @Column("average_loss")
     var averageLoss: BigDecimal,
-    @Column(name = "largest_win", nullable = false, precision = 20, scale = 8)
+    @Column("largest_win")
     var largestWin: BigDecimal,
-    @Column(name = "largest_loss", nullable = false, precision = 20, scale = 8)
+    @Column("largest_loss")
     var largestLoss: BigDecimal,
-    @Column(name = "average_trade_duration", nullable = false)
+    @Column("average_trade_duration")
     var averageTradeDuration: Long,
-    @Column(name = "buy_and_hold_return", nullable = false, precision = 20, scale = 8)
+    @Column("buy_and_hold_return")
     var buyAndHoldReturn: BigDecimal,
-    @Column(name = "buy_and_hold_return_percent", nullable = false, precision = 20, scale = 8)
+    @Column("buy_and_hold_return_percent")
     var buyAndHoldReturnPercent: BigDecimal,
-    @Column(name = "runs_beat_buy_hold", nullable = false)
+    @Column("runs_beat_buy_hold")
     var runsBeatBuyHold: Int = 0,
     // Variance/distribution metrics for totalReturnPercent (nullable for backward compatibility)
-    @Column(name = "return_std_dev", precision = 20, scale = 8)
+    @Column("return_std_dev")
     var returnStdDev: BigDecimal? = null,
-    @Column(name = "return_min", precision = 20, scale = 8)
+    @Column("return_min")
     var returnMin: BigDecimal? = null,
-    @Column(name = "return_max", precision = 20, scale = 8)
+    @Column("return_max")
     var returnMax: BigDecimal? = null,
-    @Column(name = "return_p5", precision = 20, scale = 8)
+    @Column("return_p5")
     var returnP5: BigDecimal? = null,
-    @Column(name = "return_p25", precision = 20, scale = 8)
+    @Column("return_p25")
     var returnP25: BigDecimal? = null,
-    @Column(name = "return_p50", precision = 20, scale = 8)
+    @Column("return_p50")
     var returnP50: BigDecimal? = null,
-    @Column(name = "return_p75", precision = 20, scale = 8)
+    @Column("return_p75")
     var returnP75: BigDecimal? = null,
-    @Column(name = "return_p95", precision = 20, scale = 8)
+    @Column("return_p95")
     var returnP95: BigDecimal? = null,
     // Async execution status
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     var status: ExperimentStatus = ExperimentStatus.COMPLETED,
-    @Column(name = "completed_runs", nullable = false)
+    @Column("completed_runs")
     var completedRuns: Int = 0,
-    @Column(name = "failed_runs", nullable = false)
+    @Column("failed_runs")
     var failedRuns: Int = 0,
-    @Column(name = "started_at")
+    @Column("started_at")
     var startedAt: Instant? = null,
-    @Column(name = "finished_at")
+    @Column("finished_at")
     var finishedAt: Instant? = null,
-    @Column(name = "error_message", columnDefinition = "TEXT")
+    @Column("error_message")
     var errorMessage: String? = null,
 )
 

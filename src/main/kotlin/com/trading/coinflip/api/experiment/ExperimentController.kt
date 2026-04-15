@@ -33,7 +33,7 @@ class ExperimentController(
      */
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
-    fun createExperiment(
+    suspend fun createExperiment(
         @RequestBody request: CreateExperimentRequest,
     ): CreateExperimentResponse {
         log.info { "Initiating async experiment for ${request.symbol} ${request.timeframe} with ${request.numBacktests} backtests" }
@@ -49,7 +49,7 @@ class ExperimentController(
      * Gets the current status of an experiment (for progress polling).
      */
     @GetMapping("/{id}/status")
-    fun getExperimentStatus(
+    suspend fun getExperimentStatus(
         @PathVariable id: Long,
     ): ExperimentStatusResponse = experimentService.getExperimentStatus(id)
 
@@ -57,20 +57,20 @@ class ExperimentController(
      * Cancels a running experiment.
      */
     @PostMapping("/{id}/cancel")
-    fun cancelExperiment(
+    suspend fun cancelExperiment(
         @PathVariable id: Long,
     ): ExperimentStatusResponse = experimentService.cancelExperiment(id)
 
     @GetMapping
-    fun listExperiments(): List<ExperimentSummaryResponse> = experimentService.listExperiments()
+    suspend fun listExperiments(): List<ExperimentSummaryResponse> = experimentService.listExperiments()
 
     @GetMapping("/{id}")
-    fun getExperiment(
+    suspend fun getExperiment(
         @PathVariable id: Long,
     ): ExperimentDetailResponse = experimentService.getExperiment(id)
 
     @GetMapping("/{id}/runs")
-    fun getExperimentRuns(
+    suspend fun getExperimentRuns(
         @PathVariable id: Long,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "100") size: Int,
@@ -79,12 +79,12 @@ class ExperimentController(
     ): PaginatedRunsDto = experimentService.getExperimentRuns(id, page, size, sortBy, sortDir)
 
     @GetMapping("/runs/{runId}")
-    fun getBacktestRun(
+    suspend fun getBacktestRun(
         @PathVariable runId: Long,
     ): BacktestRunDetailDto = experimentService.getBacktestRun(runId)
 
     @PostMapping("/compare")
-    fun compareExperiments(
+    suspend fun compareExperiments(
         @RequestBody request: CompareExperimentsRequest,
     ): ExperimentComparisonResponse {
         if (request.experimentIds.size < 2) {
@@ -95,7 +95,7 @@ class ExperimentController(
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun deleteExperiment(
+    suspend fun deleteExperiment(
         @PathVariable id: Long,
     ) {
         experimentService.deleteExperiment(id)

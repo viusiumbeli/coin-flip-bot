@@ -24,14 +24,14 @@ class DataController(
     private val log = KotlinLogging.logger {}
 
     @GetMapping("/status")
-    fun getDataStatus(): List<DataStatusResponse> {
+    suspend fun getDataStatus(): List<DataStatusResponse> {
         val statusList = mutableListOf<DataStatusResponse>()
         val now = Instant.now()
 
         for (symbol in properties.symbols) {
             for (timeframe in properties.timeframes) {
-                val earliest = candleRepository.findEarliestCandleTime(symbol, timeframe)
-                val latest = candleRepository.findLatestCandleTime(symbol, timeframe)
+                val earliest = candleRepository.findEarliestCandle(symbol, timeframe)?.openTime
+                val latest = candleRepository.findLatestCandle(symbol, timeframe)?.openTime
                 val count =
                     if (earliest != null) {
                         candleRepository.countBySymbolAndTimeframe(symbol, timeframe)

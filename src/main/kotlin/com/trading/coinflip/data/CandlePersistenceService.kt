@@ -2,6 +2,9 @@ package com.trading.coinflip.data
 
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.engine.ATRCalculator
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.toSet
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -14,20 +17,24 @@ class CandlePersistenceService(
     private val log = KotlinLogging.logger {}
 
     @Transactional
-    fun saveCandles(
+    suspend fun saveCandles(
         symbol: String,
         timeframe: Timeframe,
         candles: List<CandleEntity>,
     ): Int {
         // Fetch only openTime values (projection query - much less memory than full entities)
-        val existingOpenTimes = candleRepository.findOpenTimesBySymbolAndTimeframe(symbol, timeframe).toSet()
+        val existingOpenTimes =
+            candleRepository
+                .findOpenTimesBySymbolAndTimeframe(symbol, timeframe)
+                .map { it.openTime }
+                .toSet()
 
         // Filter out candles that already exist (in memory)
         val newCandles = candles.filter { it.openTime !in existingOpenTimes }
 
         // Batch insert all new candles at once
         if (newCandles.isNotEmpty()) {
-            candleRepository.saveAll(newCandles)
+            candleRepository.saveAll(newCandles).toList()
             log.info { "Saved ${newCandles.size} new candles for $symbol $timeframe" }
             return newCandles.size
         }
@@ -36,14 +43,14 @@ class CandlePersistenceService(
     }
 
     @Transactional
-    fun calculateAndSaveATR(
+    suspend fun calculateAndSaveATR(
         symbol: String,
         timeframe: Timeframe,
         period: Int = 10,
     ) {
         log.info { "Calculating ATR for $symbol $timeframe with period $period" }
 
-        val candlesWithoutATR = candleRepository.findCandlesWithoutATR(symbol, timeframe)
+        val candlesWithoutATR = candleRepository.findCandlesWithoutATR(symbol, timeframe).toList()
 
         if (candlesWithoutATR.isEmpty()) {
             log.info { "All candles already have ATR calculated, skipping" }
@@ -70,7 +77,7 @@ class CandlePersistenceService(
 
         // Full calculation mode: no existing ATR, need to calculate from scratch
         log.info { "No existing ATR found, performing full calculation..." }
-        val allCandles = candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe)
+        val allCandles = candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(symbol, timeframe).toList()
 
         if (allCandles.size < period) {
             log.warn { "Not enough candles to calculate ATR. Need at least $period, got ${allCandles.size}" }
@@ -95,7 +102,7 @@ class CandlePersistenceService(
         saveATRUpdatesInBatches(candlesNeedingUpdate)
     }
 
-    private fun saveATRUpdatesInBatches(candles: List<CandleEntity>) {
+    private suspend fun saveATRUpdatesInBatches(candles: List<CandleEntity>) {
         log.info { "Updating ${candles.size} candles with ATR values in batches..." }
 
         val batchSize = 1000
@@ -104,7 +111,7 @@ class CandlePersistenceService(
 
         batches.forEachIndexed { index, batch ->
             val batchStartTime = System.currentTimeMillis()
-            candleRepository.saveAll(batch)
+            candleRepository.saveAll(batch).toList()
             val batchTime = System.currentTimeMillis() - batchStartTime
 
             val processed = ((index + 1) * batchSize).coerceAtMost(candles.size)

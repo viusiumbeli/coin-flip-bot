@@ -9,6 +9,7 @@ import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.engine.TradingProcessor
 import com.trading.coinflip.engine.TradingState
 import com.trading.coinflip.engine.model.PositionSide
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
@@ -47,10 +48,11 @@ class SimulationService(
 
             // Load candles from database
             val loadedCandles =
-                candleRepository.findBySymbolAndTimeframeOrderByOpenTimeAsc(
-                    request.symbol,
-                    request.timeframe,
-                )
+                candleRepository
+                    .findBySymbolAndTimeframeOrderByOpenTimeAsc(
+                        request.symbol,
+                        request.timeframe,
+                    ).toList()
 
             if (loadedCandles.isEmpty()) {
                 throw IllegalStateException("No candles found for ${request.symbol} ${request.timeframe}")

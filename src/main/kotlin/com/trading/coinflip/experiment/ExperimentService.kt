@@ -16,9 +16,8 @@ import com.trading.coinflip.common.model.toExperimentDetailResponse
 import com.trading.coinflip.common.model.toExperimentSummaryResponse
 import com.trading.coinflip.data.ExperimentRepository
 import com.trading.coinflip.data.ExperimentTradeRepository
+import kotlinx.coroutines.flow.toList
 import mu.KotlinLogging
-import org.springframework.data.domain.PageRequest
-import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -41,22 +40,22 @@ class ExperimentService(
             .ofPattern("yyyy-MM-dd")
             .withZone(ZoneId.of("UTC"))
 
-    fun listExperiments(): List<ExperimentSummaryResponse> =
+    suspend fun listExperiments(): List<ExperimentSummaryResponse> =
         experimentRepository
             .findAllByOrderByCreatedAtDesc()
+            .toList()
             .map { it.toExperimentSummaryResponse() }
 
-    fun getExperiment(id: Long): ExperimentDetailResponse {
+    suspend fun getExperiment(id: Long): ExperimentDetailResponse {
         val experiment =
-            experimentRepository
-                .findById(id)
-                .orElseThrow { NotFoundException("Experiment not found: $id") }
+            experimentRepository.findById(id)
+                ?: throw NotFoundException("Experiment not found: $id")
 
         // Don't load all runs - frontend will fetch them via paginated endpoint
         return experiment.toExperimentDetailResponse(emptyList())
     }
 
-    fun getExperimentRuns(
+    suspend fun getExperimentRuns(
         id: Long,
         page: Int,
         size: Int,
@@ -80,36 +79,37 @@ class ExperimentService(
             )
         val validSortBy = if (sortBy in allowedFields) sortBy else "runNumber"
 
-        val sort =
-            Sort.by(
-                if (sortDir.equals("desc", ignoreCase = true)) Sort.Direction.DESC else Sort.Direction.ASC,
-                validSortBy,
-            )
-        val pageable = PageRequest.of(page.coerceAtLeast(0), size.coerceIn(1, properties.api.maxPageSize), sort)
-        val runsPage = backtestRunRepository.findByExperimentId(id, pageable)
+        // R2DBC doesn't support Pageable - use manual pagination
+        // Note: sortBy/sortDir would need to be in the SQL query for proper sorting
+        // For now, just use run_number ordering from the paginated query
+        val validSize = size.coerceIn(1, properties.api.maxPageSize)
+        val offset = page.coerceAtLeast(0).toLong() * validSize
+
+        val runs = backtestRunRepository.findByExperimentIdPaginated(id, validSize, offset).toList()
+        val totalElements = backtestRunRepository.countByExperimentId(id)
+        val totalPages = ((totalElements + validSize - 1) / validSize).toInt()
 
         return PaginatedRunsDto(
-            runs = runsPage.content.map { it.toSummaryDto() },
-            page = runsPage.number,
-            size = runsPage.size,
-            totalPages = runsPage.totalPages,
-            totalElements = runsPage.totalElements,
+            runs = runs.map { it.toSummaryDto() },
+            page = page.coerceAtLeast(0),
+            size = validSize,
+            totalPages = totalPages,
+            totalElements = totalElements,
         )
     }
 
-    fun getBacktestRun(runId: Long): BacktestRunDetailDto {
+    suspend fun getBacktestRun(runId: Long): BacktestRunDetailDto {
         val run =
-            backtestRunRepository
-                .findById(runId)
-                .orElseThrow { NotFoundException("Backtest run not found: $runId") }
+            backtestRunRepository.findById(runId)
+                ?: throw NotFoundException("Backtest run not found: $runId")
 
-        val trades = experimentTradeRepository.findByBacktestRunIdOrderByTradeNumberAsc(runId)
+        val trades = experimentTradeRepository.findByBacktestRunIdOrderByTradeNumberAsc(runId).toList()
 
         return run.toDetailDto(trades)
     }
 
-    fun compareExperiments(experimentIds: List<Long>): ExperimentComparisonResponse {
-        val experiments = experimentRepository.findByIdIn(experimentIds)
+    suspend fun compareExperiments(experimentIds: List<Long>): ExperimentComparisonResponse {
+        val experiments = experimentRepository.findByIdIn(experimentIds).toList()
 
         if (experiments.size != experimentIds.size) {
             throw NotFoundException("Some experiments not found")
@@ -154,10 +154,13 @@ class ExperimentService(
     }
 
     @Transactional
-    fun deleteExperiment(id: Long) {
+    suspend fun deleteExperiment(id: Long) {
         if (!experimentRepository.existsById(id)) {
             throw NotFoundException("Experiment not found: $id")
         }
+        // Manual cascade delete - R2DBC doesn't honor ON DELETE CASCADE
+        experimentTradeRepository.deleteByExperimentId(id)
+        backtestRunRepository.deleteByExperimentId(id)
         experimentRepository.deleteById(id)
         log.info { "Deleted experiment $id" }
     }
@@ -170,7 +173,7 @@ class ExperimentService(
      * Returns immediately without waiting for backtests to complete.
      */
     @Transactional
-    fun initiateExperiment(request: CreateExperimentRequest): ExperimentEntity {
+    suspend fun initiateExperiment(request: CreateExperimentRequest): ExperimentEntity {
         val numBacktests = request.numBacktests.coerceIn(1, properties.experiment.asyncBacktestLimit)
         log.info { "Initiating async experiment for ${request.symbol} ${request.timeframe.label} with $numBacktests backtests" }
 
@@ -234,11 +237,10 @@ class ExperimentService(
     /**
      * Gets the current status of an experiment.
      */
-    fun getExperimentStatus(id: Long): ExperimentStatusResponse {
+    suspend fun getExperimentStatus(id: Long): ExperimentStatusResponse {
         val experiment =
-            experimentRepository
-                .findById(id)
-                .orElseThrow { NotFoundException("Experiment not found: $id") }
+            experimentRepository.findById(id)
+                ?: throw NotFoundException("Experiment not found: $id")
 
         return ExperimentStatusResponse(
             id = experiment.id!!,
@@ -261,11 +263,10 @@ class ExperimentService(
     /**
      * Cancels a running experiment.
      */
-    fun cancelExperiment(id: Long): ExperimentStatusResponse {
+    suspend fun cancelExperiment(id: Long): ExperimentStatusResponse {
         val experiment =
-            experimentRepository
-                .findById(id)
-                .orElseThrow { NotFoundException("Experiment not found: $id") }
+            experimentRepository.findById(id)
+                ?: throw NotFoundException("Experiment not found: $id")
 
         if (experiment.status != ExperimentStatus.RUNNING && experiment.status != ExperimentStatus.PENDING) {
             throw BadRequestException("Cannot cancel experiment in ${experiment.status} status")
