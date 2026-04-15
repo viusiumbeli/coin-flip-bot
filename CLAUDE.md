@@ -96,5 +96,58 @@ All trading components are Spring `@Component` beans with constructor injection:
 - `BacktestEngine` (`backtest/`) uses `TradingProcessor` for backtesting
 - `SimulationService` (`simulation/`) uses `TradingProcessor` for step-by-step simulation
 
+## Request DTO Types
+Use domain types directly in request DTOs instead of Strings to eliminate manual parsing:
+
+```kotlin
+// Good - Jackson handles deserialization automatically
+data class BacktestRequest(
+    val symbol: String,
+    val timeframe: Timeframe,      // Not String
+    val startDate: Instant? = null, // Not String?
+    val endDate: Instant? = null,
+)
+
+// Bad - requires manual parsing in every service
+val timeframe = Timeframe.fromLabel(request.timeframe) ?: throw ...
+val startDate = Instant.parse(request.startDate)
+```
+
+**Configured in `JacksonConfig`:**
+- `Timeframe` uses `@JsonValue`/`@JsonCreator` for "1h", "4h", "1d" labels
+- `Instant` uses custom serializer/deserializer for ISO-8601 format
+
+Invalid input automatically returns 400 Bad Request.
+
+## Controller Patterns
+Controllers return objects directly without `ResponseEntity` wrappers. Exception handling is centralized in `GlobalExceptionHandler`:
+
+```kotlin
+// Good - return object directly, let exception handler manage errors
+@GetMapping("/{id}")
+fun getExperiment(@PathVariable id: Long): ExperimentDetailResponse =
+    experimentService.getExperiment(id)
+
+// Bad - manual ResponseEntity and try-catch
+@GetMapping("/{id}")
+fun getExperiment(@PathVariable id: Long): ResponseEntity<ExperimentDetailResponse> =
+    try {
+        ResponseEntity.ok(experimentService.getExperiment(id))
+    } catch (e: Exception) {
+        ResponseEntity.notFound().build()
+    }
+```
+
+**Status codes:**
+- `200 OK` - Default for successful responses (automatic)
+- `202 ACCEPTED` - Use `@ResponseStatus(HttpStatus.ACCEPTED)` for async operations
+- `204 NO_CONTENT` - Use `@ResponseStatus(HttpStatus.NO_CONTENT)` for delete operations
+- `400/404/500` - Handled by `GlobalExceptionHandler` via exceptions
+
+**Custom exceptions** (`api/exception/`):
+- `NotFoundException` - Returns 404 Not Found
+- `BadRequestException` - Returns 400 Bad Request
+- `IllegalArgumentException`/`IllegalStateException` - Also return 400
+
 ## Summary
 This codebase follows strict conventions: one class per file, feature-based package organization, and consistent naming (`*Request`, `*Response`, `*Entity`, `*Config`, `*Dto`). All configuration is centralized in `BacktestProperties`, ktlint enforces code style, and `TradingProcessor` is the single source of truth for trading logic. When adding new features, place classes in the appropriate feature package and follow existing patterns.

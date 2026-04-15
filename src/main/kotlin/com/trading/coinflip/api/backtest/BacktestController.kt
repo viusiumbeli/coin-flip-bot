@@ -5,8 +5,12 @@ import com.trading.coinflip.backtest.BacktestService
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
 import mu.KotlinLogging
-import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.CrossOrigin
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/backtest")
@@ -20,58 +24,46 @@ class BacktestController(
     @PostMapping("/run")
     fun runBacktest(
         @RequestBody request: BacktestRequest,
-    ): ResponseEntity<BacktestResponse> =
-        try {
-            log.info { "Received backtest request for ${request.symbol} ${request.timeframe.label}" }
+    ): BacktestResponse {
+        log.info { "Received backtest request for ${request.symbol} ${request.timeframe.label}" }
 
-            val result =
-                backtestService.runBacktestForSymbol(
-                    symbol = request.symbol,
-                    timeframe = request.timeframe,
-                    startDate = request.startDate,
-                    endDate = request.endDate,
-                )
+        val result =
+            backtestService.runBacktestForSymbol(
+                symbol = request.symbol,
+                timeframe = request.timeframe,
+                startDate = request.startDate,
+                endDate = request.endDate,
+            )
 
-            ResponseEntity.ok(result.toResponse())
-        } catch (e: Exception) {
-            log.error(e) { "Error running backtest: ${e.message}" }
-            ResponseEntity.internalServerError().build()
-        }
+        return result.toResponse()
+    }
 
     @PostMapping("/run-all")
-    fun runAllBacktests(): ResponseEntity<List<BacktestResponse>> =
-        try {
-            log.info { "Received request to run all backtests" }
+    fun runAllBacktests(): List<BacktestResponse> {
+        log.info { "Received request to run all backtests" }
 
-            val results = backtestService.runBacktest()
+        val results = backtestService.runBacktest()
 
-            ResponseEntity.ok(results.map { it.toResponse() })
-        } catch (e: Exception) {
-            log.error(e) { "Error running backtests: ${e.message}" }
-            ResponseEntity.internalServerError().build()
-        }
+        return results.map { it.toResponse() }
+    }
 
     @GetMapping("/symbols")
-    fun getAvailableSymbols(): ResponseEntity<AvailableSymbolsResponse> =
-        ResponseEntity.ok(
-            AvailableSymbolsResponse(
-                symbols = properties.symbols,
-                timeframes = Timeframe.entries.map { it.label },
-            ),
+    fun getAvailableSymbols(): AvailableSymbolsResponse =
+        AvailableSymbolsResponse(
+            symbols = properties.symbols,
+            timeframes = Timeframe.entries.map { it.label },
         )
 
     @GetMapping("/config")
-    fun getConfig(): ResponseEntity<Map<String, Any>> =
-        ResponseEntity.ok(
-            mapOf(
-                "symbols" to properties.symbols,
-                "timeframes" to properties.timeframes.map { it.label },
-                "initialCapital" to properties.initialCapital,
-                "riskPerTrade" to properties.trading.riskPerTrade,
-                "atrPeriod" to properties.trading.atrPeriod,
-                "atrMultiplier" to properties.trading.atrMultiplier,
-                "transactionCostPercent" to properties.trading.transactionCostPercent,
-                "maxConcurrentPositions" to properties.trading.maxConcurrentPositions,
-            ),
+    fun getConfig(): Map<String, Any> =
+        mapOf(
+            "symbols" to properties.symbols,
+            "timeframes" to properties.timeframes.map { it.label },
+            "initialCapital" to properties.initialCapital,
+            "riskPerTrade" to properties.trading.riskPerTrade,
+            "atrPeriod" to properties.trading.atrPeriod,
+            "atrMultiplier" to properties.trading.atrMultiplier,
+            "transactionCostPercent" to properties.trading.transactionCostPercent,
+            "maxConcurrentPositions" to properties.trading.maxConcurrentPositions,
         )
 }
