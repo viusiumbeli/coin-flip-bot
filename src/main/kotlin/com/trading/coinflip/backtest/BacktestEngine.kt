@@ -5,7 +5,7 @@ import com.trading.coinflip.common.model.BacktestConfig
 import com.trading.coinflip.common.model.BacktestResult
 import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.engine.TradingProcessor
-import com.trading.coinflip.engine.TradingState
+import com.trading.coinflip.engine.model.TradingState
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
@@ -25,7 +25,7 @@ class BacktestEngine(
         log.debug { "Starting backtest for ${config.symbol} ${config.timeframe.label}" }
         log.debug { "Initial capital: ${config.initialCapital}, Risk per trade: ${config.trading.riskPerTrade}%" }
 
-        val state = TradingState.create(config.initialCapital)
+        var state = TradingState.create(config.initialCapital)
 
         // Filter candles by date range if specified
         val backtestCandles =
@@ -46,20 +46,22 @@ class BacktestEngine(
 
         // Walk through each candle
         for (candle in backtestCandles) {
-            processor.processCandle(state, candle)
+            val events = processor.processCandle(state, candle)
+            state = state.applyEvents(events)
         }
 
         // Close any remaining open positions at the last candle price
         val lastCandle = backtestCandles.last()
-        val remainingPositions = state.openPositions.toList()
-        for (position in remainingPositions) {
-            processor.forceClosePosition(
-                state = state,
-                position = position,
-                exitPrice = lastCandle.close,
-                exitTime = lastCandle.openTime,
-                exitReason = "End of backtest period",
-            )
+        for (position in state.openPositions) {
+            val event =
+                processor.forceClosePosition(
+                    state = state,
+                    position = position,
+                    exitPrice = lastCandle.close,
+                    exitTime = lastCandle.openTime,
+                    exitReason = "End of backtest period",
+                )
+            state = state.applyEvent(event)
         }
 
         log.debug { "Backtest completed. Closed ${state.closedTrades.size} trades" }
