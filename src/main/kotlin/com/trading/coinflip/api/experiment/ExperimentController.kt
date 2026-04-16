@@ -76,7 +76,7 @@ class ExperimentController(
         @RequestParam(defaultValue = "100") size: Int,
         @RequestParam(defaultValue = "runNumber") sortBy: String,
         @RequestParam(defaultValue = "asc") sortDir: String,
-    ): PaginatedRunsDto = experimentService.getExperimentRuns(id, page, size, sortBy, sortDir)
+    ): PaginatedRunsDto = experimentService.getExperimentRuns(id, page, size)
 
     @GetMapping("/runs/{runId}")
     suspend fun getBacktestRun(
