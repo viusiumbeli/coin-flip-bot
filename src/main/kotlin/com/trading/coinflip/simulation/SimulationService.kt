@@ -7,8 +7,8 @@ import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.engine.TradingProcessor
-import com.trading.coinflip.engine.model.TradingState
 import com.trading.coinflip.engine.model.PositionSide
+import com.trading.coinflip.engine.model.TradingState
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

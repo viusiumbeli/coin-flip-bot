@@ -55,59 +55,81 @@ class RunningAggregator {
     // T-Digest for percentiles (compression=100 uses ~2KB memory)
     private val returnTDigest: TDigest = TDigest.createMergingDigest(100.0)
 
+    /**
+     * Add a single result to the aggregator.
+     * For better performance with large batches, prefer addAll().
+     */
     suspend fun add(result: BacktestResult) =
         mutex.withLock {
-            count.incrementAndGet()
-
-            sumFinalCapital += result.finalCapital
-            sumTotalReturn += result.totalReturn
-            sumTotalReturnPercent += result.totalReturnPercent
-            sumMaxDrawdown += result.maxDrawdown
-            sumMaxDrawdownPercent += result.maxDrawdownPercent
-            sumWinRate += result.winRate
-            sumProfitFactor += result.profitFactor
-            sumSharpeRatio += result.sharpeRatio
-            sumAverageWin += result.averageWin
-            sumAverageLoss += result.averageLoss
-            sumLargestWin += result.largestWin
-            sumLargestLoss += result.largestLoss
-
-            sumTotalTrades += result.totalTrades
-            sumWinningTrades += result.winningTrades
-            sumLosingTrades += result.losingTrades
-            sumAverageTradeDuration += result.averageTradeDuration
-
-            // Buy & hold is the same for all runs (same candle data)
-            if (buyAndHoldReturn == null) {
-                buyAndHoldReturn = result.buyAndHoldReturn
-                buyAndHoldReturnPercent = result.buyAndHoldReturnPercent
-            }
-
-            // Count runs that beat buy & hold
-            if (result.totalReturnPercent >= result.buyAndHoldReturnPercent) {
-                runsBeatBuyHold++
-            }
-
-            // Welford's online algorithm for variance
-            val returnValue = result.totalReturnPercent.toDouble()
-            val n = count.get()
-            val delta = returnValue - returnMean
-            returnMean += delta / n
-            val delta2 = returnValue - returnMean
-            returnM2 += delta * delta2
-
-            // Min/Max tracking
-            val returnPercent = result.totalReturnPercent
-            if (returnMin == null || returnPercent < returnMin!!) {
-                returnMin = returnPercent
-            }
-            if (returnMax == null || returnPercent > returnMax!!) {
-                returnMax = returnPercent
-            }
-
-            // T-Digest for percentiles
-            returnTDigest.add(returnValue)
+            addInternal(result)
         }
+
+    /**
+     * Add multiple results to the aggregator in a single lock acquisition.
+     * This significantly reduces mutex contention for large-scale experiments.
+     */
+    suspend fun addAll(results: List<BacktestResult>) =
+        mutex.withLock {
+            for (result in results) {
+                addInternal(result)
+            }
+        }
+
+    /**
+     * Internal aggregation logic - must be called within mutex.withLock
+     */
+    private fun addInternal(result: BacktestResult) {
+        count.incrementAndGet()
+
+        sumFinalCapital += result.finalCapital
+        sumTotalReturn += result.totalReturn
+        sumTotalReturnPercent += result.totalReturnPercent
+        sumMaxDrawdown += result.maxDrawdown
+        sumMaxDrawdownPercent += result.maxDrawdownPercent
+        sumWinRate += result.winRate
+        sumProfitFactor += result.profitFactor
+        sumSharpeRatio += result.sharpeRatio
+        sumAverageWin += result.averageWin
+        sumAverageLoss += result.averageLoss
+        sumLargestWin += result.largestWin
+        sumLargestLoss += result.largestLoss
+
+        sumTotalTrades += result.totalTrades
+        sumWinningTrades += result.winningTrades
+        sumLosingTrades += result.losingTrades
+        sumAverageTradeDuration += result.averageTradeDuration
+
+        // Buy & hold is the same for all runs (same candle data)
+        if (buyAndHoldReturn == null) {
+            buyAndHoldReturn = result.buyAndHoldReturn
+            buyAndHoldReturnPercent = result.buyAndHoldReturnPercent
+        }
+
+        // Count runs that beat buy & hold
+        if (result.totalReturnPercent >= result.buyAndHoldReturnPercent) {
+            runsBeatBuyHold++
+        }
+
+        // Welford's online algorithm for variance
+        val returnValue = result.totalReturnPercent.toDouble()
+        val n = count.get()
+        val delta = returnValue - returnMean
+        returnMean += delta / n
+        val delta2 = returnValue - returnMean
+        returnM2 += delta * delta2
+
+        // Min/Max tracking
+        val returnPercent = result.totalReturnPercent
+        if (returnMin == null || returnPercent < returnMin!!) {
+            returnMin = returnPercent
+        }
+        if (returnMax == null || returnPercent > returnMax!!) {
+            returnMax = returnPercent
+        }
+
+        // T-Digest for percentiles
+        returnTDigest.add(returnValue)
+    }
 
     fun getCount(): Int = count.get()
 

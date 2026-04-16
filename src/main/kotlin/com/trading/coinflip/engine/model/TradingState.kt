@@ -6,16 +6,17 @@ import java.math.BigDecimal
 /**
  * Immutable state container for trading operations.
  * Use copy() or applyEvent() to create modified versions.
+ * Implements TradingStateView for compatibility with TradingProcessor.
  */
 data class TradingState(
-    val accountBalance: BigDecimal,
-    val peakBalance: BigDecimal,
-    val maxDrawdown: BigDecimal,
-    val openPositions: List<Position>,
-    val closedTrades: List<Trade>,
-    val tradeIdCounter: Long,
-    val positionIdCounter: Long,
-) {
+    override val accountBalance: BigDecimal,
+    override val peakBalance: BigDecimal,
+    override val maxDrawdown: BigDecimal,
+    override val openPositions: List<Position>,
+    override val closedTrades: List<Trade>,
+    override val tradeIdCounter: Long,
+    override val positionIdCounter: Long,
+) : TradingStateView {
     companion object {
         fun create(initialCapital: BigDecimal): TradingState =
             TradingState(

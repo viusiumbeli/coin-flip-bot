@@ -14,7 +14,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -137,46 +136,29 @@ class AsyncExperimentExecutor(
                 endDate = request.endDate,
             )
 
-        // Step 3: Create result channel and aggregator
-        val resultChannel = Channel<BacktestResultWithRunNumber>(capacity = properties.async.channelCapacity)
+        // Step 3: Create aggregator (no channel - direct persistence calls)
         val aggregator = RunningAggregator()
 
-        // Step 4: Run backtests with semaphore-limited parallelism
+        // Step 4: Run backtests with yield-based rate limiting
         val semaphore = Semaphore(parallelism)
         val backtestStartTime = System.currentTimeMillis()
 
         log.info { "Starting $numBacktests backtests with parallelism=$parallelism for experiment $experimentId" }
 
-        // Start persistence consumer in a separate coroutine (outside coroutineScope so it doesn't block)
-        val persistenceJob =
-            scope.launch {
-                batchPersistenceService.consumeResults(experimentId, resultChannel, aggregator, numBacktests)
-            }
-
-        // Run all backtests - coroutineScope waits for all child coroutines
+        // Launch with withPermit inside (fast), yield periodically to prevent coroutine explosion
+        // Workers call persistence directly - no channel overhead
         coroutineScope {
-            // Launch all backtest jobs
-            (1..numBacktests).map { runNumber ->
+            (1..numBacktests).forEach { runNumber ->
                 launch {
                     semaphore.withPermit {
                         try {
-                            // Run backtest - candles are shared read-only
                             val result = backtestEngine.runBacktest(config, candles)
-
-                            // Send result to channel
-                            resultChannel.send(BacktestResultWithRunNumber(result, runNumber))
-
-                            // Log progress periodically
-                            if (runNumber % properties.async.progressLogInterval == 0 || runNumber == numBacktests) {
-                                val elapsed = System.currentTimeMillis() - backtestStartTime
-                                val rate = runNumber * 1000.0 / elapsed
-                                log.info {
-                                    "Experiment $experimentId: $runNumber/$numBacktests complete (${String.format(
-                                        "%.1f",
-                                        rate,
-                                    )} runs/sec)"
-                                }
-                            }
+                            batchPersistenceService.submitResult(
+                                experimentId,
+                                BacktestResultWithRunNumber(result, runNumber),
+                                aggregator,
+                                numBacktests,
+                            )
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
@@ -188,13 +170,18 @@ class AsyncExperimentExecutor(
             }
         }
 
-        // Step 5: Close channel and wait for persistence to complete
-        resultChannel.close()
-        persistenceJob.join()
+        // Step 5: Flush any remaining results
+        batchPersistenceService.flushRemaining(experimentId, aggregator, numBacktests)
 
         // Step 7: Finalize experiment with aggregated statistics
         val backtestTime = System.currentTimeMillis() - backtestStartTime
-        log.info { "Completed $numBacktests backtests in ${backtestTime}ms for experiment $experimentId" }
+        val runsPerSec = numBacktests * 1000.0 / backtestTime
+        log.info {
+            "Completed $numBacktests backtests in ${backtestTime}ms (${String.format(
+                "%.1f",
+                runsPerSec,
+            )} runs/sec) for experiment $experimentId"
+        }
 
         // Get actual dates from the candles
         val actualStartDate = candles.first().openTime

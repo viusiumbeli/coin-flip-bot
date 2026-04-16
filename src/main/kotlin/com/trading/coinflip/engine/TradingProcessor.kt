@@ -1,13 +1,13 @@
 package com.trading.coinflip.engine
 
 import com.trading.coinflip.common.config.BacktestProperties
+import com.trading.coinflip.common.model.Trade
 import com.trading.coinflip.data.CandleEntity
-import com.trading.coinflip.engine.model.Position
 import com.trading.coinflip.engine.model.PositionSide
-import com.trading.coinflip.engine.model.PositionStatus
 import com.trading.coinflip.engine.model.PositionUpdateResult
+import com.trading.coinflip.engine.model.PositionView
 import com.trading.coinflip.engine.model.TradingEvent
-import com.trading.coinflip.engine.model.TradingState
+import com.trading.coinflip.engine.model.TradingStateView
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
@@ -32,7 +32,7 @@ class TradingProcessor(
      * Returns a list of events describing what should change.
      */
     fun processCandle(
-        state: TradingState,
+        state: TradingStateView,
         candle: CandleEntity,
     ): List<TradingEvent> {
         val events = mutableListOf<TradingEvent>()
@@ -43,7 +43,7 @@ class TradingProcessor(
         var tradeIdCounter = state.tradeIdCounter
 
         // Track positions that will remain open after this candle
-        val updatedPositions = mutableListOf<Position>()
+        val updatedPositions = mutableListOf<PositionView>()
 
         // Update existing positions and check for stops
         for (position in state.openPositions) {
@@ -145,8 +145,8 @@ class TradingProcessor(
      * Returns a PositionClosed event.
      */
     fun forceClosePosition(
-        state: TradingState,
-        position: Position,
+        state: TradingStateView,
+        position: PositionView,
         exitPrice: BigDecimal,
         exitTime: Instant,
         exitReason: String,
@@ -166,7 +166,7 @@ class TradingProcessor(
      * Create a PositionClosed event with P&L and drawdown calculations.
      */
     private fun createCloseEvent(
-        position: Position,
+        position: PositionView,
         exitPrice: BigDecimal,
         exitTime: Instant,
         exitReason: String,
@@ -194,17 +194,39 @@ class TradingProcessor(
         val newPeakBalance = maxOf(currentPeakBalance, newBalance)
         val newMaxDrawdown = maxOf(currentMaxDrawdown, newPeakBalance - newBalance)
 
-        // Create closed position for trade conversion
-        val closedPosition =
-            position.copy(
-                exitPrice = exitPrice,
-                exitTime = exitTime,
-                exitReason = exitReason,
-                status = PositionStatus.CLOSED,
-            )
-
         val newTradeIdCounter = tradeIdCounter + 1
-        val trade = closedPosition.toTrade(newTradeIdCounter, currentBalance, newBalance)
+
+        // Calculate P&L percent
+        val positionValue = position.entryPrice * position.positionSize
+        val pnlPercent =
+            if (positionValue > BigDecimal.ZERO) {
+                (pnl / positionValue) * BigDecimal(100)
+            } else {
+                BigDecimal.ZERO
+            }
+
+        // Create trade directly from position view
+        val trade =
+            Trade(
+                id = newTradeIdCounter,
+                symbol = position.symbol,
+                timeframe = position.timeframe,
+                side = position.side,
+                entryTime = position.entryTime,
+                entryPrice = position.entryPrice,
+                exitTime = exitTime,
+                exitPrice = exitPrice,
+                positionSize = position.positionSize,
+                initialStopLoss = position.initialStopLoss,
+                trailingStop = position.trailingStop,
+                profitLoss = pnl,
+                profitLossPercent = pnlPercent,
+                exitReason = exitReason,
+                balanceBeforeOpen = position.balanceBeforeOpen,
+                balanceAfterOpen = position.balanceAfterOpen,
+                balanceBeforeClose = currentBalance,
+                balanceAfterClose = newBalance,
+            )
 
         return TradingEvent.PositionClosed(
             positionId = position.id,
