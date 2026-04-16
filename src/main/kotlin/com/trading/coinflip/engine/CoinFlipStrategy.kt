@@ -11,9 +11,7 @@ import java.math.RoundingMode
 import kotlin.random.Random
 
 @Component
-class CoinFlipStrategy(
-    private val atrCalculator: ATRCalculator,
-) {
+class CoinFlipStrategy {
     private val log = KotlinLogging.logger {}
     private val random = Random.Default
 
@@ -53,17 +51,17 @@ class CoinFlipStrategy(
      */
     fun createPosition(
         candle: CandleEntity,
-        candles: List<CandleEntity>,
-        candleIndex: Int,
         accountBalance: BigDecimal,
         riskPercent: BigDecimal,
         atrMultiplier: BigDecimal,
         balanceBeforeOpen: BigDecimal,
         positionId: Long,
     ): Position? {
-        val atr = atrCalculator.getATRForCandle(candles, candleIndex)
-        if (atr == null || atr <= BigDecimal.ZERO) {
-            log.warn { "No valid ATR at index $candleIndex for ${candle.symbol}" }
+        val atr =
+            candle.atr
+                ?: throw IllegalStateException("ATR not calculated for candle ${candle.symbol} at ${candle.openTime}")
+        if (atr <= BigDecimal.ZERO) {
+            log.warn { "Invalid ATR value $atr for ${candle.symbol}" }
             return null
         }
 
@@ -157,12 +155,12 @@ class CoinFlipStrategy(
     fun updatePosition(
         position: Position,
         candle: CandleEntity,
-        candles: List<CandleEntity>,
-        candleIndex: Int,
         atrMultiplier: BigDecimal,
     ): Boolean {
-        val atr = atrCalculator.getATRForCandle(candles, candleIndex)
-        if (atr == null || atr <= BigDecimal.ZERO) {
+        val atr =
+            candle.atr
+                ?: throw IllegalStateException("ATR not calculated for candle ${candle.symbol} at ${candle.openTime}")
+        if (atr <= BigDecimal.ZERO) {
             return false
         }
 

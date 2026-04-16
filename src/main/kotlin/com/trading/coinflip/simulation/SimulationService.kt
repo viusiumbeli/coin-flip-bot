@@ -157,7 +157,7 @@ class SimulationService(
         }
 
         val candle = candles[currentCandleIndex]
-        tradingProcessor.processCandle(tradingState, candle, candles, currentCandleIndex, properties.trading)
+        tradingProcessor.processCandle(tradingState, candle)
     }
 
     /**

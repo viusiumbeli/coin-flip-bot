@@ -1,6 +1,6 @@
 package com.trading.coinflip.engine
 
-import com.trading.coinflip.common.config.TradingConfig
+import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Trade
 import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.engine.model.Position
@@ -20,7 +20,9 @@ import kotlin.random.Random
 @Component
 class TradingProcessor(
     private val strategy: CoinFlipStrategy,
+    properties: BacktestProperties,
 ) {
+    private val config = properties.trading
     private val log = KotlinLogging.logger {}
 
     /**
@@ -29,9 +31,6 @@ class TradingProcessor(
     fun processCandle(
         state: TradingState,
         candle: CandleEntity,
-        candles: List<CandleEntity>,
-        candleIndex: Int,
-        config: TradingConfig,
     ) {
         // Update existing positions and check for stops
         val positionsToClose =
@@ -39,14 +38,12 @@ class TradingProcessor(
                 strategy.updatePosition(
                     position = position,
                     candle = candle,
-                    candles = candles,
-                    candleIndex = candleIndex,
                     atrMultiplier = config.atrMultiplier,
                 )
             }
 
         // Close positions and update balance
-        positionsToClose.forEach { closePosition(state, it, config.transactionCostPercent) }
+        positionsToClose.forEach { closePosition(state, it) }
 
         // Consider opening new position if we have capacity
         if (state.openPositions.size < config.maxConcurrentPositions &&
@@ -64,8 +61,6 @@ class TradingProcessor(
                     val newPosition =
                         strategy.createPosition(
                             candle = candle,
-                            candles = candles,
-                            candleIndex = candleIndex,
                             accountBalance = availableBalance,
                             riskPercent = config.riskPerTrade,
                             atrMultiplier = config.atrMultiplier,
@@ -85,10 +80,9 @@ class TradingProcessor(
     /**
      * Close a position and update balances, track drawdown.
      */
-    fun closePosition(
+    private fun closePosition(
         state: TradingState,
         position: Position,
-        transactionCostPercent: BigDecimal,
     ): Trade {
         state.openPositions.remove(position)
         position.status = PositionStatus.CLOSED
@@ -103,7 +97,7 @@ class TradingProcessor(
             }
         val transactionCost =
             position.entryPrice * position.positionSize *
-                (transactionCostPercent / BigDecimal(100)) * BigDecimal(2) // Entry + Exit
+                (config.transactionCostPercent / BigDecimal(100)) * BigDecimal(2) // Entry + Exit
 
         state.accountBalance += pnl - transactionCost
         val balanceAfterClose = state.accountBalance
@@ -132,13 +126,12 @@ class TradingProcessor(
         exitPrice: BigDecimal,
         exitTime: Instant,
         exitReason: String,
-        transactionCostPercent: BigDecimal,
     ): Trade {
         position.exitPrice = exitPrice
         position.exitTime = exitTime
         position.exitReason = exitReason
         position.status = PositionStatus.CLOSED
 
-        return closePosition(state, position, transactionCostPercent)
+        return closePosition(state, position)
     }
 }

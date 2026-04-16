@@ -63,25 +63,6 @@ class ATRCalculator {
     }
 
     /**
-     * Get ATR value for a specific candle, looking back if current candle doesn't have ATR
-     */
-    fun getATRForCandle(
-        candles: List<CandleEntity>,
-        index: Int,
-    ): BigDecimal? {
-        if (index < 0 || index >= candles.size) {
-            return null
-        }
-
-        // Look backwards for the nearest ATR value
-        for (i in index downTo 0) {
-            candles[i].atr?.let { return it }
-        }
-
-        return null
-    }
-
-    /**
      * Calculate ATR incrementally for new candles, continuing from a known ATR value.
      * This is memory-efficient for sync operations where only a few new candles need ATR.
      *
