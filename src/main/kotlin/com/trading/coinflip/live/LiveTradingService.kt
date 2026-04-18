@@ -8,6 +8,7 @@ import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.engine.ATRCalculator
 import com.trading.coinflip.engine.TradingProcessor
 import com.trading.coinflip.engine.model.PositionSide
+import com.trading.coinflip.engine.model.PositionStatus
 import com.trading.coinflip.engine.model.TradingEvent
 import com.trading.coinflip.engine.model.TradingState
 import com.trading.coinflip.live.model.LiveBalanceSnapshotEntity
@@ -322,11 +323,24 @@ class LiveTradingService(
                 }
 
                 is TradingEvent.PositionClosed -> {
-                    // Delete from open positions
-                    positionRepository.deleteBySessionIdAndPositionId(
-                        sessionId,
-                        event.positionId,
-                    )
+                    // Update position with exit data and close status
+                    val entity =
+                        positionRepository.findBySessionIdAndPositionId(
+                            sessionId,
+                            event.positionId,
+                        )
+                    if (entity != null) {
+                        entity.status = PositionStatus.CLOSED
+                        entity.exitTime = event.exitTime
+                        entity.exitPrice = event.exitPrice
+                        entity.exitReason = event.exitReason
+                        entity.profitLoss = event.pnl
+                        entity.profitLossPercent = event.trade.profitLossPercent
+                        entity.balanceBeforeClose = event.trade.balanceBeforeClose
+                        entity.balanceAfterClose = event.newBalance
+                        entity.updatedAt = Instant.now()
+                        positionRepository.save(entity)
+                    }
 
                     // Save to trades
                     val tradeEntity = LiveTradeEntity.fromTrade(event.trade, sessionId)

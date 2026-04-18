@@ -17,9 +17,4 @@ interface LivePositionRepository : CoroutineCrudRepository<LivePositionEntity, L
         sessionId: Long,
         positionId: Long,
     ): LivePositionEntity?
-
-    suspend fun deleteBySessionIdAndPositionId(
-        sessionId: Long,
-        positionId: Long,
-    )
 }

@@ -21,7 +21,7 @@ data class LivePositionEntity(
     val symbol: String,
     val timeframe: Timeframe,
     val side: PositionSide,
-    val status: PositionStatus = PositionStatus.OPEN,
+    var status: PositionStatus = PositionStatus.OPEN,
     @Column("entry_time")
     val entryTime: Instant,
     @Column("entry_price")
@@ -44,6 +44,21 @@ data class LivePositionEntity(
     val createdAt: Instant = Instant.now(),
     @Column("updated_at")
     var updatedAt: Instant = Instant.now(),
+    // Exit data (populated when position closes)
+    @Column("exit_time")
+    var exitTime: Instant? = null,
+    @Column("exit_price")
+    var exitPrice: BigDecimal? = null,
+    @Column("exit_reason")
+    var exitReason: String? = null,
+    @Column("profit_loss")
+    var profitLoss: BigDecimal? = null,
+    @Column("profit_loss_percent")
+    var profitLossPercent: BigDecimal? = null,
+    @Column("balance_before_close")
+    var balanceBeforeClose: BigDecimal? = null,
+    @Column("balance_after_close")
+    var balanceAfterClose: BigDecimal? = null,
 ) {
     fun toPosition(): Position =
         Position(
