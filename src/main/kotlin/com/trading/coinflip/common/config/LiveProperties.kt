@@ -1,4 +1,4 @@
-package com.trading.coinflip.live
+package com.trading.coinflip.common.config
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Configuration

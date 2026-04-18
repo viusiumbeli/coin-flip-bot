@@ -1,6 +1,8 @@
-package com.trading.coinflip.common.model
+package com.trading.coinflip.experiment.model
 
 import com.trading.coinflip.api.experiment.ExperimentSummaryResponse
+import com.trading.coinflip.backtest.model.BacktestRunEntity
+import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.experiment.ExperimentDetailResponse
 import com.trading.coinflip.experiment.toSummaryDto
 import org.springframework.data.annotation.Id

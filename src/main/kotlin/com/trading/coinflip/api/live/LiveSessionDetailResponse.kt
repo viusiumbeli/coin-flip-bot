@@ -1,11 +1,12 @@
-package com.trading.coinflip.live.model
+package com.trading.coinflip.api.live
 
 import com.trading.coinflip.common.model.Timeframe
-import com.trading.coinflip.live.LiveSessionStatus
+import com.trading.coinflip.api.live.LivePositionResponse
+import com.trading.coinflip.live.model.LiveSessionStatus
 import java.math.BigDecimal
 import java.time.Instant
 
-data class LiveSessionDetailDto(
+data class LiveSessionDetailResponse(
     val id: Long,
     val symbol: String,
     val timeframe: Timeframe,
@@ -25,7 +26,7 @@ data class LiveSessionDetailDto(
     val stoppedAt: Instant?,
     val errorMessage: String?,
     val reconnectCount: Int,
-    val openPositions: List<LivePositionDto>,
+    val openPositions: List<LivePositionResponse>,
     val openPositionsCount: Int,
     val totalTradesCount: Long,
 )

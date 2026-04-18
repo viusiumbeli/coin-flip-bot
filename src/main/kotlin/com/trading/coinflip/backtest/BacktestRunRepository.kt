@@ -1,6 +1,6 @@
 package com.trading.coinflip.backtest
 
-import com.trading.coinflip.common.model.BacktestRunEntity
+import com.trading.coinflip.backtest.model.BacktestRunEntity
 import kotlinx.coroutines.flow.Flow
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository

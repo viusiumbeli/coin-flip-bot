@@ -2,8 +2,8 @@ package com.trading.coinflip.backtest
 
 import com.trading.coinflip.analytics.ReportGenerator
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.common.model.BacktestConfig
-import com.trading.coinflip.common.model.BacktestResult
+import com.trading.coinflip.backtest.model.BacktestConfig
+import com.trading.coinflip.backtest.model.BacktestResult
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.DataService
 import mu.KotlinLogging

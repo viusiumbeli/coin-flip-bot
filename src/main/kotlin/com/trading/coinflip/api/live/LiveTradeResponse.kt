@@ -1,11 +1,11 @@
-package com.trading.coinflip.live.model
+package com.trading.coinflip.api.live
 
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.engine.model.PositionSide
 import java.math.BigDecimal
 import java.time.Instant
 
-data class LiveTradeDto(
+data class LiveTradeResponse(
     val id: Long,
     val tradeId: Long,
     val symbol: String,

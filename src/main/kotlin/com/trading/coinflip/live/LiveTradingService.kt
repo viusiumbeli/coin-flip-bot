@@ -1,6 +1,7 @@
 package com.trading.coinflip.live
 
 import com.trading.coinflip.common.config.BacktestProperties
+import com.trading.coinflip.common.config.LiveProperties
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.data.CandleRepository
@@ -9,6 +10,15 @@ import com.trading.coinflip.engine.TradingProcessor
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.TradingEvent
 import com.trading.coinflip.engine.model.TradingState
+import com.trading.coinflip.live.model.LiveBalanceSnapshotEntity
+import com.trading.coinflip.live.model.LivePositionEntity
+import com.trading.coinflip.live.model.LiveSessionEntity
+import com.trading.coinflip.live.model.LiveSessionStatus
+import com.trading.coinflip.live.model.LiveTradeEntity
+import com.trading.coinflip.live.repository.LiveBalanceSnapshotRepository
+import com.trading.coinflip.live.repository.LivePositionRepository
+import com.trading.coinflip.live.repository.LiveSessionRepository
+import com.trading.coinflip.live.repository.LiveTradeRepository
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope

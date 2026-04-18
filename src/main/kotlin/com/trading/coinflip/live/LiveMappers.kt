@@ -1,22 +1,26 @@
 package com.trading.coinflip.live
 
 import com.trading.coinflip.engine.model.PositionSide
-import com.trading.coinflip.live.model.LivePositionDto
-import com.trading.coinflip.live.model.LiveSessionDetailDto
-import com.trading.coinflip.live.model.LiveSessionSummaryDto
-import com.trading.coinflip.live.model.LiveSnapshotDto
-import com.trading.coinflip.live.model.LiveTradeDto
+import com.trading.coinflip.api.live.LivePositionResponse
+import com.trading.coinflip.api.live.LiveSessionDetailResponse
+import com.trading.coinflip.live.model.LiveSessionEntity
+import com.trading.coinflip.api.live.LiveSessionSummaryResponse
+import com.trading.coinflip.api.live.LiveSnapshotResponse
+import com.trading.coinflip.api.live.LiveTradeResponse
+import com.trading.coinflip.live.model.LiveBalanceSnapshotEntity
+import com.trading.coinflip.live.model.LivePositionEntity
+import com.trading.coinflip.live.model.LiveTradeEntity
 import java.math.BigDecimal
 import java.math.RoundingMode
 
-fun LiveSessionEntity.toSummaryDto(): LiveSessionSummaryDto {
+fun LiveSessionEntity.toSummaryDto(): LiveSessionSummaryResponse {
     val pnl = currentBalance - initialCapital
     val pnlPercent = if (initialCapital > BigDecimal.ZERO) {
         pnl.divide(initialCapital, 4, RoundingMode.HALF_UP) * BigDecimal(100)
     } else {
         BigDecimal.ZERO
     }
-    return LiveSessionSummaryDto(
+    return LiveSessionSummaryResponse(
         id = id!!,
         symbol = symbol,
         timeframe = timeframe,
@@ -34,9 +38,9 @@ fun LiveSessionEntity.toSummaryDto(): LiveSessionSummaryDto {
 }
 
 fun LiveSessionEntity.toDetailDto(
-    positions: List<LivePositionDto>,
+    positions: List<LivePositionResponse>,
     tradesCount: Long,
-): LiveSessionDetailDto {
+): LiveSessionDetailResponse {
     val pnl = currentBalance - initialCapital
     val pnlPercent = if (initialCapital > BigDecimal.ZERO) {
         pnl.divide(initialCapital, 4, RoundingMode.HALF_UP) * BigDecimal(100)
@@ -48,7 +52,7 @@ fun LiveSessionEntity.toDetailDto(
     } else {
         BigDecimal.ZERO
     }
-    return LiveSessionDetailDto(
+    return LiveSessionDetailResponse(
         id = id!!,
         symbol = symbol,
         timeframe = timeframe,
@@ -74,7 +78,7 @@ fun LiveSessionEntity.toDetailDto(
     )
 }
 
-fun LivePositionEntity.toDto(currentPrice: BigDecimal?): LivePositionDto {
+fun LivePositionEntity.toDto(currentPrice: BigDecimal?): LivePositionResponse {
     val unrealizedPnl = currentPrice?.let { price ->
         when (side) {
             PositionSide.LONG -> (price - entryPrice) * positionSize
@@ -88,7 +92,7 @@ fun LivePositionEntity.toDto(currentPrice: BigDecimal?): LivePositionDto {
             BigDecimal.ZERO
         }
     }
-    return LivePositionDto(
+    return LivePositionResponse(
         id = id!!,
         positionId = positionId,
         symbol = symbol,
@@ -108,7 +112,7 @@ fun LivePositionEntity.toDto(currentPrice: BigDecimal?): LivePositionDto {
 }
 
 fun LiveTradeEntity.toDto() =
-    LiveTradeDto(
+    LiveTradeResponse(
         id = id!!,
         tradeId = tradeId,
         symbol = symbol,
@@ -125,7 +129,7 @@ fun LiveTradeEntity.toDto() =
     )
 
 fun LiveBalanceSnapshotEntity.toDto() =
-    LiveSnapshotDto(
+    LiveSnapshotResponse(
         id = id!!,
         balance = balance,
         openPositionsCount = openPositionsCount,

@@ -1,6 +1,4 @@
-package com.trading.coinflip.common.dto
-
-import com.trading.coinflip.common.model.BacktestResult
+package com.trading.coinflip.backtest.model
 
 /**
  * Data class for backtest result with run number.

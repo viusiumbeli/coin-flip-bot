@@ -1,7 +1,7 @@
 package com.trading.coinflip.engine
 
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.common.model.Trade
+import com.trading.coinflip.engine.model.Trade
 import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionUpdateResult

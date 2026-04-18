@@ -1,7 +1,7 @@
 package com.trading.coinflip.engine.model
 
 import com.trading.coinflip.common.config.TradingConfig
-import com.trading.coinflip.common.model.Trade
+import com.trading.coinflip.engine.model.Trade
 import com.trading.coinflip.data.CandleEntity
 import java.math.BigDecimal
 import java.math.RoundingMode

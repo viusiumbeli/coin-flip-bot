@@ -1,5 +1,6 @@
-package com.trading.coinflip.live
+package com.trading.coinflip.live.repository
 
+import com.trading.coinflip.live.model.LiveTradeEntity
 import kotlinx.coroutines.flow.Flow
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
@@ -7,7 +8,6 @@ import org.springframework.stereotype.Repository
 
 @Repository
 interface LiveTradeRepository : CoroutineCrudRepository<LiveTradeEntity, Long> {
-    fun findBySessionIdOrderByExitTimeDesc(sessionId: Long): Flow<LiveTradeEntity>
 
     @Query("SELECT COUNT(*) FROM live_trades WHERE session_id = :sessionId")
     suspend fun countBySessionId(sessionId: Long): Long

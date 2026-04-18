@@ -1,4 +1,4 @@
-package com.trading.coinflip.live
+package com.trading.coinflip.live.model
 
 enum class LiveSessionStatus {
     RUNNING,

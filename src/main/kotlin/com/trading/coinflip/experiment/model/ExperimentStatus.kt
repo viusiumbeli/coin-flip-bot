@@ -1,4 +1,4 @@
-package com.trading.coinflip.common.model
+package com.trading.coinflip.experiment.model
 
 enum class ExperimentStatus {
     PENDING,

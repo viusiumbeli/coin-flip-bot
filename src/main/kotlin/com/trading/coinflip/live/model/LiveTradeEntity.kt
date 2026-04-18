@@ -1,8 +1,8 @@
-package com.trading.coinflip.live
+package com.trading.coinflip.live.model
 
 import com.trading.coinflip.common.model.Timeframe
-import com.trading.coinflip.common.model.Trade
 import com.trading.coinflip.engine.model.PositionSide
+import com.trading.coinflip.engine.model.Trade
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Column
 import org.springframework.data.relational.core.mapping.Table

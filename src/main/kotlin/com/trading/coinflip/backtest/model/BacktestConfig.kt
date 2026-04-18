@@ -1,6 +1,7 @@
-package com.trading.coinflip.common.model
+package com.trading.coinflip.backtest.model
 
 import com.trading.coinflip.common.config.TradingConfig
+import com.trading.coinflip.common.model.Timeframe
 import java.math.BigDecimal
 import java.time.Instant
 

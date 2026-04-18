@@ -1,9 +1,9 @@
 package com.trading.coinflip.experiment
 
-import com.trading.coinflip.common.dto.BacktestRunDetailDto
-import com.trading.coinflip.common.dto.BacktestRunSummaryDto
-import com.trading.coinflip.common.model.BacktestRunEntity
-import com.trading.coinflip.common.model.ExperimentTradeEntity
+import com.trading.coinflip.backtest.model.BacktestRunDetailDto
+import com.trading.coinflip.backtest.model.BacktestRunSummaryDto
+import com.trading.coinflip.backtest.model.BacktestRunEntity
+import com.trading.coinflip.experiment.model.ExperimentTradeEntity
 
 fun BacktestRunEntity.toSummaryDto() =
     BacktestRunSummaryDto(

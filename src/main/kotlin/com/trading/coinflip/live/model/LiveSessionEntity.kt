@@ -1,4 +1,4 @@
-package com.trading.coinflip.live
+package com.trading.coinflip.live.model
 
 import com.trading.coinflip.common.model.Timeframe
 import org.springframework.data.annotation.Id
