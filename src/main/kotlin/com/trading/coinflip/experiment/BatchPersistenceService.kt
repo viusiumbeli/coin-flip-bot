@@ -76,9 +76,10 @@ class BatchPersistenceService(
         aggregator: RunningAggregator,
         numBacktests: Int,
     ) {
-        val remaining = mutex.withLock {
-            batches.remove(experimentId)?.toList()
-        }
+        val remaining =
+            mutex.withLock {
+                batches.remove(experimentId)?.toList()
+            }
         batchCounts.remove(experimentId)
 
         if (!remaining.isNullOrEmpty()) {
