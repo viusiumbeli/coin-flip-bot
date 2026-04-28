@@ -7,14 +7,13 @@ import com.trading.coinflip.api.experiment.ExperimentComparisonResponse
 import com.trading.coinflip.api.experiment.ExperimentStatusResponse
 import com.trading.coinflip.api.experiment.ExperimentSummaryResponse
 import com.trading.coinflip.backtest.BacktestRunRepository
-import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.backtest.model.BacktestRunDetailDto
+import com.trading.coinflip.common.config.BacktestProperties
+import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.experiment.model.ExperimentEntity
 import com.trading.coinflip.experiment.model.ExperimentStatus
-import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.experiment.model.toExperimentDetailResponse
 import com.trading.coinflip.experiment.model.toExperimentSummaryResponse
-import com.trading.coinflip.experiment.ExperimentRepository
 import kotlinx.coroutines.flow.toList
 import mu.KotlinLogging
 import org.springframework.stereotype.Service

@@ -8,7 +8,6 @@ import org.springframework.stereotype.Repository
 
 @Repository
 interface LiveSessionRepository : CoroutineCrudRepository<LiveSessionEntity, Long> {
-
     fun findByStatus(status: LiveSessionStatus): Flow<LiveSessionEntity>
 
     fun findAllByOrderByStartedAtDesc(): Flow<LiveSessionEntity>

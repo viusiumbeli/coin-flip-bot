@@ -8,7 +8,6 @@ import org.springframework.stereotype.Repository
 
 @Repository
 interface LiveTradeRepository : CoroutineCrudRepository<LiveTradeEntity, Long> {
-
     @Query("SELECT COUNT(*) FROM live_trades WHERE session_id = :sessionId")
     suspend fun countBySessionId(sessionId: Long): Long
 

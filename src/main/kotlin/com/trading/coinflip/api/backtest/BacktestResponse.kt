@@ -1,7 +1,7 @@
 package com.trading.coinflip.api.backtest
 
-import com.trading.coinflip.common.dto.TradeDto
 import com.trading.coinflip.backtest.model.BacktestResult
+import com.trading.coinflip.common.dto.TradeDto
 import java.math.BigDecimal
 import java.time.Instant
 

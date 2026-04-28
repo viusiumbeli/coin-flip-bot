@@ -1,25 +1,27 @@
 package com.trading.coinflip.live
 
-import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.api.live.LivePositionResponse
 import com.trading.coinflip.api.live.LiveSessionDetailResponse
-import com.trading.coinflip.live.model.LiveSessionEntity
 import com.trading.coinflip.api.live.LiveSessionSummaryResponse
 import com.trading.coinflip.api.live.LiveSnapshotResponse
 import com.trading.coinflip.api.live.LiveTradeResponse
+import com.trading.coinflip.data.CandleEntity
+import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.live.model.LiveBalanceSnapshotEntity
 import com.trading.coinflip.live.model.LivePositionEntity
+import com.trading.coinflip.live.model.LiveSessionEntity
 import com.trading.coinflip.live.model.LiveTradeEntity
 import java.math.BigDecimal
 import java.math.RoundingMode
 
 fun LiveSessionEntity.toSummaryDto(): LiveSessionSummaryResponse {
     val pnl = currentBalance - initialCapital
-    val pnlPercent = if (initialCapital > BigDecimal.ZERO) {
-        pnl.divide(initialCapital, 4, RoundingMode.HALF_UP) * BigDecimal(100)
-    } else {
-        BigDecimal.ZERO
-    }
+    val pnlPercent =
+        if (initialCapital > BigDecimal.ZERO) {
+            pnl.divide(initialCapital, 4, RoundingMode.HALF_UP) * BigDecimal(100)
+        } else {
+            BigDecimal.ZERO
+        }
     return LiveSessionSummaryResponse(
         id = id!!,
         symbol = symbol,
@@ -40,18 +42,21 @@ fun LiveSessionEntity.toSummaryDto(): LiveSessionSummaryResponse {
 fun LiveSessionEntity.toDetailDto(
     positions: List<LivePositionResponse>,
     tradesCount: Long,
+    lastCandle: CandleEntity?,
 ): LiveSessionDetailResponse {
     val pnl = currentBalance - initialCapital
-    val pnlPercent = if (initialCapital > BigDecimal.ZERO) {
-        pnl.divide(initialCapital, 4, RoundingMode.HALF_UP) * BigDecimal(100)
-    } else {
-        BigDecimal.ZERO
-    }
-    val drawdownPercent = if (peakBalance > BigDecimal.ZERO) {
-        maxDrawdown.divide(peakBalance, 4, RoundingMode.HALF_UP) * BigDecimal(100)
-    } else {
-        BigDecimal.ZERO
-    }
+    val pnlPercent =
+        if (initialCapital > BigDecimal.ZERO) {
+            pnl.divide(initialCapital, 4, RoundingMode.HALF_UP) * BigDecimal(100)
+        } else {
+            BigDecimal.ZERO
+        }
+    val drawdownPercent =
+        if (peakBalance > BigDecimal.ZERO) {
+            maxDrawdown.divide(peakBalance, 4, RoundingMode.HALF_UP) * BigDecimal(100)
+        } else {
+            BigDecimal.ZERO
+        }
     return LiveSessionDetailResponse(
         id = id!!,
         symbol = symbol,
@@ -64,9 +69,9 @@ fun LiveSessionEntity.toDetailDto(
         profitLossPercent = pnlPercent,
         maxDrawdown = maxDrawdown,
         maxDrawdownPercent = drawdownPercent,
-        lastAtr = lastAtr,
-        lastCandleClose = lastCandleClose,
-        lastCandleTime = lastCandleTime,
+        lastAtr = lastCandle?.atr,
+        lastCandleClose = lastCandle?.close,
+        lastCandleTime = lastCandle?.openTime,
         startedAt = startedAt,
         lastUpdateAt = lastUpdateAt,
         stoppedAt = stoppedAt,
@@ -79,19 +84,21 @@ fun LiveSessionEntity.toDetailDto(
 }
 
 fun LivePositionEntity.toDto(currentPrice: BigDecimal?): LivePositionResponse {
-    val unrealizedPnl = currentPrice?.let { price ->
-        when (side) {
-            PositionSide.LONG -> (price - entryPrice) * positionSize
-            PositionSide.SHORT -> (entryPrice - price) * positionSize
+    val unrealizedPnl =
+        currentPrice?.let { price ->
+            when (side) {
+                PositionSide.LONG -> (price - entryPrice) * positionSize
+                PositionSide.SHORT -> (entryPrice - price) * positionSize
+            }
         }
-    }
-    val unrealizedPnlPercent = unrealizedPnl?.let { pnl ->
-        if (allocatedCapital > BigDecimal.ZERO) {
-            pnl.divide(allocatedCapital, 4, RoundingMode.HALF_UP) * BigDecimal(100)
-        } else {
-            BigDecimal.ZERO
+    val unrealizedPnlPercent =
+        unrealizedPnl?.let { pnl ->
+            if (allocatedCapital > BigDecimal.ZERO) {
+                pnl.divide(allocatedCapital, 4, RoundingMode.HALF_UP) * BigDecimal(100)
+            } else {
+                BigDecimal.ZERO
+            }
         }
-    }
     return LivePositionResponse(
         id = id!!,
         positionId = positionId,

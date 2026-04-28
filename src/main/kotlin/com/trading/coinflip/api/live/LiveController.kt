@@ -1,13 +1,14 @@
 package com.trading.coinflip.api.live
 
 import com.trading.coinflip.api.exception.NotFoundException
+import com.trading.coinflip.common.config.LiveProperties
+import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.engine.model.PositionStatus
+import com.trading.coinflip.live.LiveTradingService
 import com.trading.coinflip.live.repository.LiveBalanceSnapshotRepository
 import com.trading.coinflip.live.repository.LivePositionRepository
-import com.trading.coinflip.common.config.LiveProperties
 import com.trading.coinflip.live.repository.LiveSessionRepository
 import com.trading.coinflip.live.repository.LiveTradeRepository
-import com.trading.coinflip.live.LiveTradingService
 import com.trading.coinflip.live.toDetailDto
 import com.trading.coinflip.live.toDto
 import com.trading.coinflip.live.toSummaryDto
@@ -31,6 +32,7 @@ class LiveController(
     private val positionRepository: LivePositionRepository,
     private val tradeRepository: LiveTradeRepository,
     private val balanceSnapshotRepository: LiveBalanceSnapshotRepository,
+    private val candleRepository: CandleRepository,
     private val liveProperties: LiveProperties,
 ) {
     private val log = KotlinLogging.logger {}
@@ -55,19 +57,23 @@ class LiveController(
     suspend fun getSession(
         @PathVariable id: Long,
     ): LiveSessionDetailResponse {
-        val session = sessionRepository.findById(id)
-            ?: throw NotFoundException("Session not found: $id")
+        val session =
+            sessionRepository.findById(id)
+                ?: throw NotFoundException("Session not found: $id")
 
-        val currentPrice = session.lastCandleClose
+        // Load last candle to get current price and ATR info
+        val lastCandle = session.lastCandleId?.let { candleRepository.findById(it) }
+        val currentPrice = lastCandle?.close
 
-        val positions = positionRepository
-            .findBySessionIdAndStatus(id, PositionStatus.OPEN)
-            .map { it.toDto(currentPrice) }
-            .toList()
+        val positions =
+            positionRepository
+                .findBySessionIdAndStatus(id, PositionStatus.OPEN)
+                .map { it.toDto(currentPrice) }
+                .toList()
 
         val tradesCount = tradeRepository.countBySessionId(id)
 
-        return session.toDetailDto(positions, tradesCount)
+        return session.toDetailDto(positions, tradesCount, lastCandle)
     }
 
     @GetMapping("/sessions/{id}/trades")
@@ -75,13 +81,15 @@ class LiveController(
         @PathVariable id: Long,
         @RequestParam(defaultValue = "50") limit: Int,
     ): LiveTradesResponse {
-        val session = sessionRepository.findById(id)
-            ?: throw NotFoundException("Session not found: $id")
+        val session =
+            sessionRepository.findById(id)
+                ?: throw NotFoundException("Session not found: $id")
 
-        val trades = tradeRepository
-            .findRecentBySessionId(session.id!!, limit.coerceAtMost(100))
-            .map { it.toDto() }
-            .toList()
+        val trades =
+            tradeRepository
+                .findRecentBySessionId(session.id!!, limit.coerceAtMost(100))
+                .map { it.toDto() }
+                .toList()
 
         val totalCount = tradeRepository.countBySessionId(id)
 
@@ -95,10 +103,11 @@ class LiveController(
         sessionRepository.findById(id)
             ?: throw NotFoundException("Session not found: $id")
 
-        val snapshots = balanceSnapshotRepository
-            .findBySessionIdOrderByCandleTimeAsc(id)
-            .map { it.toDto() }
-            .toList()
+        val snapshots =
+            balanceSnapshotRepository
+                .findBySessionIdOrderByCandleTimeAsc(id)
+                .map { it.toDto() }
+                .toList()
 
         return LiveSnapshotsResponse(snapshots = snapshots)
     }
@@ -127,8 +136,9 @@ class LiveController(
     suspend fun stopSession(
         @PathVariable id: Long,
     ) {
-        val session = sessionRepository.findById(id)
-            ?: throw NotFoundException("Session not found: $id")
+        val session =
+            sessionRepository.findById(id)
+                ?: throw NotFoundException("Session not found: $id")
 
         log.info { "Stopping live trading session for ${session.symbol}" }
 
