@@ -1,0 +1,70 @@
+server:
+  port: 0  # Random port for tests
+
+spring:
+  application:
+    name: coin-flip-bot-test
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5433/coinflipbot_test
+    username: coinflipuser
+    password: coinflippass
+    pool:
+      enabled: true
+      initial-size: 2
+      max-size: 10
+      max-idle-time: 5m
+  flyway:
+    url: jdbc:postgresql://localhost:5433/coinflipbot_test
+    user: coinflipuser
+    password: coinflippass
+
+logging:
+  level:
+    root: WARN
+    com.trading.coinflip: DEBUG
+    org.testcontainers: INFO
+
+backtest:
+  symbols:
+    - BTCUSDT
+  timeframes:
+    - ONE_HOUR
+  initial-capital: 10000
+  start-date: 2020-01-01T00:00:00Z
+
+  trading:
+    risk-per-trade: 1.0
+    atr-period: 10
+    atr-multiplier: 3.0
+    transaction-cost-percent: 0.1
+    max-concurrent-positions: 5
+    entry-frequency: 100  # 100% entry for predictable tests
+
+  experiment:
+    sync-backtest-limit: 1000
+    async-backtest-limit: 1000
+    trades-threshold: 100
+
+  async:
+    parallelism-min: 2
+    parallelism-max: 4
+    channel-capacity: 100
+    batch-size: 100
+    shutdown-timeout-ms: 5000
+    progress-log-interval: 100
+
+  api:
+    max-page-size: 100
+    http-timeout-ms: 5000
+    rate-limit-delay-ms: 10
+
+live:
+  enabled: false  # Disabled by default in tests
+  symbols:
+    - BTCUSDT
+  initial-capital: 10000
+  reconnect-delay-ms: 100
+  max-reconnect-attempts: 3
+  balance-snapshot-interval-minutes: 60
+  heartbeat-interval-ms: 1000
+  websocket-url: wss://test.example.com/ws

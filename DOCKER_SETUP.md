@@ -112,6 +112,51 @@ The application will:
 - Data is persisted in the Docker volume, so it survives container restarts
 - To start fresh, remove the volume and recreate the container
 
+## Test Database
+
+A separate test database runs on port **5433** (to avoid conflicts with the dev database):
+
+```bash
+docker run -d \
+  --name coinflip-postgres-test \
+  -e POSTGRES_DB=coinflipbot_test \
+  -e POSTGRES_USER=coinflipuser \
+  -e POSTGRES_PASSWORD=coinflippass \
+  -p 5433:5432 \
+  -v coinflip-postgres-test-data:/var/lib/postgresql/data \
+  postgres:16-alpine
+```
+
+### Managing Test Database
+
+```bash
+# Check if running
+docker ps | grep coinflip-postgres-test
+
+# Connect to test database
+docker exec -it coinflip-postgres-test psql -U coinflipuser -d coinflipbot_test
+
+# View tables
+\dt
+
+# Check live sessions
+SELECT * FROM live_sessions;
+
+# Check positions
+SELECT * FROM live_positions;
+
+# Stop test database
+docker stop coinflip-postgres-test
+
+# Start test database
+docker start coinflip-postgres-test
+
+# Remove test database (deletes data)
+docker stop coinflip-postgres-test
+docker rm coinflip-postgres-test
+docker volume rm coinflip-postgres-test-data
+```
+
 ## Troubleshooting
 
 ### "Connection refused" error

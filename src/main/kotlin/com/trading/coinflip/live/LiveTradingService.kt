@@ -227,37 +227,42 @@ class LiveTradingService(
             return
         }
 
-        val candleWithAtr = atrCalculator
-            .calculateATRIncremental(
-                previousCandle = previousCandle,
-                newCandles = listOf(rawCandle),
-                period = tradingConfig.atrPeriod,
-            ).first()
+        val candleWithAtr =
+            atrCalculator
+                .calculateATRIncremental(
+                    previousCandle = previousCandle,
+                    newCandles = listOf(rawCandle),
+                    period = tradingConfig.atrPeriod,
+                ).first()
 
-        // Process candle through trading processor
-        stateHolder.withState { currentState ->
-            val events = tradingProcessor.processCandle(currentState, candleWithAtr)
-
-            if (events.isNotEmpty()) {
-                val newState = currentState.applyEvents(events)
-                stateHolder.updateState(newState)
-
-                // Persist events
-                persistEvents(stateHolder.sessionId, events)
-
-                // Update session in database
-                updateSessionFromState(stateHolder, newState, candleWithAtr)
-
-                log.info { "Processed ${events.size} events for $symbol" }
-            }
-        }
-
-        // Save candle to database and update state holder with saved version (has ID)
+        // Save candle to database first to get ID
         val savedCandle = persistCandle(candleWithAtr)
         stateHolder.updateLastCandle(savedCandle)
 
+        // Process candle through trading processor
+        stateHolder.withState { currentState ->
+            val events = tradingProcessor.processCandle(currentState, savedCandle)
+
+            val stateToSave =
+                if (events.isNotEmpty()) {
+                    val newState = currentState.applyEvents(events)
+                    stateHolder.updateState(newState)
+
+                    // Persist events
+                    persistEvents(stateHolder.sessionId, events)
+
+                    log.info { "Processed ${events.size} events for $symbol" }
+                    newState
+                } else {
+                    currentState
+                }
+
+            // Always update session with latest candle ID
+            updateSessionFromState(stateHolder, stateToSave, savedCandle)
+        }
+
         // Take balance snapshot if needed
-        maybeCreateBalanceSnapshot(stateHolder, candleWithAtr)
+        maybeCreateBalanceSnapshot(stateHolder, savedCandle)
     }
 
     /**
@@ -330,7 +335,7 @@ class LiveTradingService(
                     tradeRepository.save(tradeEntity)
                     log.info {
                         "Closed position ${event.positionId}: " +
-                                "P&L=${event.pnl}, Reason=${event.exitReason}"
+                            "P&L=${event.pnl}, Reason=${event.exitReason}"
                     }
                 }
             }
@@ -440,8 +445,7 @@ class LiveTradingService(
     /**
      * Get current status for all sessions.
      */
-    suspend fun getAllSessionStatus(): List<LiveSessionEntity> =
-        sessionRepository.findAllByOrderByStartedAtDesc().toList()
+    suspend fun getAllSessionStatus(): List<LiveSessionEntity> = sessionRepository.findAllByOrderByStartedAtDesc().toList()
 
     /**
      * Get state for a specific symbol.
