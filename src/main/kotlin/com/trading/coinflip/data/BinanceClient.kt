@@ -38,6 +38,7 @@ class BinanceClient(
     ): List<CandleEntity> {
         val interval =
             when (timeframe) {
+                Timeframe.ONE_MINUTE -> "1m"
                 Timeframe.ONE_HOUR -> "1h"
                 Timeframe.FOUR_HOURS -> "4h"
                 Timeframe.ONE_DAY -> "1d"
