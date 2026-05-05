@@ -241,9 +241,22 @@ class LiveTradingService(
                     // Persist events
                     persistEvents(stateHolder.sessionId, events)
 
-                    log.info { "Processed ${events.size} events for $symbol" }
+                    for (event in events) {
+                        when (event) {
+                            is TradingEvent.PositionOpened -> log.info {
+                                "Opened ${event.position.side} #${event.position.id} at ${event.position.entryPrice} for $symbol"
+                            }
+                            is TradingEvent.PositionUpdated -> log.info {
+                                "Updated trailing stop #${event.positionId} to ${event.newTrailingStop} for $symbol"
+                            }
+                            is TradingEvent.PositionClosed -> log.info {
+                                "Closed #${event.positionId} P&L=${event.pnl} (${event.exitReason}) for $symbol"
+                            }
+                        }
+                    }
                     newState
                 } else {
+                    log.info { "Processed candle for $symbol, no position changes" }
                     currentState
                 }
 
