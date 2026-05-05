@@ -9,6 +9,7 @@ data class TradingConfig(
     var atrMultiplier: BigDecimal = BigDecimal(3.0),
     var transactionCostPercent: BigDecimal = BigDecimal(0.1),
     var maxConcurrentPositions: Int = 5,
+    var maxPositionSizePercent: BigDecimal = BigDecimal(20),
     var entryFrequency: Double = 0.1,
 ) {
     // Pre-computed rates for hot path performance (avoid BigDecimal division per call)
@@ -17,6 +18,9 @@ data class TradingConfig(
     }
     val roundTripTransactionCostRate: BigDecimal by lazy {
         transactionCostPercent.divide(HUNDRED, 8, RoundingMode.HALF_UP) * TWO
+    }
+    val maxPositionSizeRate: BigDecimal by lazy {
+        maxPositionSizePercent.divide(HUNDRED, 8, RoundingMode.HALF_UP)
     }
 
     companion object {

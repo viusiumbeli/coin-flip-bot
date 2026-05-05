@@ -56,6 +56,7 @@ class CoinFlipStrategy {
         accountBalance: BigDecimal,
         riskPercent: BigDecimal,
         atrMultiplier: BigDecimal,
+        maxPositionSizeRate: BigDecimal,
         balanceBeforeOpen: BigDecimal,
         positionId: Long,
     ): Position? {
@@ -103,8 +104,18 @@ class CoinFlipStrategy {
             return null
         }
 
+        // Cap position to maxPositionSizePercent of balance
+        val maxAllowedValue = accountBalance * maxPositionSizeRate
+        var positionValue = positionSize * entryPrice
+        if (positionValue > maxAllowedValue) {
+            positionSize = maxAllowedValue.divide(entryPrice, 8, RoundingMode.DOWN)
+            positionValue = positionSize * entryPrice
+            log.debug {
+                "Position capped to max size: $positionSize (${maxPositionSizeRate * BigDecimal(100)}% of balance)"
+            }
+        }
+
         // For both LONG and SHORT positions, ensure we don't exceed available balance
-        val positionValue = positionSize * entryPrice
         if (positionValue > accountBalance) {
             // Cap position size to what we can afford
             positionSize = accountBalance.divide(entryPrice, 8, RoundingMode.DOWN)
