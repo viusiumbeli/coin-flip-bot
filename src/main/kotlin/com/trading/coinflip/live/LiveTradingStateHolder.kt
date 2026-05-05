@@ -19,6 +19,8 @@ class LiveTradingStateHolder(
     initialState: TradingState,
     var lastCandle: CandleEntity? = null,
 ) {
+    val logPrefix: String get() = "[#$sessionId $symbol/${timeframe.label}]"
+
     private val mutex = Mutex()
     private var _state: TradingState = initialState
 
