@@ -63,6 +63,8 @@ class LiveTradingService(
     private val stateHolders = ConcurrentHashMap<String, LiveTradingStateHolder>()
     private val mutex = Mutex()
 
+    private fun sessionKey(symbol: String, timeframe: Timeframe): String = "${symbol}_${timeframe.label}"
+
     @PostConstruct
     fun initialize() {
         if (!liveProperties.enabled) {
@@ -97,8 +99,9 @@ class LiveTradingService(
         timeframe: Timeframe,
     ): LiveSessionEntity =
         mutex.withLock {
-            if (sessionJobs.containsKey(symbol)) {
-                throw IllegalStateException("Session already running for $symbol")
+            val key = sessionKey(symbol, timeframe)
+            if (sessionJobs.containsKey(key)) {
+                throw IllegalStateException("Session already running for $symbol ${timeframe.label}")
             }
 
             // Create new session in database
@@ -121,7 +124,7 @@ class LiveTradingService(
                     timeframe = timeframe,
                     initialState = TradingState.create(liveProperties.initialCapital),
                 )
-            stateHolders[symbol] = stateHolder
+            stateHolders[key] = stateHolder
 
             // Initialize ATR from historical data
             initializeAtrFromHistory(stateHolder)
@@ -131,7 +134,7 @@ class LiveTradingService(
                 scope.launch {
                     runSession(stateHolder)
                 }
-            sessionJobs[symbol] = job
+            sessionJobs[key] = job
 
             log.info { "Started live trading session for $symbol ${timeframe.label} (id=${session.id})" }
             session
@@ -142,35 +145,36 @@ class LiveTradingService(
      */
     private suspend fun resumeSession(session: LiveSessionEntity) =
         mutex.withLock {
-            val symbol = session.symbol
+            val key = sessionKey(session.symbol, session.timeframe)
 
-            if (sessionJobs.containsKey(symbol)) {
-                log.warn { "Session already running for $symbol, skipping resume" }
+            if (sessionJobs.containsKey(key)) {
+                log.warn { "Session already running for ${session.symbol} ${session.timeframe.label}, skipping resume" }
                 return
             }
 
             val stateHolder = recoveryService.recoverState(session)
-            stateHolders[symbol] = stateHolder
+            stateHolders[key] = stateHolder
 
             val job =
                 scope.launch {
                     runSession(stateHolder)
                 }
-            sessionJobs[symbol] = job
+            sessionJobs[key] = job
 
-            log.info { "Resumed session for $symbol ${session.timeframe.label} (id=${session.id})" }
+            log.info { "Resumed session for ${session.symbol} ${session.timeframe.label} (id=${session.id})" }
         }
 
     /**
      * Stop a running session.
      */
-    suspend fun stopSession(symbol: String) =
+    suspend fun stopSession(symbol: String, timeframe: Timeframe) =
         mutex.withLock {
-            val job = sessionJobs.remove(symbol)
-            val stateHolder = stateHolders.remove(symbol)
+            val key = sessionKey(symbol, timeframe)
+            val job = sessionJobs.remove(key)
+            val stateHolder = stateHolders.remove(key)
 
             if (job == null || stateHolder == null) {
-                throw IllegalStateException("No running session for $symbol")
+                throw IllegalStateException("No running session for $symbol ${timeframe.label}")
             }
 
             job.cancel()
@@ -183,7 +187,7 @@ class LiveTradingService(
                 sessionRepository.save(session)
             }
 
-            log.info { "Stopped session for $symbol" }
+            log.info { "Stopped session for $symbol ${timeframe.label}" }
         }
 
     /**
@@ -438,12 +442,14 @@ class LiveTradingService(
     suspend fun getAllSessionStatus(): List<LiveSessionEntity> = sessionRepository.findAllByOrderByStartedAtDesc().toList()
 
     /**
-     * Get state for a specific symbol.
+     * Get state for a specific symbol and timeframe.
      */
-    fun getStateHolder(symbol: String): LiveTradingStateHolder? = stateHolders[symbol]
+    fun getStateHolder(symbol: String, timeframe: Timeframe): LiveTradingStateHolder? =
+        stateHolders[sessionKey(symbol, timeframe)]
 
     /**
-     * Check if a symbol has an active session.
+     * Check if a symbol and timeframe has an active session.
      */
-    fun isSessionActive(symbol: String): Boolean = sessionJobs.containsKey(symbol)
+    fun isSessionActive(symbol: String, timeframe: Timeframe): Boolean =
+        sessionJobs.containsKey(sessionKey(symbol, timeframe))
 }

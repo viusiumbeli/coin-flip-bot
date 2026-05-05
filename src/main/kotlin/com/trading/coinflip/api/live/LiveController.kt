@@ -143,8 +143,8 @@ class LiveController(
             sessionRepository.findById(id)
                 ?: throw NotFoundException("Session not found: $id")
 
-        log.info { "Stopping live trading session for ${session.symbol}" }
+        log.info { "Stopping live trading session for ${session.symbol} ${session.timeframe.label}" }
 
-        liveTradingService.stopSession(session.symbol)
+        liveTradingService.stopSession(session.symbol, session.timeframe)
     }
 }
