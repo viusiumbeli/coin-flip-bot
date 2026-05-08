@@ -61,10 +61,13 @@ class DataService(
         binanceClient
             .streamHistoricalData(symbol, timeframe, startDate)
             .collect { page ->
+                log.info {
+                    "Got page of ${page.size} candles (total: ${totalSaved + page.size}) symbol=$symbol timeframe=${timeframe.label}"
+                }
                 val saved = saveCandlePage(page)
                 totalSaved += saved
                 pageNum++
-                log.info { "Page $pageNum: saved $saved candles (total: $totalSaved)" }
+                log.info { "Page $pageNum: saved $saved candles (total: $totalSaved) symbol=$symbol timeframe=${timeframe.label}" }
             }
 
         return totalSaved
