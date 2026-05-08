@@ -12,19 +12,7 @@ data class TradingConfig(
     var maxPositionSizePercent: BigDecimal = BigDecimal(20),
     var entryFrequency: Double = 0.1,
 ) {
-    // Pre-computed rates for hot path performance (avoid BigDecimal division per call)
-    val riskPerTradeRate: BigDecimal by lazy {
-        riskPerTrade.divide(HUNDRED, 8, RoundingMode.HALF_UP)
-    }
-    val roundTripTransactionCostRate: BigDecimal by lazy {
-        transactionCostPercent.divide(HUNDRED, 8, RoundingMode.HALF_UP) * TWO
-    }
     val maxPositionSizeRate: BigDecimal by lazy {
-        maxPositionSizePercent.divide(HUNDRED, 8, RoundingMode.HALF_UP)
-    }
-
-    companion object {
-        private val HUNDRED = BigDecimal(100)
-        private val TWO = BigDecimal(2)
+        maxPositionSizePercent.divide(BigDecimal(100), 8, RoundingMode.HALF_UP)
     }
 }

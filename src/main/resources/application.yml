@@ -36,7 +36,7 @@ backtest:
     - ONE_HOUR
     - FOUR_HOURS
     - ONE_DAY
-  initial-capital: 2000
+  initial-capital: 100000
   start-date: 2020-01-01T00:00:00Z
 
   trading:

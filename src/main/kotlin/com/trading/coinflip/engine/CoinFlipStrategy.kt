@@ -59,6 +59,7 @@ class CoinFlipStrategy {
         maxPositionSizeRate: BigDecimal,
         balanceBeforeOpen: BigDecimal,
         positionId: Long,
+        maxAllocation: BigDecimal,
     ): Position? {
         val atr =
             candle.atr
@@ -113,6 +114,13 @@ class CoinFlipStrategy {
             log.debug {
                 "Position capped to max size: $positionSize (${maxPositionSizeRate * BigDecimal(100)}% of balance)"
             }
+        }
+
+        // Cap to available balance (never allocate more than we have)
+        if (positionValue > maxAllocation) {
+            positionSize = maxAllocation.divide(entryPrice, 8, RoundingMode.DOWN)
+            positionValue = positionSize * entryPrice
+            log.debug { "Position capped to available: $positionSize (max allocation: $maxAllocation)" }
         }
 
         // For both LONG and SHORT positions, ensure we don't exceed available balance
