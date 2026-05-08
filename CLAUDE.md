@@ -101,6 +101,7 @@ This ensures **each losing trade loses exactly 1% of capital**.
 6. **Don't save trades for large experiments** - Only saved if `numBacktests ≤ tradesThreshold` (default 100)
 7. **Don't use browser `confirm()`** - Use `showConfirmModal()` from `modal.js`
 8. **Don't apply timezone to dates** - Use `toUTCISOString()` from `formatters.js`, all dates are UTC
+9. **Don't use ATRCalculator for new code** - ATR is calculated by database trigger; re-fetch candle after save to get ATR value
 
 ---
 
@@ -118,7 +119,7 @@ Feature-based organization under `com.trading.coinflip` with **one class per fil
 │   ├── config/    # BacktestProperties, JacksonConfig
 │   ├── dto/       # Shared DTOs only (TradeDto)
 │   └── model/     # Domain models, JPA entities (CandleEntity, ExperimentEntity, etc.)
-├── engine/        # Core trading (TradingProcessor, CoinFlipStrategy, ATRCalculator)
+├── engine/        # Core trading (TradingProcessor, CoinFlipStrategy, ATRCalculator [deprecated])
 ├── backtest/      # BacktestEngine, BacktestService, BacktestRequest, BacktestResponse
 ├── experiment/    # ExperimentService, AsyncExperimentExecutor + experiment DTOs
 ├── simulation/    # SimulationService + simulation DTOs
@@ -312,6 +313,33 @@ startDate: toUTCISOString(document.getElementById('startDate').value)
 // Bad - applies local timezone offset
 startDate: new Date(startDate).toISOString()
 ```
+
+## Data Layer Architecture
+
+**Separation of Concerns:**
+- **Data sync** (`/api/data/sync`) - Downloads from Binance API, saves page-by-page
+- **Backtests/Experiments** - Read-only from database, never download
+
+**Key Components:**
+- `BinanceClient.streamHistoricalData()` - Returns `Flow<List<CandleEntity>>`, emits pages of 1000 candles
+- `DataService.syncMissingData()` - Syncs from latest candle to now, used by `/api/data/sync`
+- `DataService.getCandlesForBacktest()` - DB-only fetch, used by backtests and experiments
+- `CandlePersistenceService.saveCandlePage()` - Saves one page per transaction for crash safety
+
+**Data Flow:**
+```
+Binance API → BinanceClient (streaming) → CandlePersistenceService (page-by-page save) → DB
+                                                                                          ↓
+Backtest/Experiment ← DataService.getCandlesForBacktest() ← CandleRepository ←───────────┘
+```
+
+**ATR Calculation (Database Trigger):**
+- ATR is calculated atomically by PostgreSQL `BEFORE INSERT` trigger on `candles` table
+- See `V9__ATR_database_trigger.sql` for the `calculate_atr_for_candle()` function
+- Ensures data consistency - ATR is set in the same transaction as INSERT
+- No memory issues - no need to load millions of rows into JVM
+- Period hardcoded to 10 in trigger (matches `trading.atr-period` default)
+- `ATRCalculator.kt` is deprecated - kept for reference only
 
 ## Summary
 This codebase follows strict conventions: one class per file, feature-based package organization, and consistent naming (`*Request`, `*Response`, `*Entity`, `*Config`, `*Dto`). All configuration is centralized in `BacktestProperties`, ktlint enforces code style, and `TradingProcessor` is the single source of truth for trading logic. The async layer uses Kotlin coroutines with Spring WebFlux, `Mutex` for synchronization, and `Channel` for streaming. Frontend uses vanilla JS with UTC-only date handling via `formatters.js` utilities. When adding new features, place classes in the appropriate feature package and follow existing patterns.

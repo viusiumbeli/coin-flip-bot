@@ -11,7 +11,6 @@ import java.time.Instant
 class DataService(
     private val candleRepository: CandleRepository,
     private val binanceClient: BinanceClient,
-    private val candlePersistenceService: CandlePersistenceService,
     private val properties: BacktestProperties,
 ) {
     private val log = KotlinLogging.logger {}
@@ -47,7 +46,6 @@ class DataService(
             return 0
         }
 
-        candlePersistenceService.calculateAndSaveATR(symbol, timeframe)
         log.info { "Synced $totalSaved new candles for $symbol ${timeframe.label}" }
         return totalSaved
     }
@@ -63,7 +61,7 @@ class DataService(
         binanceClient
             .streamHistoricalData(symbol, timeframe, startDate)
             .collect { page ->
-                val saved = candlePersistenceService.saveCandlePage(page)
+                val saved = saveCandlePage(page)
                 totalSaved += saved
                 pageNum++
                 log.info { "Page $pageNum: saved $saved candles (total: $totalSaved)" }
@@ -88,4 +86,15 @@ class DataService(
                 startDate,
                 endDate,
             ).toList()
+
+    /**
+     * Save a page of candles to the database.
+     * Candles are sorted by openTime to ensure correct ATR calculation by database trigger.
+     */
+    private suspend fun saveCandlePage(candles: List<CandleEntity>): Int {
+        if (candles.isEmpty()) return 0
+        val sortedCandles = candles.sortedBy { it.openTime }
+        candleRepository.saveAll(sortedCandles).toList()
+        return sortedCandles.size
+    }
 }
