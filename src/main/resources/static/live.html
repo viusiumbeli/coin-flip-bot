@@ -49,7 +49,7 @@
                             <th>ID</th>
                             <th>Symbol</th>
                             <th>Timeframe</th>
-                            <th>Status</th>
+                            <th style="text-align: center;">Status</th>
                             <th>Balance</th>
                             <th>P&L</th>
                             <th>P&L %</th>
@@ -70,16 +70,13 @@
 
         <!-- Session Detail View -->
         <div id="sessionDetailView" style="display: none;">
-            <div class="nav-bar">
-                <button class="btn-secondary" onclick="hideSessionDetail()">
-                    &larr; Back to Sessions
-                </button>
-            </div>
-
             <!-- Session Info Card -->
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2 id="sessionTitle">Session Details</h2>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <button class="btn-secondary" onclick="hideSessionDetail()">&larr; Back</button>
+                        <h2 id="sessionTitle" style="margin-bottom: 0;">Session Details</h2>
+                    </div>
                     <div class="button-group">
                         <span id="sessionStatus" class="status-badge"></span>
                         <button class="btn-danger" onclick="confirmStopSession()" id="stopBtn" style="margin-left: 15px;">Stop Session</button>
@@ -279,7 +276,7 @@
                         <td>${session.id}</td>
                         <td>${session.symbol}</td>
                         <td>${session.timeframe}</td>
-                        <td><span class="status-badge ${statusColors[session.status]}">${session.status}</span></td>
+                        <td style="text-align: center;"><span class="status-badge ${statusColors[session.status]}">${session.status}</span></td>
                         <td>$${formatNumber(session.currentBalance)}</td>
                         <td class="${session.profitLoss >= 0 ? 'positive' : 'negative'}">
                             $${formatNumber(session.profitLoss)}
@@ -428,7 +425,7 @@
                         <td>${formatDateTime(pos.entryTime)}</td>
                         <td>$${formatNumber(pos.entryPrice)}</td>
                         <td>${pos.currentPrice ? '$' + formatNumber(pos.currentPrice) : '-'}</td>
-                        <td>${formatNumber(pos.positionSize)}</td>
+                        <td>${formatSize(pos.positionSize)}</td>
                         <td>$${formatNumber(pos.trailingStop)}</td>
                         <td class="${(pos.unrealizedPnl || 0) >= 0 ? 'positive' : 'negative'}">
                             ${pos.unrealizedPnl ? '$' + formatNumber(pos.unrealizedPnl) : '-'}
@@ -468,7 +465,7 @@
                             <td>$${formatNumber(trade.entryPrice)}</td>
                             <td>${formatDateTime(trade.exitTime)}</td>
                             <td>$${formatNumber(trade.exitPrice)}</td>
-                            <td>${formatNumber(trade.positionSize)}</td>
+                            <td>${formatSize(trade.positionSize)}</td>
                             <td class="${trade.profitLoss >= 0 ? 'positive' : 'negative'}">
                                 $${formatNumber(trade.profitLoss)}
                             </td>
@@ -684,7 +681,8 @@
     <style>
         /* Status badge styles */
         .status-badge {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
             padding: 4px 12px;
             border-radius: 12px;
             font-size: 12px;
@@ -713,8 +711,8 @@
         }
 
         .btn-sm {
-            padding: 4px 12px;
-            font-size: 12px;
+            padding: 8px 16px;
+            font-size: 14px;
         }
 
         .positive {
