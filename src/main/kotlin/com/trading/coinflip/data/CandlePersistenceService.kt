@@ -2,9 +2,7 @@ package com.trading.coinflip.data
 
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.engine.ATRCalculator
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.flow.toSet
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -17,29 +15,10 @@ class CandlePersistenceService(
     private val log = KotlinLogging.logger {}
 
     @Transactional
-    suspend fun saveCandles(
-        symbol: String,
-        timeframe: Timeframe,
-        candles: List<CandleEntity>,
-    ): Int {
-        // Fetch only openTime values (projection query - much less memory than full entities)
-        val existingOpenTimes =
-            candleRepository
-                .findOpenTimesBySymbolAndTimeframe(symbol, timeframe)
-                .map { it.openTime }
-                .toSet()
-
-        // Filter out candles that already exist (in memory)
-        val newCandles = candles.filter { it.openTime !in existingOpenTimes }
-
-        // Batch insert all new candles at once
-        if (newCandles.isNotEmpty()) {
-            candleRepository.saveAll(newCandles).toList()
-            log.info { "Saved ${newCandles.size} new candles for $symbol $timeframe" }
-            return newCandles.size
-        }
-        log.info { "No new candles to save for $symbol $timeframe" }
-        return 0
+    suspend fun saveCandlePage(candles: List<CandleEntity>): Int {
+        if (candles.isEmpty()) return 0
+        candleRepository.saveAll(candles).toList()
+        return candles.size
     }
 
     @Transactional

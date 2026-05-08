@@ -8,6 +8,9 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
@@ -81,53 +84,48 @@ class BinanceClient(
         }
     }
 
-    suspend fun fetchAllHistoricalData(
+    fun streamHistoricalData(
         symbol: String,
         timeframe: Timeframe,
         startDate: Instant,
-    ): List<CandleEntity> {
-        val allCandles = mutableListOf<CandleEntity>()
-        var currentStartTime = startDate
-        val now = Instant.now()
+    ): Flow<List<CandleEntity>> =
+        flow {
+            var currentStartTime = startDate
+            val now = Instant.now()
 
-        log.info { "Fetching historical data for $symbol $timeframe from $startDate" }
+            log.info { "Streaming historical data for $symbol $timeframe from $startDate" }
 
-        while (currentStartTime.isBefore(now)) {
-            val candles =
-                fetchHistoricalKlines(
-                    symbol = symbol,
-                    timeframe = timeframe,
-                    startTime = currentStartTime,
-                    limit = 1000,
-                )
+            while (currentStartTime.isBefore(now)) {
+                val page =
+                    fetchHistoricalKlines(
+                        symbol = symbol,
+                        timeframe = timeframe,
+                        startTime = currentStartTime,
+                        limit = 1000,
+                    )
 
-            if (candles.isEmpty()) {
-                break
+                if (page.isEmpty()) {
+                    break
+                }
+
+                // Filter incomplete candles (only matters for last page)
+                val closedCandles =
+                    page.filter { candle ->
+                        val candleCloseTime = candle.openTime.plusMillis(timeframe.minutes * 60 * 1000L)
+                        !candleCloseTime.isAfter(now)
+                    }
+
+                if (closedCandles.isNotEmpty()) {
+                    emit(closedCandles)
+                }
+
+                // Move to next batch
+                currentStartTime = page.last().openTime.plusMillis(timeframe.minutes * 60 * 1000L)
+
+//                 Rate limiting
+                delay(properties.api.rateLimitDelayMs)
             }
 
-            allCandles.addAll(candles)
-            log.info { "Fetched ${candles.size} candles, total: ${allCandles.size}" }
-
-            // Move to next batch
-            currentStartTime = candles.last().openTime.plusMillis(timeframe.minutes * 60 * 1000L)
-
-            // Rate limiting
-            kotlinx.coroutines.delay(properties.api.rateLimitDelayMs)
+            log.info { "Completed streaming data for $symbol $timeframe" }
         }
-
-        log.info { "Completed fetching ${allCandles.size} candles for $symbol $timeframe" }
-
-        // Filter out incomplete candle (current candle that hasn't closed yet)
-        val closedCandles =
-            allCandles.filter { candle ->
-                val candleCloseTime = candle.openTime.plusMillis(timeframe.minutes * 60 * 1000L)
-                !candleCloseTime.isAfter(now)
-            }
-
-        if (closedCandles.size < allCandles.size) {
-            log.info { "Filtered out ${allCandles.size - closedCandles.size} incomplete candle(s)" }
-        }
-
-        return closedCandles
-    }
 }
