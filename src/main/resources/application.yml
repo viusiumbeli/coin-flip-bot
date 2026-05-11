@@ -36,7 +36,7 @@ backtest:
     - ONE_HOUR
     - FOUR_HOURS
     - ONE_DAY
-  initial-capital: 100000
+  initial-capital: 10000
   start-date: 2020-01-01T00:00:00Z
 
   trading:
@@ -69,6 +69,8 @@ live:
   enabled: true
   symbols:
     - BTCUSDT
+    - ETHUSDT
+    - BNBUSDT
   initial-capital: 10000
   reconnect-delay-ms: 5000
   max-reconnect-attempts: 10

@@ -1,8 +1,7 @@
-package com.trading.coinflip.api.data
+package com.trading.coinflip.api.candle
 
+import com.trading.coinflip.candle.CandleService
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.data.CandleRepository
-import com.trading.coinflip.data.DataService
 import mu.KotlinLogging
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
@@ -14,30 +13,28 @@ import java.time.Duration
 import java.time.Instant
 
 @RestController
-@RequestMapping("/api/data")
+@RequestMapping("/api/candles")
 @CrossOrigin(origins = ["*"])
-class DataController(
-    private val dataService: DataService,
-    private val candleRepository: CandleRepository,
+class CandleController(
+    private val candleService: CandleService,
     private val properties: BacktestProperties,
 ) {
     private val log = KotlinLogging.logger {}
 
     @GetMapping("/status")
-    suspend fun getDataStatus(): List<DataStatusResponse> {
-        val statusList = mutableListOf<DataStatusResponse>()
+    suspend fun getDataStatus(): List<CandleStatusResponse> {
         val now = Instant.now()
 
-        for (symbol in properties.symbols) {
-            for (timeframe in properties.timeframes) {
-                val earliest = candleRepository.findEarliestCandle(symbol, timeframe)?.openTime
-                val latest = candleRepository.findLatestCandle(symbol, timeframe)?.openTime
-                val count =
-                    if (earliest != null) {
-                        candleRepository.countBySymbolAndTimeframe(symbol, timeframe)
-                    } else {
-                        0L
-                    }
+        // Single aggregation query for all symbol/timeframe combinations
+        val statsMap =
+            candleService
+                .getAllCandleStats()
+                .associateBy { "${it.symbol}:${it.timeframe}" }
+
+        return properties.symbols.flatMap { symbol ->
+            properties.timeframes.map { timeframe ->
+                val stats = statsMap["$symbol:${timeframe.name}"]
+                val latest = stats?.latest
 
                 val hoursOutdated =
                     if (latest != null) {
@@ -48,20 +45,16 @@ class DataController(
                         null
                     }
 
-                statusList.add(
-                    DataStatusResponse(
-                        symbol = symbol,
-                        timeframe = timeframe.label,
-                        candleCount = count,
-                        earliestCandle = earliest,
-                        latestCandle = latest,
-                        hoursOutdated = hoursOutdated,
-                    ),
+                CandleStatusResponse(
+                    symbol = symbol,
+                    timeframe = timeframe.label,
+                    candleCount = stats?.candleCount ?: 0L,
+                    earliestCandle = stats?.earliest,
+                    latestCandle = latest,
+                    hoursOutdated = hoursOutdated,
                 )
             }
         }
-
-        return statusList
     }
 
     @PostMapping("/sync")
@@ -71,7 +64,7 @@ class DataController(
         try {
             log.info { "Sync request for ${request.symbol} ${request.timeframe.label}" }
 
-            val newCandlesAdded = dataService.syncMissingData(request.symbol, request.timeframe)
+            val newCandlesAdded = candleService.syncMissingData(request.symbol, request.timeframe)
 
             SyncResponse(
                 symbol = request.symbol,
@@ -98,7 +91,7 @@ class DataController(
             for (timeframe in properties.timeframes) {
                 try {
                     log.info { "Syncing $symbol ${timeframe.label}" }
-                    val newCandlesAdded = dataService.syncMissingData(symbol, timeframe)
+                    val newCandlesAdded = candleService.syncMissingData(symbol, timeframe)
                     results.add(
                         SyncResponse(
                             symbol = symbol,

@@ -1,9 +1,9 @@
 package com.trading.coinflip.live
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.trading.coinflip.candle.CandleEntity
 import com.trading.coinflip.common.config.LiveProperties
 import com.trading.coinflip.common.model.Timeframe
-import com.trading.coinflip.data.CandleEntity
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.WebSockets

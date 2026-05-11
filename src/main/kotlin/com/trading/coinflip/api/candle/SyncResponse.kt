@@ -1,4 +1,4 @@
-package com.trading.coinflip.api.data
+package com.trading.coinflip.api.candle
 
 data class SyncResponse(
     val symbol: String,

@@ -1,6 +1,6 @@
 package com.trading.coinflip.live
 
-import com.trading.coinflip.data.CandleRepository
+import com.trading.coinflip.candle.CandleRepository
 import com.trading.coinflip.engine.model.PositionStatus
 import com.trading.coinflip.engine.model.TradingState
 import com.trading.coinflip.live.model.LiveSessionEntity

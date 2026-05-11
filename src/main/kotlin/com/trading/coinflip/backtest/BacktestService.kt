@@ -3,9 +3,9 @@ package com.trading.coinflip.backtest
 import com.trading.coinflip.api.backtest.BacktestRequest
 import com.trading.coinflip.backtest.model.BacktestConfig
 import com.trading.coinflip.backtest.model.BacktestResult
+import com.trading.coinflip.candle.CandleService
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
-import com.trading.coinflip.data.DataService
 import com.trading.coinflip.engine.model.MutableTradingState
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service
 @Service
 class BacktestService(
     private val properties: BacktestProperties,
-    private val dataService: DataService,
+    private val candleService: CandleService,
     private val backtestEngine: BacktestEngine,
 ) {
     private val log = KotlinLogging.logger {}
@@ -33,7 +33,7 @@ class BacktestService(
             )
 
         val candles =
-            dataService.loadCandlesParallel(
+            candleService.loadCandlesParallel(
                 symbol = request.symbol,
                 timeframe = request.timeframe,
                 startTime = request.startDate,

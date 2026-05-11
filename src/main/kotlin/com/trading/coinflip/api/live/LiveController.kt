@@ -1,9 +1,9 @@
 package com.trading.coinflip.api.live
 
 import com.trading.coinflip.api.exception.NotFoundException
+import com.trading.coinflip.candle.CandleRepository
 import com.trading.coinflip.common.config.LiveProperties
 import com.trading.coinflip.common.model.Timeframe
-import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.engine.model.PositionStatus
 import com.trading.coinflip.live.LiveTradingService
 import com.trading.coinflip.live.repository.LiveBalanceSnapshotRepository

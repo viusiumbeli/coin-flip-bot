@@ -2,7 +2,7 @@ package com.trading.coinflip.analytics
 
 import com.trading.coinflip.backtest.model.BacktestConfig
 import com.trading.coinflip.backtest.model.BacktestResult
-import com.trading.coinflip.data.CandleEntity
+import com.trading.coinflip.candle.CandleEntity
 import com.trading.coinflip.engine.model.RunningTradeStats
 import com.trading.coinflip.engine.model.TradingStateView
 import org.springframework.stereotype.Component

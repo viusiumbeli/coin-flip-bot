@@ -1,8 +1,8 @@
-package com.trading.coinflip.api.data
+package com.trading.coinflip.api.candle
 
 import java.time.Instant
 
-data class DataStatusResponse(
+data class CandleStatusResponse(
     val symbol: String,
     val timeframe: String,
     val candleCount: Long,

@@ -1,6 +1,6 @@
 package com.trading.coinflip.api.backtest
 
-import com.trading.coinflip.api.data.AvailableSymbolsResponse
+import com.trading.coinflip.api.candle.AvailableSymbolsResponse
 import com.trading.coinflip.backtest.BacktestService
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe

@@ -3,8 +3,8 @@ package com.trading.coinflip.experiment
 import com.trading.coinflip.backtest.BacktestEngine
 import com.trading.coinflip.backtest.model.BacktestConfig
 import com.trading.coinflip.backtest.model.BacktestResultWithRunNumber
+import com.trading.coinflip.candle.CandleService
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.data.DataService
 import com.trading.coinflip.engine.model.MutableTradingState
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
@@ -35,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Service
 class AsyncExperimentExecutor(
-    private val dataService: DataService,
+    private val candleService: CandleService,
     private val batchPersistenceService: BatchPersistenceService,
     private val experimentRepository: ExperimentRepository,
     private val properties: BacktestProperties,
@@ -97,12 +97,12 @@ class AsyncExperimentExecutor(
         // Update experiment status to RUNNING
         experimentRepository.markExperimentRunning(experimentId)
 
-        // Step 1: Load candles from DB (data must already exist via /api/data/sync)
+        // Step 1: Load candles from DB (data must already exist via /api/candles/sync)
         log.info { "Loading candles for experiment $experimentId..." }
         val loadStartTime = System.currentTimeMillis()
 
         val candles =
-            dataService.loadCandlesParallel(
+            candleService.loadCandlesParallel(
                 symbol = request.symbol,
                 timeframe = request.timeframe,
                 startTime = request.startDate,

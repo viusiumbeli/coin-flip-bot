@@ -1,10 +1,10 @@
 package com.trading.coinflip.live
 
+import com.trading.coinflip.candle.CandleEntity
+import com.trading.coinflip.candle.CandleRepository
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.config.LiveProperties
 import com.trading.coinflip.common.model.Timeframe
-import com.trading.coinflip.data.CandleEntity
-import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.engine.TradingProcessor
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionStatus

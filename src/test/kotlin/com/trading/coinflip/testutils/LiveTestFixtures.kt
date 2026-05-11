@@ -1,12 +1,7 @@
 package com.trading.coinflip.testutils
 
+import com.trading.coinflip.candle.CandleEntity
 import com.trading.coinflip.common.model.Timeframe
-import com.trading.coinflip.data.CandleEntity
-import com.trading.coinflip.engine.model.Position
-import com.trading.coinflip.engine.model.PositionSide
-import com.trading.coinflip.engine.model.PositionStatus
-import com.trading.coinflip.engine.model.TradingState
-import com.trading.coinflip.live.model.LivePositionEntity
 import com.trading.coinflip.live.model.LiveSessionEntity
 import java.math.BigDecimal
 import java.time.Instant
@@ -67,110 +62,6 @@ object LiveTestFixtures {
             )
         }
 
-    fun createRisingCandles(
-        count: Int,
-        startTime: Instant = Instant.parse("2024-01-01T00:00:00Z"),
-        startPrice: BigDecimal = BigDecimal("50000"),
-        risePerCandle: BigDecimal = BigDecimal("500"),
-    ): List<CandleEntity> =
-        createCandleSequence(
-            count = count,
-            startTime = startTime,
-            startPrice = startPrice,
-            priceChange = risePerCandle,
-        )
-
-    fun createFallingCandles(
-        count: Int,
-        startTime: Instant = Instant.parse("2024-01-01T00:00:00Z"),
-        startPrice: BigDecimal = BigDecimal("50000"),
-        fallPerCandle: BigDecimal = BigDecimal("500"),
-    ): List<CandleEntity> =
-        createCandleSequence(
-            count = count,
-            startTime = startTime,
-            startPrice = startPrice,
-            priceChange = -fallPerCandle,
-        )
-
-    fun createStopLossTriggerCandle(
-        position: Position,
-        openTime: Instant = Instant.now(),
-    ): CandleEntity {
-        val stopPrice = position.trailingStop
-        return when (position.side) {
-            PositionSide.LONG ->
-                createCandle(
-                    openTime = openTime,
-                    open = stopPrice + BigDecimal("100"),
-                    high = stopPrice + BigDecimal("100"),
-                    low = stopPrice - BigDecimal("100"),
-                    close = stopPrice - BigDecimal("50"),
-                )
-            PositionSide.SHORT ->
-                createCandle(
-                    openTime = openTime,
-                    open = stopPrice - BigDecimal("100"),
-                    high = stopPrice + BigDecimal("100"),
-                    low = stopPrice - BigDecimal("100"),
-                    close = stopPrice + BigDecimal("50"),
-                )
-        }
-    }
-
-    fun createTradingState(
-        initialCapital: BigDecimal = DEFAULT_INITIAL_CAPITAL,
-        accountBalance: BigDecimal = initialCapital,
-        openPositions: List<Position> = emptyList(),
-    ): TradingState =
-        TradingState(
-            accountBalance = accountBalance,
-            peakBalance = maxOf(initialCapital, accountBalance),
-            maxDrawdown = BigDecimal.ZERO,
-            openPositions = openPositions,
-            closedTrades = emptyList(),
-            tradeIdCounter = 0L,
-            positionIdCounter = openPositions.size.toLong(),
-        )
-
-    fun createPosition(
-        id: Long = 1L,
-        symbol: String = TEST_SYMBOL,
-        timeframe: Timeframe = TEST_TIMEFRAME,
-        side: PositionSide = PositionSide.LONG,
-        entryTime: Instant = Instant.parse("2024-01-01T00:00:00Z"),
-        entryPrice: BigDecimal = BigDecimal("50000"),
-        positionSize: BigDecimal = BigDecimal("0.02"),
-        atrMultiplier: BigDecimal = BigDecimal("3.0"),
-        atr: BigDecimal = DEFAULT_ATR,
-        balanceBeforeOpen: BigDecimal = DEFAULT_INITIAL_CAPITAL,
-    ): Position {
-        val stopDistance = atr * atrMultiplier
-        val initialStopLoss =
-            when (side) {
-                PositionSide.LONG -> entryPrice - stopDistance
-                PositionSide.SHORT -> entryPrice + stopDistance
-            }
-        val allocatedCapital = entryPrice * positionSize
-
-        return Position(
-            id = id,
-            symbol = symbol,
-            timeframe = timeframe,
-            side = side,
-            entryTime = entryTime,
-            entryPrice = entryPrice,
-            positionSize = positionSize,
-            initialStopLoss = initialStopLoss,
-            trailingStop = initialStopLoss,
-            highestFavorablePrice = entryPrice,
-            status = PositionStatus.OPEN,
-            balanceBeforeOpen = balanceBeforeOpen,
-            balanceAfterOpen = balanceBeforeOpen,
-            allocatedCapital = allocatedCapital,
-        )
-    }
-
     fun createLiveSession(
         id: Long? = null,
         symbol: String = TEST_SYMBOL,
@@ -184,9 +75,4 @@ object LiveTestFixtures {
             currentBalance = initialCapital,
             peakBalance = initialCapital,
         )
-
-    fun createLivePositionEntity(
-        position: Position,
-        sessionId: Long,
-    ): LivePositionEntity = LivePositionEntity.fromPosition(position, sessionId)
 }

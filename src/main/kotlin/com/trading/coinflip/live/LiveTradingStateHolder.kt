@@ -1,8 +1,8 @@
 package com.trading.coinflip.live
 
+import com.trading.coinflip.candle.CandleEntity
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.common.util.withReentrantLock
-import com.trading.coinflip.data.CandleEntity
 import com.trading.coinflip.engine.model.TradingState
 import kotlinx.coroutines.sync.Mutex
 
