@@ -9,7 +9,6 @@ import com.trading.coinflip.engine.model.MutableTradingState
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
-import java.math.RoundingMode
 
 @Component
 class BacktestEngine(
@@ -21,30 +20,44 @@ class BacktestEngine(
     /**
      * Run a backtest and return the result.
      *
-     * Trade collection is controlled by config.collectTrades:
-     * - true: Trades are collected for frontend display (single backtests)
-     * - false (default): Trades are not stored (experiments - saves memory)
+     * The engine is stateless - caller must provide a fresh MutableTradingState.
+     * Trade collection is controlled by the state's collectTrades flag.
      */
     fun runBacktest(
+        state: MutableTradingState,
         config: BacktestConfig,
         candles: List<CandleEntity>,
     ): BacktestResult {
-        // Use MutableTradingState for high-performance backtest execution
-        val state = MutableTradingState.create(config.initialCapital, config.collectTrades)
-
         if (candles.isEmpty()) {
             log.warn { "No candles available for backtesting" }
-            return createEmptyResult(config, candles)
+            return createEmptyResult(config)
         }
 
-        // Single source of truth - TradingProcessor handles ALL trading logic
+        processCandles(state, candles)
+        closeOpenPositions(state, candles.last())
+        return generateResult(config, state, candles)
+    }
+
+    /**
+     * Process all candles through the trading processor.
+     */
+    fun processCandles(
+        state: MutableTradingState,
+        candles: List<CandleEntity>,
+    ) {
         for (candle in candles) {
             val events = processor.processCandle(state, candle)
             state.applyEvents(events)
         }
+    }
 
-        // Close any remaining open positions at the last candle price
-        val lastCandle = candles.last()
+    /**
+     * Close any remaining open positions at the last candle price.
+     */
+    fun closeOpenPositions(
+        state: MutableTradingState,
+        lastCandle: CandleEntity,
+    ) {
         for (position in state.openPositions.toList()) {
             val closeEvent =
                 processor.forceClosePosition(
@@ -56,44 +69,20 @@ class BacktestEngine(
                 )
             state.applyEvent(closeEvent)
         }
-
-        // Calculate buy and hold performance
-        val buyAndHoldReturn = calculateBuyAndHoldReturn(candles, config.initialCapital)
-
-        // Use running stats for performance calculation
-        return analytics.calculatePerformance(
-            config = config,
-            stats = state.stats,
-            finalCapital = state.accountBalance,
-            maxDrawdown = state.maxDrawdown,
-            peakBalance = state.peakBalance,
-            buyAndHoldReturn = buyAndHoldReturn,
-            startDate = candles.first().openTime,
-            endDate = candles.last().openTime,
-            trades = state.closedTrades,
-        )
     }
 
-    private fun calculateBuyAndHoldReturn(
-        candles: List<CandleEntity>,
-        initialCapital: BigDecimal,
-    ): BigDecimal {
-        if (candles.isEmpty()) return BigDecimal.ZERO
-
-        val firstPrice = candles.first().close
-        val lastPrice = candles.last().close
-        val priceChange = lastPrice - firstPrice
-        val percentChange = priceChange.divide(firstPrice, 8, RoundingMode.HALF_UP)
-
-        return initialCapital * percentChange
-    }
-
-    private fun createEmptyResult(
+    /**
+     * Generate performance result from trading state.
+     */
+    fun generateResult(
         config: BacktestConfig,
+        state: MutableTradingState,
         candles: List<CandleEntity>,
-    ): BacktestResult {
-        val startDate = candles.firstOrNull()?.openTime ?: config.startDate ?: java.time.Instant.now()
-        val endDate = candles.lastOrNull()?.openTime ?: config.endDate ?: java.time.Instant.now()
+    ): BacktestResult = analytics.calculatePerformance(config, state, candles)
+
+    internal fun createEmptyResult(config: BacktestConfig): BacktestResult {
+        val startDate = config.startDate ?: java.time.Instant.now()
+        val endDate = config.endDate ?: java.time.Instant.now()
 
         return BacktestResult(
             config = config,

@@ -2,6 +2,10 @@ package com.trading.coinflip.data
 
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.awaitSingle
 import mu.KotlinLogging
 import org.springframework.r2dbc.core.DatabaseClient
@@ -50,6 +54,56 @@ class DataService(
 
         log.info { "Synced $totalSaved new candles for $symbol ${timeframe.label}" }
         return totalSaved
+    }
+
+    /**
+     * Load candles in parallel pages for fast bulk reads.
+     * Returns all candles in chronological order.
+     */
+    suspend fun loadCandlesParallel(
+        symbol: String,
+        timeframe: Timeframe,
+        startTime: Instant,
+        endTime: Instant,
+    ): List<CandleEntity> {
+        val pageSize = properties.candlePageSize
+
+        val totalCandles =
+            candleRepository.countCandlesInRange(
+                symbol = symbol,
+                timeframe = timeframe,
+                startTime = startTime,
+                endTime = endTime,
+            )
+
+        if (totalCandles == 0L) {
+            return emptyList()
+        }
+
+        val pageCount = ((totalCandles + pageSize - 1) / pageSize).toInt()
+        log.info { "Loading $totalCandles candles in $pageCount parallel pages" }
+
+        val pages =
+            coroutineScope {
+                (0 until pageCount)
+                    .map { pageIndex ->
+                        async {
+                            val offset = pageIndex.toLong() * pageSize
+                            candleRepository
+                                .findCandlesPageByOffset(
+                                    symbol = symbol,
+                                    timeframe = timeframe,
+                                    startTime = startTime,
+                                    endTime = endTime,
+                                    limit = pageSize,
+                                    offset = offset,
+                                ).toList()
+                        }
+                    }.awaitAll()
+            }
+
+        log.info { "All $pageCount pages loaded" }
+        return pages.flatten()
     }
 
     private suspend fun streamAndSave(
