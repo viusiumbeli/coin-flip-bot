@@ -2,8 +2,8 @@ package com.trading.coinflip.analytics
 
 import com.trading.coinflip.backtest.model.BacktestConfig
 import com.trading.coinflip.backtest.model.BacktestResult
+import com.trading.coinflip.engine.model.RunningTradeStats
 import com.trading.coinflip.engine.model.Trade
-import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -13,19 +13,22 @@ import kotlin.math.sqrt
 
 @Component
 class PerformanceAnalytics {
-    private val log = KotlinLogging.logger {}
-
+    /**
+     * Calculate performance from running statistics (no trade list required).
+     * Used by experiments to avoid storing millions of trade objects.
+     */
     fun calculatePerformance(
         config: BacktestConfig,
-        trades: List<Trade>,
+        stats: RunningTradeStats,
         finalCapital: BigDecimal,
         maxDrawdown: BigDecimal,
         peakBalance: BigDecimal,
         buyAndHoldReturn: BigDecimal,
         startDate: Instant,
         endDate: Instant,
+        trades: List<Trade> = emptyList(),
     ): BacktestResult {
-        if (trades.isEmpty()) {
+        if (stats.tradeCount == 0) {
             return createEmptyResult(
                 config,
                 finalCapital,
@@ -47,75 +50,41 @@ class PerformanceAnalytics {
                 BigDecimal.ZERO
             }
 
-        val winningTrades = trades.filter { it.profitLoss > BigDecimal.ZERO }
-        val losingTrades = trades.filter { it.profitLoss < BigDecimal.ZERO }
-
-        // Debug: log some sample trades to understand the issue
-        if (trades.isNotEmpty()) {
-            log.debug { "Debug: Total trades: ${trades.size}, Winning: ${winningTrades.size}, Losing: ${losingTrades.size}" }
-            log.debug { "Debug: First 5 trades P/L: ${trades.take(5).map { it.profitLoss }}" }
-            log.debug {
-                "Debug: Sample winning trades: ${winningTrades.take(
-                    3,
-                ).map { "P/L: ${it.profitLoss}, Entry: ${it.entryPrice}, Exit: ${it.exitPrice}, Size: ${it.positionSize}" }}"
-            }
-            log.debug {
-                "Debug: Sample losing trades: ${losingTrades.take(
-                    3,
-                ).map { "P/L: ${it.profitLoss}, Entry: ${it.entryPrice}, Exit: ${it.exitPrice}, Size: ${it.positionSize}" }}"
-            }
-        }
-
         val winRate =
-            if (trades.isNotEmpty()) {
-                (BigDecimal(winningTrades.size) * BigDecimal(100) / BigDecimal(trades.size))
-                    .setScale(2, RoundingMode.HALF_UP)
-            } else {
-                BigDecimal.ZERO
-            }
-
-        log.debug { "Debug: Win rate calculation: ${winningTrades.size} * 100 / ${trades.size} = $winRate" }
-
-        val totalWins = winningTrades.sumOf { it.profitLoss }
-        val totalLosses = losingTrades.sumOf { it.profitLoss }.abs()
+            (BigDecimal(stats.winCount) * BigDecimal(100) / BigDecimal(stats.tradeCount))
+                .setScale(2, RoundingMode.HALF_UP)
 
         val profitFactor =
-            if (totalLosses > BigDecimal.ZERO) {
-                (totalWins / totalLosses).setScale(2, RoundingMode.HALF_UP)
-            } else if (totalWins > BigDecimal.ZERO) {
-                BigDecimal(999.99) // Arbitrarily large if no losses
+            if (stats.totalLosses > BigDecimal.ZERO) {
+                stats.totalWins.divide(stats.totalLosses, 2, RoundingMode.HALF_UP)
+            } else if (stats.totalWins > BigDecimal.ZERO) {
+                BigDecimal("999.99")
             } else {
                 BigDecimal.ZERO
             }
 
         val averageWin =
-            if (winningTrades.isNotEmpty()) {
-                (totalWins / BigDecimal(winningTrades.size)).setScale(2, RoundingMode.HALF_UP)
+            if (stats.winCount > 0) {
+                stats.totalWins.divide(BigDecimal(stats.winCount), 2, RoundingMode.HALF_UP)
             } else {
                 BigDecimal.ZERO
             }
 
         val averageLoss =
-            if (losingTrades.isNotEmpty()) {
-                (totalLosses / BigDecimal(losingTrades.size)).setScale(2, RoundingMode.HALF_UP)
+            if (stats.lossCount > 0) {
+                stats.totalLosses.divide(BigDecimal(stats.lossCount), 2, RoundingMode.HALF_UP)
             } else {
                 BigDecimal.ZERO
             }
 
-        val largestWin = winningTrades.maxOfOrNull { it.profitLoss } ?: BigDecimal.ZERO
-        val largestLoss = losingTrades.minOfOrNull { it.profitLoss } ?: BigDecimal.ZERO
-
         val averageTradeDuration =
-            if (trades.isNotEmpty()) {
-                trades
-                    .map { Duration.between(it.entryTime, it.exitTime).toMinutes() }
-                    .average()
-                    .toLong()
+            if (stats.tradeCount > 0) {
+                stats.totalDuration / stats.tradeCount
             } else {
                 0L
             }
 
-        val sharpeRatio = calculateSharpeRatio(trades, startDate, endDate)
+        val sharpeRatio = calculateSharpe(stats, startDate, endDate)
 
         val buyAndHoldReturnPercent =
             (buyAndHoldReturn / config.initialCapital * BigDecimal(100))
@@ -123,7 +92,6 @@ class PerformanceAnalytics {
 
         return BacktestResult(
             config = config,
-            trades = trades,
             initialCapital = config.initialCapital,
             finalCapital = finalCapital,
             totalReturn = totalReturn,
@@ -133,49 +101,46 @@ class PerformanceAnalytics {
             winRate = winRate,
             profitFactor = profitFactor,
             sharpeRatio = sharpeRatio,
-            totalTrades = trades.size,
-            winningTrades = winningTrades.size,
-            losingTrades = losingTrades.size,
+            totalTrades = stats.tradeCount,
+            winningTrades = stats.winCount,
+            losingTrades = stats.lossCount,
             averageWin = averageWin,
             averageLoss = averageLoss,
-            largestWin = largestWin,
-            largestLoss = largestLoss,
+            largestWin = stats.largestWin,
+            largestLoss = stats.largestLoss,
             averageTradeDuration = averageTradeDuration,
             startDate = startDate,
             endDate = endDate,
             buyAndHoldReturn = buyAndHoldReturn,
             buyAndHoldReturnPercent = buyAndHoldReturnPercent,
+            trades = trades,
         )
     }
 
-    private fun calculateSharpeRatio(
-        trades: List<Trade>,
+    /**
+     * Calculate Sharpe ratio from running statistics using Welford's algorithm values.
+     */
+    private fun calculateSharpe(
+        stats: RunningTradeStats,
         startDate: Instant,
         endDate: Instant,
     ): BigDecimal {
-        if (trades.isEmpty()) return BigDecimal.ZERO
+        if (stats.tradeCount < 2) return BigDecimal.ZERO
 
-        // Calculate returns per trade
-        val returns = trades.map { it.profitLossPercent.toDouble() }
-
-        if (returns.isEmpty()) return BigDecimal.ZERO
-
-        val meanReturn = returns.average()
-        val variance = returns.map { (it - meanReturn) * (it - meanReturn) }.average()
+        val variance = stats.getVariance()
         val stdDev = sqrt(variance)
 
         if (stdDev == 0.0) return BigDecimal.ZERO
 
-        // Annualize assuming risk-free rate = 0 for simplicity
         val daysInPeriod = Duration.between(startDate, endDate).toDays()
         val annualizationFactor =
             if (daysInPeriod > 0) {
-                sqrt(365.0 / daysInPeriod * trades.size)
+                sqrt(365.0 / daysInPeriod * stats.tradeCount)
             } else {
                 1.0
             }
 
-        val sharpe = (meanReturn / stdDev) * annualizationFactor
+        val sharpe = (stats.returnMean / stdDev) * annualizationFactor
 
         return BigDecimal(sharpe).setScale(2, RoundingMode.HALF_UP)
     }
@@ -189,7 +154,6 @@ class PerformanceAnalytics {
     ): BacktestResult =
         BacktestResult(
             config = config,
-            trades = emptyList(),
             initialCapital = config.initialCapital,
             finalCapital = finalCapital,
             totalReturn = BigDecimal.ZERO,

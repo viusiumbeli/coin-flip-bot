@@ -12,4 +12,5 @@ data class BacktestConfig(
     val trading: TradingConfig,
     val startDate: Instant? = null,
     val endDate: Instant? = null,
+    val collectTrades: Boolean = false,
 )

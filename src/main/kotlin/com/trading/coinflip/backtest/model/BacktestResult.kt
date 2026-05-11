@@ -6,7 +6,6 @@ import java.time.Instant
 
 data class BacktestResult(
     val config: BacktestConfig,
-    val trades: List<Trade>,
     val initialCapital: BigDecimal,
     val finalCapital: BigDecimal,
     val totalReturn: BigDecimal,
@@ -28,4 +27,5 @@ data class BacktestResult(
     val endDate: Instant,
     val buyAndHoldReturn: BigDecimal,
     val buyAndHoldReturnPercent: BigDecimal,
+    val trades: List<Trade> = emptyList(),
 )
