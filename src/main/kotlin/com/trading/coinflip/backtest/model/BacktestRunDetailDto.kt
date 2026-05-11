@@ -1,6 +1,5 @@
 package com.trading.coinflip.backtest.model
 
-import com.trading.coinflip.experiment.ExperimentTradeDto
 import java.math.BigDecimal
 
 data class BacktestRunDetailDto(
@@ -24,5 +23,4 @@ data class BacktestRunDetailDto(
     val averageTradeDuration: Long,
     val buyAndHoldReturn: BigDecimal,
     val buyAndHoldReturnPercent: BigDecimal,
-    val trades: List<ExperimentTradeDto>,
 )

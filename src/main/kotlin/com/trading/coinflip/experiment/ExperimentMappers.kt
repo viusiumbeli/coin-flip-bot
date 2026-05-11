@@ -3,7 +3,6 @@ package com.trading.coinflip.experiment
 import com.trading.coinflip.backtest.model.BacktestRunDetailDto
 import com.trading.coinflip.backtest.model.BacktestRunEntity
 import com.trading.coinflip.backtest.model.BacktestRunSummaryDto
-import com.trading.coinflip.experiment.model.ExperimentTradeEntity
 
 fun BacktestRunEntity.toSummaryDto() =
     BacktestRunSummaryDto(
@@ -17,7 +16,7 @@ fun BacktestRunEntity.toSummaryDto() =
         totalTrades = totalTrades,
     )
 
-fun BacktestRunEntity.toDetailDto(trades: List<ExperimentTradeEntity>) =
+fun BacktestRunEntity.toDetailDto() =
     BacktestRunDetailDto(
         id = id!!,
         runNumber = runNumber,
@@ -39,25 +38,4 @@ fun BacktestRunEntity.toDetailDto(trades: List<ExperimentTradeEntity>) =
         averageTradeDuration = averageTradeDuration,
         buyAndHoldReturn = buyAndHoldReturn,
         buyAndHoldReturnPercent = buyAndHoldReturnPercent,
-        trades = trades.map { it.toDto() },
-    )
-
-fun ExperimentTradeEntity.toDto() =
-    ExperimentTradeDto(
-        id = id!!,
-        tradeNumber = tradeNumber,
-        symbol = symbol,
-        side = side,
-        entryTime = entryTime,
-        entryPrice = entryPrice,
-        exitTime = exitTime,
-        exitPrice = exitPrice,
-        positionSize = positionSize,
-        profitLoss = profitLoss,
-        profitLossPercent = profitLossPercent,
-        exitReason = exitReason,
-        balanceBeforeOpen = balanceBeforeOpen,
-        balanceAfterOpen = balanceAfterOpen,
-        balanceBeforeClose = balanceBeforeClose,
-        balanceAfterClose = balanceAfterClose,
     )

@@ -5,7 +5,6 @@ import com.trading.coinflip.backtest.model.BacktestConfig
 import com.trading.coinflip.backtest.model.BacktestResultWithRunNumber
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.data.CandleRepository
-import com.trading.coinflip.experiment.model.ExperimentStatus
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -23,7 +22,6 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
-import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -74,11 +72,11 @@ class AsyncExperimentExecutor(
                     executeInternal(experimentId, request)
                 } catch (e: CancellationException) {
                     log.info { "Experiment $experimentId was cancelled" }
-                    batchPersistenceService.markExperimentCancelled(experimentId)
+                    experimentRepository.markExperimentCancelled(experimentId)
                     throw e
                 } catch (e: Exception) {
                     log.error(e) { "Experiment $experimentId failed with error" }
-                    batchPersistenceService.markExperimentFailed(experimentId, e.message ?: "Unknown error")
+                    experimentRepository.markExperimentFailed(experimentId, e.message ?: "Unknown error")
                 }
             }
 
@@ -97,7 +95,7 @@ class AsyncExperimentExecutor(
         log.info { "Starting experiment $experimentId: ${request.symbol} ${request.timeframe.label} with $numBacktests backtests" }
 
         // Update experiment status to RUNNING
-        updateExperimentStatus(experimentId, ExperimentStatus.RUNNING)
+        experimentRepository.markExperimentRunning(experimentId)
 
         // Step 1: Load candles from DB (data must already exist via /api/data/sync)
         log.info { "Loading candles for experiment $experimentId..." }
@@ -151,13 +149,12 @@ class AsyncExperimentExecutor(
                                 experimentId,
                                 BacktestResultWithRunNumber(result, runNumber),
                                 aggregator,
-                                numBacktests,
                             )
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
                             log.warn(e) { "Backtest run $runNumber failed for experiment $experimentId" }
-                            batchPersistenceService.incrementFailedRuns(experimentId)
+                            experimentRepository.incrementFailedRuns(experimentId)
                         }
                     }
                 }
@@ -165,7 +162,7 @@ class AsyncExperimentExecutor(
         }
 
         // Step 5: Flush any remaining results
-        batchPersistenceService.flushRemaining(experimentId, aggregator, numBacktests)
+        batchPersistenceService.flushRemaining(experimentId, aggregator)
 
         // Step 7: Finalize experiment with aggregated statistics
         val backtestTime = System.currentTimeMillis() - backtestStartTime
@@ -184,20 +181,6 @@ class AsyncExperimentExecutor(
         batchPersistenceService.finalizeExperiment(experimentId, aggregator, actualStartDate, actualEndDate)
 
         log.info { "Experiment $experimentId completed successfully" }
-    }
-
-    private suspend fun updateExperimentStatus(
-        experimentId: Long,
-        status: ExperimentStatus,
-    ) {
-        val experiment = experimentRepository.findById(experimentId)
-        if (experiment != null) {
-            experiment.status = status
-            if (status == ExperimentStatus.RUNNING) {
-                experiment.startedAt = Instant.now()
-            }
-            experimentRepository.save(experiment)
-        }
     }
 
     /**
@@ -225,7 +208,7 @@ class AsyncExperimentExecutor(
         // Mark all running experiments as failed due to shutdown
         runBlocking {
             activeJobs.keys.forEach { experimentId ->
-                batchPersistenceService.markExperimentFailed(experimentId, "Server shutdown")
+                experimentRepository.markExperimentFailed(experimentId, "Server shutdown")
             }
         }
 

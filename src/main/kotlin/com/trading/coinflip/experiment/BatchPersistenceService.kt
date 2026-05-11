@@ -1,5 +1,6 @@
 package com.trading.coinflip.experiment
 
+import com.trading.coinflip.backtest.BacktestRunBulkRepository
 import com.trading.coinflip.backtest.model.BacktestResultWithRunNumber
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.experiment.model.ExperimentStatus
@@ -17,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Service
 class BatchPersistenceService(
-    private val transactionService: BatchPersistenceTransactionService,
+    private val bulkInserter: BacktestRunBulkRepository,
     private val experimentRepository: ExperimentRepository,
     private val properties: BacktestProperties,
 ) {
@@ -36,7 +37,6 @@ class BatchPersistenceService(
         experimentId: Long,
         result: BacktestResultWithRunNumber,
         aggregator: RunningAggregator,
-        numBacktests: Int,
     ) {
         val shouldPersist: List<BacktestResultWithRunNumber>?
         val batchNum: Int
@@ -60,10 +60,9 @@ class BatchPersistenceService(
             val aggStart = System.currentTimeMillis()
             aggregator.addAll(shouldPersist.map { it.result })
             log.info { "Aggregation: ${shouldPersist.size} items in ${System.currentTimeMillis() - aggStart}ms" }
-            transactionService.persistBatch(experimentId, shouldPersist, numBacktests)
+            bulkInserter.persistBatch(experimentId, shouldPersist)
             log.info { "Batch $batchNum total time: ${System.currentTimeMillis() - batchStartTime}ms" }
-
-            transactionService.updateProgress(experimentId, aggregator.getCount())
+            experimentRepository.updateProgress(experimentId, aggregator.getCount())
         }
     }
 
@@ -73,7 +72,6 @@ class BatchPersistenceService(
     suspend fun flushRemaining(
         experimentId: Long,
         aggregator: RunningAggregator,
-        numBacktests: Int,
     ) {
         val remaining =
             mutex.withLock {
@@ -83,8 +81,8 @@ class BatchPersistenceService(
 
         if (!remaining.isNullOrEmpty()) {
             aggregator.addAll(remaining.map { it.result })
-            transactionService.persistBatch(experimentId, remaining, numBacktests)
-            transactionService.updateProgress(experimentId, aggregator.getCount())
+            bulkInserter.persistBatch(experimentId, remaining)
+            experimentRepository.updateProgress(experimentId, aggregator.getCount())
         }
 
         log.info { "Finished processing results for experiment $experimentId. Total: ${aggregator.getCount()}" }
@@ -147,49 +145,5 @@ class BatchPersistenceService(
 
         experimentRepository.save(experiment)
         log.info { "Finalized experiment $experimentId with ${aggregator.getCount()} runs" }
-    }
-
-    /**
-     * Marks an experiment as failed.
-     */
-    @Transactional
-    suspend fun markExperimentFailed(
-        experimentId: Long,
-        errorMessage: String,
-    ) {
-        val experiment = experimentRepository.findById(experimentId)
-        if (experiment != null) {
-            experiment.status = ExperimentStatus.FAILED
-            experiment.errorMessage = errorMessage
-            experiment.finishedAt = Instant.now()
-            experimentRepository.save(experiment)
-            log.error { "Marked experiment $experimentId as failed: $errorMessage" }
-        }
-    }
-
-    /**
-     * Marks an experiment as cancelled.
-     */
-    @Transactional
-    suspend fun markExperimentCancelled(experimentId: Long) {
-        val experiment = experimentRepository.findById(experimentId)
-        if (experiment != null) {
-            experiment.status = ExperimentStatus.CANCELLED
-            experiment.finishedAt = Instant.now()
-            experimentRepository.save(experiment)
-            log.info { "Marked experiment $experimentId as cancelled" }
-        }
-    }
-
-    /**
-     * Increments the failed runs count for an experiment.
-     */
-    @Transactional
-    suspend fun incrementFailedRuns(experimentId: Long) {
-        val experiment = experimentRepository.findById(experimentId)
-        if (experiment != null) {
-            experiment.failedRuns++
-            experimentRepository.save(experiment)
-        }
     }
 }
