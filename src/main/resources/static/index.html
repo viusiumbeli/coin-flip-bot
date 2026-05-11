@@ -48,7 +48,6 @@
 
             <div class="button-group">
                 <button class="btn-primary" onclick="runBacktest()" id="runBtn">Run Backtest</button>
-                <button class="btn-secondary" onclick="runAllBacktests()" id="runAllBtn">Run All Backtests</button>
             </div>
         </div>
 
@@ -159,29 +158,6 @@
                 displayResults([result]);
             } catch (error) {
                 showError('Failed to run backtest: ' + error.message);
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        async function runAllBacktests() {
-            setLoading(true);
-            hideError();
-            hideResults();
-
-            try {
-                const response = await fetch(`${API_BASE}/run-all`, {
-                    method: 'POST'
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Server returned ${response.status}`);
-                }
-
-                const results = await response.json();
-                displayResults(results);
-            } catch (error) {
-                showError('Failed to run backtests: ' + error.message);
             } finally {
                 setLoading(false);
             }
@@ -339,7 +315,6 @@
         function setLoading(show) {
             document.getElementById('loading').style.display = show ? 'block' : 'none';
             document.getElementById('runBtn').disabled = show;
-            document.getElementById('runAllBtn').disabled = show;
         }
 
         function hideResults() {
