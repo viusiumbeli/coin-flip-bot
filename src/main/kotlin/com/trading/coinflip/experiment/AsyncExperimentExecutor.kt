@@ -4,7 +4,7 @@ import com.trading.coinflip.backtest.BacktestEngine
 import com.trading.coinflip.backtest.model.BacktestConfig
 import com.trading.coinflip.backtest.model.BacktestResultWithRunNumber
 import com.trading.coinflip.common.config.BacktestProperties
-import com.trading.coinflip.data.DataService
+import com.trading.coinflip.data.CandleRepository
 import com.trading.coinflip.experiment.model.ExperimentStatus
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
@@ -14,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -36,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Service
 class AsyncExperimentExecutor(
-    private val dataService: DataService,
+    private val candleRepository: CandleRepository,
     private val batchPersistenceService: BatchPersistenceService,
     private val experimentRepository: ExperimentRepository,
     private val properties: BacktestProperties,
@@ -103,12 +104,13 @@ class AsyncExperimentExecutor(
         val loadStartTime = System.currentTimeMillis()
 
         val candles =
-            dataService.getCandlesForBacktest(
-                symbol = request.symbol,
-                timeframe = request.timeframe,
-                startDate = request.startDate,
-                endDate = request.endDate,
-            )
+            candleRepository
+                .findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc(
+                    symbol = request.symbol,
+                    timeframe = request.timeframe,
+                    startTime = request.startDate,
+                    endTime = request.endDate,
+                ).toList()
 
         val loadTime = System.currentTimeMillis() - loadStartTime
         log.info { "Loaded ${candles.size} candles in ${loadTime}ms for experiment $experimentId" }
