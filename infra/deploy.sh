@@ -45,8 +45,18 @@ rsync -avz --progress \
     --exclude 'build' \
     --exclude '*.log' \
     --exclude '.DS_Store' \
+    --exclude 'infra/.env' \
     "${PROJECT_ROOT}/" \
     "${REMOTE_HOST}:${REMOTE_DIR}/"
+
+# Step 2b: Copy .env file if it exists locally (contains API credentials)
+if [ -f "${PROJECT_ROOT}/infra/.env" ]; then
+    log_info "Copying .env file with API credentials..."
+    rsync -avz "${PROJECT_ROOT}/infra/.env" "${REMOTE_HOST}:${REMOTE_DIR}/infra/.env"
+else
+    log_warn "No local infra/.env file found - API credentials not configured"
+    log_warn "Create infra/.env on remote server for real trading, or copy .env.example"
+fi
 
 # Step 3: Build and run on remote server
 log_info "Building Docker images on remote server..."
@@ -58,9 +68,10 @@ ssh "${REMOTE_HOST}" "cd ${REMOTE_DIR}/infra && docker compose up -d"
 log_info "Checking deployment status..."
 ssh "${REMOTE_HOST}" "cd ${REMOTE_DIR}/infra && docker compose ps"
 
-# Step 5: Cleanup source files (image is built, no longer needed)
-log_info "Cleaning up source files..."
-ssh "${REMOTE_HOST}" "rm -rf ${REMOTE_DIR}"
+# Step 5: Cleanup source files (keep infra/ for docker-compose runtime)
+log_info "Cleaning up source files (keeping infra/)..."
+ssh "${REMOTE_HOST}" "cd ${REMOTE_DIR} && find . -maxdepth 1 ! -name 'infra' ! -name '.' -exec rm -rf {} +"
 
 log_info "Deployment complete!"
 log_info "Application should be available at http://${REMOTE_IP}:8080"
+log_info "Remote infra directory: ${REMOTE_DIR}/infra"
