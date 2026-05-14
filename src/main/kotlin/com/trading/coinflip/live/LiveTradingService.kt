@@ -16,6 +16,7 @@ import com.trading.coinflip.exchange.ExchangeTradingClient
 import com.trading.coinflip.exchange.OrderSide
 import com.trading.coinflip.exchange.OrderType
 import com.trading.coinflip.exchange.PlaceOrderRequest
+import com.trading.coinflip.exchange.PositionIdx
 import com.trading.coinflip.exchange.TradingStopRequest
 import com.trading.coinflip.exchange.bybit.BybitApiException
 import com.trading.coinflip.live.model.LiveBalanceSnapshotEntity
@@ -369,11 +370,11 @@ class LiveTradingService(
                         entity.highestFavorablePrice = event.newHighestFavorablePrice
                         entity.updatedAt = Instant.now()
                         positionRepository.save(entity)
-                    }
 
-                    // Update stop loss on exchange
-                    if (tradingClient != null) {
-                        executeUpdateStopLoss(stateHolder, tradingClient, event)
+                        // Update stop loss on exchange
+                        if (tradingClient != null) {
+                            executeUpdateStopLoss(stateHolder, tradingClient, event, entity.side)
+                        }
                     }
                 }
 
@@ -405,6 +406,7 @@ class LiveTradingService(
 
     /**
      * Execute real order on exchange when position opens.
+     * Uses Hedge Mode: positionIdx=1 for Long, positionIdx=2 for Short.
      */
     private suspend fun executeOpenPosition(
         stateHolder: LiveTradingStateHolder,
@@ -414,15 +416,16 @@ class LiveTradingService(
         try {
             val position = event.position
             val orderSide = if (position.side == PositionSide.LONG) OrderSide.Buy else OrderSide.Sell
+            val positionIdx = if (position.side == PositionSide.LONG) PositionIdx.HedgeLong else PositionIdx.HedgeShort
 
             log.info {
-                "${stateHolder.logPrefix} [REAL ORDER] Opening ${position.side} qty=${position.positionSize} SL=${position.trailingStop}"
+                "${stateHolder.logPrefix} [REAL ORDER] Opening ${position.side} qty=${position.positionSize} SL=${position.trailingStop} posIdx=${positionIdx.value}"
             }
 
             // Set leverage first
             tradingClient.setLeverage(stateHolder.symbol, liveProperties.defaultLeverage)
 
-            // Place market order with stop loss
+            // Place market order with stop loss (Hedge Mode)
             val result =
                 tradingClient.placeOrder(
                     PlaceOrderRequest(
@@ -431,6 +434,7 @@ class LiveTradingService(
                         orderType = OrderType.Market,
                         qty = position.positionSize,
                         stopLoss = position.trailingStop,
+                        positionIdx = positionIdx,
                     ),
                 )
 
@@ -442,21 +446,26 @@ class LiveTradingService(
 
     /**
      * Update stop loss on exchange when trailing stop moves.
+     * Uses Hedge Mode: positionIdx based on position side.
      */
     private suspend fun executeUpdateStopLoss(
         stateHolder: LiveTradingStateHolder,
         tradingClient: ExchangeTradingClient,
         event: TradingEvent.PositionUpdated,
+        positionSide: PositionSide,
     ) {
         try {
+            val positionIdx = if (positionSide == PositionSide.LONG) PositionIdx.HedgeLong else PositionIdx.HedgeShort
+
             log.info {
-                "${stateHolder.logPrefix} [REAL ORDER] Updating SL to ${event.newTrailingStop}"
+                "${stateHolder.logPrefix} [REAL ORDER] Updating SL to ${event.newTrailingStop} posIdx=${positionIdx.value}"
             }
 
             tradingClient.setTradingStop(
                 TradingStopRequest(
                     symbol = stateHolder.symbol,
                     stopLoss = event.newTrailingStop,
+                    positionIdx = positionIdx,
                 ),
             )
 
@@ -475,6 +484,7 @@ class LiveTradingService(
 
     /**
      * Execute close order on exchange when position closes.
+     * Uses Hedge Mode: positionIdx based on original position side.
      */
     private suspend fun executeClosePosition(
         stateHolder: LiveTradingStateHolder,
@@ -485,9 +495,11 @@ class LiveTradingService(
             val trade = event.trade
             // Close with opposite side, reduce-only
             val closeSide = if (trade.side == PositionSide.LONG) OrderSide.Sell else OrderSide.Buy
+            // Position index is based on the ORIGINAL position side, not the close order side
+            val positionIdx = if (trade.side == PositionSide.LONG) PositionIdx.HedgeLong else PositionIdx.HedgeShort
 
             log.info {
-                "${stateHolder.logPrefix} [REAL ORDER] Closing position qty=${trade.positionSize}"
+                "${stateHolder.logPrefix} [REAL ORDER] Closing position qty=${trade.positionSize} posIdx=${positionIdx.value}"
             }
 
             val result =
@@ -498,6 +510,7 @@ class LiveTradingService(
                         orderType = OrderType.Market,
                         qty = trade.positionSize,
                         reduceOnly = true,
+                        positionIdx = positionIdx,
                     ),
                 )
 
