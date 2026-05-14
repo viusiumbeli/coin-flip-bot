@@ -58,5 +58,9 @@ ssh "${REMOTE_HOST}" "cd ${REMOTE_DIR}/infra && docker compose up -d"
 log_info "Checking deployment status..."
 ssh "${REMOTE_HOST}" "cd ${REMOTE_DIR}/infra && docker compose ps"
 
+# Step 5: Cleanup source files (image is built, no longer needed)
+log_info "Cleaning up source files..."
+ssh "${REMOTE_HOST}" "rm -rf ${REMOTE_DIR}"
+
 log_info "Deployment complete!"
 log_info "Application should be available at http://${REMOTE_IP}:8080"
