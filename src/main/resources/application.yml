@@ -90,3 +90,9 @@ live:
   # ByBit URLs (Linear/USDT perpetuals)
   bybit-websocket-url: wss://stream.bybit.com/v5/public/linear
   bybit-rest-url: https://api.bybit.com
+
+  # Bybit trading credentials (env vars BYBIT_API_KEY, BYBIT_API_SECRET take precedence)
+  bybit-api-key: ${BYBIT_API_KEY:}
+  bybit-api-secret: ${BYBIT_API_SECRET:}
+  bybit-demo: true  # true = demo (api-demo.bybit.com), false = mainnet
+  bybit-demo-rest-url: https://api-demo.bybit.com

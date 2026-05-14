@@ -239,6 +239,49 @@ live:
 | GET | `/sessions/{id}/trades` | Get recent trades |
 | GET | `/sessions/{id}/snapshots` | Get balance history |
 
+## Bybit Trading Client (NEW)
+
+The system now includes a Bybit trading client for executing real trades on the Bybit exchange.
+
+### Supported Operations
+
+| Operation | Method | Description |
+|-----------|--------|-------------|
+| Place Order | `placeOrder()` | Market/Limit orders with optional TP/SL |
+| Cancel Order | `cancelOrder()` | Cancel unfilled orders |
+| Amend Order | `amendOrder()` | Modify unfilled orders |
+| Set TP/SL | `setTradingStop()` | Set/update stop loss and take profit |
+| Set Leverage | `setLeverage()` | Configure position leverage |
+| Get Positions | `getPositions()` | Query open positions |
+| Get Balance | `getWalletBalance()` | Query account balance |
+
+### Configuration
+
+```yaml
+live:
+  exchange: BYBIT
+
+  # API credentials (environment variables take precedence)
+  bybit-api-key: ${BYBIT_API_KEY:}
+  bybit-api-secret: ${BYBIT_API_SECRET:}
+  bybit-demo: true  # true = demo (safe), false = mainnet (real money)
+```
+
+Or via environment variables:
+```bash
+export BYBIT_API_KEY=your_api_key
+export BYBIT_API_SECRET=your_api_secret
+```
+
+### Demo vs Mainnet
+
+| Environment | URL | Description |
+|-------------|-----|-------------|
+| Demo | `api-demo.bybit.com` | 50K USDT simulated funds, no real money |
+| Mainnet | `api.bybit.com` | Real trading with real funds |
+
+**Safety:** Demo mode is the default. Set `bybit-demo: false` only when ready for live trading.
+
 ## Project Structure
 
 ```

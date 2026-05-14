@@ -17,8 +17,15 @@ data class LiveProperties(
     var reconnectDelayMs: Long = 5000,
     var maxReconnectAttempts: Int = 10,
     var heartbeatIntervalMs: Long = 30000,
+    // Binance URLs
     var binanceWebsocketUrl: String = "wss://stream.binance.com:9443/ws",
     var binanceRestUrl: String = "https://api.binance.com",
+    // Bybit URLs (mainnet)
     var bybitWebsocketUrl: String = "wss://stream.bybit.com/v5/public/linear",
     var bybitRestUrl: String = "https://api.bybit.com",
+    // Bybit trading credentials (env vars BYBIT_API_KEY, BYBIT_API_SECRET take precedence)
+    var bybitApiKey: String = "",
+    var bybitApiSecret: String = "",
+    var bybitDemo: Boolean = true, // true = demo environment (api-demo.bybit.com), false = mainnet
+    var bybitDemoRestUrl: String = "https://api-demo.bybit.com",
 )
