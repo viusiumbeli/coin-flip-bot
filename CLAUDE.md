@@ -11,7 +11,8 @@ The system uses **random 50/50 coin flips** to decide LONG or SHORT entries, com
 1. **Backtesting** (`/api/backtest`) - Run single backtests on historical Binance data
 2. **Experiments** (`/api/experiments`) - Monte Carlo simulations (up to 10M runs) to statistically validate strategy
 3. **Simulation** (`/api/simulation`) - Step-by-step candle-by-candle walkthrough for learning
-4. **Live Trading** (`/api/live`) - Real-time execution against Binance WebSocket feed
+4. **Data Sync** (`/api/candles`) - Sync historical OHLCV data from Binance
+5. **Live Trading** (`/api/live`) - Real-time execution against Binance WebSocket feed
 
 ## The Coin Flip Strategy
 
@@ -60,25 +61,63 @@ This ensures **each losing trade loses exactly 1% of capital**.
 ### Live Trading Tables
 | Table | Purpose |
 |-------|---------|
-| `live_sessions` | Active/historical trading sessions with state |
+| `live_sessions` | Active/historical trading sessions with state and last_candle_id FK |
 | `live_positions` | Open positions for active sessions |
 | `live_trades` | Completed trades from live execution |
 | `live_balance_snapshots` | Point-in-time balance history for charting |
 
 **Key Indexes**: `(symbol, timeframe, open_time)` on candles for fast range queries
 
-## API Endpoints Quick Reference
+**ATR Calculation**: Computed by PostgreSQL `BEFORE INSERT` trigger on `candles` table (see `V9__ATR_database_trigger.sql`)
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/data/status` | GET | Check data availability per symbol/timeframe |
-| `/api/data/sync` | POST | Sync missing candles from Binance |
-| `/api/backtest/run` | POST | Run single backtest, returns immediately |
-| `/api/experiments` | POST | Create async experiment (returns 202) |
-| `/api/experiments/{id}/status` | GET | Poll experiment progress |
-| `/api/simulation/init` | POST | Initialize step-by-step simulation |
-| `/api/simulation/next` | POST | Advance to next candle |
-| `/api/live/sessions/start` | POST | Start live trading session (returns 202) |
+## API Endpoints
+
+### Backtest (`/api/backtest`)
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/run` | Run single backtest, returns results immediately |
+| GET | `/symbols` | List available symbols and timeframes |
+| GET | `/config` | Get current backtest configuration |
+
+### Candles (`/api/candles`)
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/status` | Check data availability per symbol/timeframe |
+| POST | `/sync` | Sync missing candles for one symbol/timeframe |
+| POST | `/sync-all` | Sync all configured symbol/timeframe combinations |
+
+### Experiments (`/api/experiments`)
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/` | Create async experiment (returns 202) |
+| GET | `/` | List all experiments |
+| GET | `/{id}` | Get detailed experiment results |
+| GET | `/{id}/status` | Poll experiment progress |
+| GET | `/{id}/runs` | Get paginated individual runs |
+| GET | `/runs/{runId}` | Get single backtest run with trades |
+| POST | `/{id}/cancel` | Cancel running experiment |
+| POST | `/compare` | Compare multiple experiments |
+| DELETE | `/{id}` | Delete experiment (returns 204) |
+
+### Simulation (`/api/simulation`)
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/init` | Initialize step-by-step simulation |
+| POST | `/next` | Advance to next candle |
+| POST | `/previous` | Go back to previous candle |
+| POST | `/reset` | Reset to initial state |
+| GET | `/state` | Get current simulation state |
+
+### Live Trading (`/api/live`)
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/config` | Get live trading configuration |
+| GET | `/sessions` | List all trading sessions |
+| GET | `/sessions/{id}` | Get session details with open positions |
+| GET | `/sessions/{id}/trades` | Get recent trades (with limit param) |
+| GET | `/sessions/{id}/snapshots` | Get balance snapshot history |
+| POST | `/sessions/start` | Start live trading session (returns 202) |
+| POST | `/sessions/{id}/stop` | Stop a live session |
 
 ## Frontend Pages
 
@@ -87,7 +126,7 @@ This ensures **each losing trade loses exactly 1% of capital**.
 | `index.html` | `/` | Single backtest runner with trade table |
 | `experiments.html` | `/experiments.html` | Create/compare Monte Carlo experiments |
 | `simulation.html` | `/simulation.html` | Interactive candle-by-candle learning |
-| `data.html` | `/data.html` | Sync and manage historical data |
+| `candles.html` | `/candles.html` | Sync and manage historical data |
 | `live.html` | `/live.html` | Live trading dashboard |
 
 ## Common Mistakes to Avoid
@@ -105,75 +144,128 @@ This ensures **each losing trade loses exactly 1% of capital**.
 
 ## Quick Reference
 
-- always add new files to git
-- shared formatting utilities are in `src/main/resources/static/formatters.js` - use `formatNumber()`, `formatDate()`, and `formatDateTime()` across all HTML pages for consistent formatting
-- use `showConfirmModal(title, message, confirmText, callback, isDanger)` from `js/components/modal.js` for confirmation dialogs instead of browser's `confirm()` - supports danger (red) and warning (orange) styles
+- Always add new files to git
+- Shared formatting utilities are in `src/main/resources/static/formatters.js` - use `formatNumber()`, `formatDate()`, and `formatDateTime()` across all HTML pages
+- Use `showConfirmModal(title, message, confirmText, callback, isDanger)` from `js/components/modal.js` for confirmation dialogs instead of browser's `confirm()`
 
 ## Package Structure
 Feature-based organization under `com.trading.coinflip` with **one class per file**:
 ```
-├── api/           # REST controllers
-├── common/        # Shared code
-│   ├── config/    # BacktestProperties, JacksonConfig
-│   ├── dto/       # Shared DTOs only (TradeDto)
-│   └── model/     # Domain models, JPA entities (CandleEntity, ExperimentEntity, etc.)
-├── engine/        # Core trading (TradingProcessor, CoinFlipStrategy, ATRCalculator [deprecated])
-├── backtest/      # BacktestEngine, BacktestService, BacktestRequest, BacktestResponse
-├── experiment/    # ExperimentService, AsyncExperimentExecutor + experiment DTOs
-├── simulation/    # SimulationService + simulation DTOs
-├── data/          # Repositories, BinanceClient, DataService + data DTOs
-└── analytics/     # PerformanceAnalytics, ReportGenerator
+├── api/                    # REST controllers + request/response DTOs
+│   ├── backtest/          # BacktestController, BacktestRequest, BacktestResponse
+│   ├── candle/            # CandleController, SyncRequest, CandleStatusResponse
+│   ├── experiment/        # ExperimentController + all experiment DTOs
+│   ├── simulation/        # SimulationController, SimulationInitRequest
+│   ├── live/              # LiveController + all live trading DTOs
+│   └── exception/         # GlobalExceptionHandler, NotFoundException, BadRequestException
+├── common/
+│   ├── config/            # BacktestProperties, LiveProperties, R2dbcConfig, JacksonConfig
+│   ├── dto/               # TradeDto (shared between simulation and backtest)
+│   ├── model/             # Timeframe enum
+│   └── util/              # ReentrantMutex
+├── engine/                # Core trading logic
+│   ├── TradingProcessor.kt    # Single source of truth for P&L, costs, drawdown
+│   ├── CoinFlipStrategy.kt    # Random entry + position sizing + trailing stops
+│   └── model/             # Position, Trade, TradingState, TradingEvent
+├── backtest/
+│   ├── BacktestEngine.kt
+│   ├── BacktestService.kt
+│   └── model/             # BacktestConfig, BacktestResult, BacktestRunEntity
+├── candle/                # Data management (renamed from data/)
+│   ├── CandleService.kt       # Sync, load, stats
+│   ├── BinanceClient.kt       # REST API client for historical data
+│   └── model/             # CandleEntity, CandleStats
+│   └── repository/        # CandleRepository
+├── experiment/
+│   ├── ExperimentService.kt
+│   ├── AsyncExperimentExecutor.kt
+│   ├── RunningAggregator.kt
+│   ├── BatchPersistenceService.kt
+│   └── model/             # ExperimentEntity, ExperimentStatus
+│   └── repository/        # ExperimentRepository, BacktestRunBulkRepository
+├── simulation/
+│   └── SimulationService.kt
+├── live/                  # Real-time trading
+│   ├── LiveTradingService.kt
+│   ├── BinanceWebSocketClient.kt  # WebSocket for real-time prices
+│   ├── LiveTradingStateHolder.kt
+│   ├── LiveStateRecoveryService.kt
+│   ├── LiveMappers.kt
+│   └── model/             # LiveSessionEntity, LiveTradeEntity, LivePositionEntity, LiveBalanceSnapshotEntity
+│   └── repository/        # LiveSessionRepository, LiveTradeRepository, etc.
+└── analytics/
+    └── PerformanceAnalytics.kt
 ```
 
-**Naming Conventions:**
+## Naming Conventions
 - `***Request` - API request bodies (e.g., `BacktestRequest`, `SyncRequest`)
-- `***Response` - API responses (e.g., `BacktestResponse`, `SyncResponse`, `DataStatusResponse`)
-- `***Entity` - JPA entities from DB (e.g., `CandleEntity`, `ExperimentEntity`, `BacktestRunEntity`)
-- `***Config` - Configuration classes from application.yaml (e.g., `TradingConfig`, `AsyncConfig`)
-- `***Dto` - Other data transfer objects (e.g., `TradeDto`, `ExperimentDetailDto`)
+- `***Response` - API responses (e.g., `BacktestResponse`, `CandleStatusResponse`)
+- `***Entity` - R2DBC entities from DB (e.g., `CandleEntity`, `ExperimentEntity`)
+- `***Config` - Configuration classes (e.g., `TradingConfig`, `AsyncConfig`)
+- `***Dto` - Other data transfer objects (e.g., `TradeDto`)
 
-**DTOs live in their feature packages** (not common/dto/):
-- `backtest/`: BacktestRequest, BacktestResponse
-- `data/`: DataStatusResponse, SyncRequest, SyncResponse, AvailableSymbolsResponse
-- `experiment/`: CreateExperimentRequest, ExperimentDetailDto, ExperimentMappers, etc.
-- `simulation/`: SimulationInitRequest, SimulationStateDto, CandleDto, etc.
-- `common/dto/`: TradeDto (shared between simulation and backtest)
+**DTOs live in `api/` subpackages**, co-located with their controllers:
+- `api/backtest/`: BacktestRequest, BacktestResponse
+- `api/candle/`: SyncRequest, SyncResponse, CandleStatusResponse, AvailableSymbolsResponse
+- `api/experiment/`: CreateExperimentRequest, ExperimentDetailResponse, ExperimentStatusResponse, etc.
+- `api/simulation/`: SimulationInitRequest, SimulationStateResponse
+- `api/live/`: StartSessionRequest, LiveSessionDetailResponse, LiveTradeResponse, etc.
+- `common/dto/`: TradeDto (shared between features)
 
 ## Architecture Notes
-- Kotlin/Spring Boot backend with JPA entities in `common/model/`
+- Kotlin/Spring Boot backend with R2DBC for async database access
 - Async experiment execution uses `RunningAggregator` for memory-efficient streaming statistics
-- Database migrations are in `src/main/resources/db/migration/` using Flyway (V1, V2, V3...)
-- Entity extension functions (mappers) are in `experiment/ExperimentMappers.kt`
+- Database migrations are in `src/main/resources/db/migration/` using Flyway (V1-V11)
 - Frontend is vanilla JS with Chart.js for visualizations
 
 ## Configuration
-All runtime constants are centralized in `BacktestProperties` (`common/config/BacktestProperties.kt`) with nested config classes, configurable via `application.yml`:
+All runtime constants are centralized in `BacktestProperties` and `LiveProperties`, configurable via `application.yml`:
 
 ```yaml
 backtest:
-  initial-capital: 2000
-  trading:          # TradingConfig - reused in BacktestConfig
+  symbols: [BTCUSDT, ETHUSDT, BNBUSDT]
+  timeframes: [ONE_MINUTE, ONE_HOUR, FOUR_HOURS, ONE_DAY]
+  initial-capital: 10000
+  start-date: 2020-01-01T00:00:00Z
+
+  trading:                          # TradingConfig
     risk-per-trade: 1.0
     atr-period: 10
     atr-multiplier: 3.0
     transaction-cost-percent: 0.1
     max-concurrent-positions: 5
+    max-position-size-percent: 20
     entry-frequency: 2
-  experiment:       # ExperimentConfig
+
+  experiment:                       # ExperimentConfig
     sync-backtest-limit: 1000000
     async-backtest-limit: 10000000
-  async:            # AsyncConfig
+
+  async:                            # AsyncConfig
     parallelism-min: 4
     parallelism-max: 32
     channel-capacity: 1000
     batch-size: 1000
-  api:              # ApiConfig
+    shutdown-timeout-ms: 30000
+    progress-log-interval: 10000
+
+  api:                              # ApiConfig
     max-page-size: 1000
     http-timeout-ms: 30000
-    rate-limit-delay-ms: 100
+    rate-limit-delay-ms: 0
+
+live:                               # LiveProperties
+  enabled: true
+  symbols: [BTCUSDT, ETHUSDT, BNBUSDT]
+  initial-capital: 10000
+  reconnect-delay-ms: 5000
+  max-reconnect-attempts: 10
+  balance-snapshot-interval-minutes: 60
+  heartbeat-interval-ms: 30000
+  websocket-url: wss://stream.binance.com:9443/ws
 ```
 
-Access in code: `properties.trading.riskPerTrade`, `properties.experiment.asyncBacktestLimit`, `properties.async.batchSize`, `properties.api.maxPageSize`
+Access in code: `properties.trading.riskPerTrade`, `liveProperties.reconnectDelayMs`
 
 ## Logging
 Use `KotlinLogging` with logger declared **inside the class** as the first property:
@@ -195,11 +287,18 @@ ktlint enforces Kotlin code style. Runs automatically on build.
 ## Trading Architecture
 All trading components are Spring `@Component` beans with constructor injection:
 - `TradingProcessor` (`engine/`) - Single source of truth for trading logic (P&L, transaction costs, drawdown tracking)
-- `TradingState` (`engine/`) - Mutable state container (balance, positions, trades, counters)
+- `TradingState` (`engine/model/`) - Mutable state container (balance, positions, trades, counters)
 - `CoinFlipStrategy` (`engine/`) - Random entry with ATR-based trailing stops
 - `TradingConfig` - Reusable config from `BacktestProperties.trading`, passed to processor
 - `BacktestEngine` (`backtest/`) uses `TradingProcessor` for backtesting
 - `SimulationService` (`simulation/`) uses `TradingProcessor` for step-by-step simulation
+- `LiveTradingService` (`live/`) uses `TradingProcessor` for real-time trading
+
+### Live Trading Components
+- `BinanceWebSocketClient` - Connects to Binance WebSocket for real-time kline data
+- `LiveTradingStateHolder` - Manages current session state in memory
+- `LiveStateRecoveryService` - Recovers state after crashes from database
+- `LiveMappers` - Extension functions for entity-to-DTO conversion
 
 ## Request DTO Types
 Use domain types directly in request DTOs instead of Strings to eliminate manual parsing:
@@ -219,8 +318,11 @@ val startDate = Instant.parse(request.startDate)
 ```
 
 **Configured in `JacksonConfig`:**
-- `Timeframe` uses `@JsonValue`/`@JsonCreator` for "1h", "4h", "1d" labels
+- `Timeframe` uses `@JsonValue`/`@JsonCreator` for "1m", "1h", "4h", "1d" labels
 - `Instant` uses custom serializer/deserializer for ISO-8601 format
+
+**Configured in `R2dbcConfig`:**
+- Custom converters for enum types: `Timeframe`, `ExperimentStatus`, `PositionSide`, `PositionStatus`, `LiveSessionStatus`
 
 Invalid input automatically returns 400 Bad Request.
 
@@ -230,7 +332,7 @@ Controllers return objects directly without `ResponseEntity` wrappers. Exception
 ```kotlin
 // Good - return object directly, let exception handler manage errors
 @GetMapping("/{id}")
-fun getExperiment(@PathVariable id: Long): ExperimentDetailResponse =
+suspend fun getExperiment(@PathVariable id: Long): ExperimentDetailResponse =
     experimentService.getExperiment(id)
 
 // Bad - manual ResponseEntity and try-catch
@@ -254,6 +356,8 @@ fun getExperiment(@PathVariable id: Long): ResponseEntity<ExperimentDetailRespon
 - `BadRequestException` - Returns 400 Bad Request
 - `IllegalArgumentException`/`IllegalStateException` - Also return 400
 
+**CORS**: All controllers use `@CrossOrigin(origins = ["*"])`
+
 ## Coroutines Architecture
 The codebase uses Kotlin coroutines throughout with Spring WebFlux for non-blocking HTTP handling.
 
@@ -270,7 +374,12 @@ The codebase uses Kotlin coroutines throughout with Spring WebFlux for non-block
 - `RunningAggregator` - Uses `Mutex` for thread-safe statistics aggregation
 - `SimulationService` - Uses `Mutex` for state synchronization
 - `BinanceClient` - Uses Ktor's suspend-based HTTP client
-- `DataService` - Native suspend functions for data fetching
+- `BinanceWebSocketClient` - Uses Ktor's WebSocket client for live data
+- `CandleService` - Native suspend functions for data fetching
+- `LiveTradingService` - Uses `Mutex` and coroutines for real-time trading
+
+**Utilities:**
+- `ReentrantMutex` (`common/util/`) - Kotlin coroutine extension for reentrant mutex locking
 
 **Guidelines:**
 ```kotlin
@@ -313,20 +422,20 @@ startDate: new Date(startDate).toISOString()
 ## Data Layer Architecture
 
 **Separation of Concerns:**
-- **Data sync** (`/api/data/sync`) - Downloads from Binance API, saves page-by-page
+- **Data sync** (`/api/candles/sync`) - Downloads from Binance API, saves page-by-page
 - **Backtests/Experiments** - Read-only from database, never download
 
 **Key Components:**
 - `BinanceClient.streamHistoricalData()` - Returns `Flow<List<CandleEntity>>`, emits pages of 1000 candles
-- `DataService.syncMissingData()` - Syncs from latest candle to now, used by `/api/data/sync`
-- `CandleRepository.findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc()` - DB-only fetch, used by backtests and experiments
-- `CandlePersistenceService.saveCandlePage()` - Saves one page per transaction for crash safety
+- `CandleService.syncMissingData()` - Syncs from latest candle to now
+- `CandleService.loadCandlesParallel()` - Parallel page loading for large datasets
+- `CandleRepository.findBySymbolAndTimeframeAndOpenTimeBetweenOrderByOpenTimeAsc()` - DB-only fetch
 
 **Data Flow:**
 ```
-Binance API → BinanceClient (streaming) → CandlePersistenceService (page-by-page save) → DB
-                                                                                          ↓
-Backtest/Experiment ← CandleRepository ←──────────────────────────────────────────────────┘
+Binance API → BinanceClient (streaming) → CandleRepository (page-by-page save) → DB
+                                                                                   ↓
+Backtest/Experiment ← CandleRepository ←───────────────────────────────────────────┘
 ```
 
 **ATR Calculation (Database Trigger):**
@@ -338,7 +447,7 @@ Backtest/Experiment ← CandleRepository ←────────────
 - `ATRCalculator.kt` is deprecated - kept for reference only
 
 ## Summary
-This codebase follows strict conventions: one class per file, feature-based package organization, and consistent naming (`*Request`, `*Response`, `*Entity`, `*Config`, `*Dto`). All configuration is centralized in `BacktestProperties`, ktlint enforces code style, and `TradingProcessor` is the single source of truth for trading logic. The async layer uses Kotlin coroutines with Spring WebFlux, `Mutex` for synchronization, and `Channel` for streaming. Frontend uses vanilla JS with UTC-only date handling via `formatters.js` utilities. When adding new features, place classes in the appropriate feature package and follow existing patterns.
+This codebase follows strict conventions: one class per file, feature-based package organization, and consistent naming (`*Request`, `*Response`, `*Entity`, `*Config`, `*Dto`). All configuration is centralized in `BacktestProperties` and `LiveProperties`, ktlint enforces code style, and `TradingProcessor` is the single source of truth for trading logic. The async layer uses Kotlin coroutines with Spring WebFlux, `Mutex` for synchronization, and `Channel` for streaming. Frontend uses vanilla JS with UTC-only date handling via `formatters.js` utilities. When adding new features, place classes in the appropriate feature package and follow existing patterns.
 
 ## Conclusion
 This project demonstrates Van Tharp's core insight: **you can be profitable with random entries if your risk management is sound**. The coin flip removes all pretense of market prediction, forcing focus on what actually matters - position sizing that limits losses to 1% per trade and trailing stops that let winners run.
