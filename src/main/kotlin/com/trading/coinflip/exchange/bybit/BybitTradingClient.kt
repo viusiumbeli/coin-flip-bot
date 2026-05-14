@@ -123,8 +123,18 @@ class BybitTradingClient(
             )
         log.info { "Setting leverage: $symbol leverage=$leverage" }
 
-        val response = post("/v5/position/set-leverage", body)
-        return isSuccess(response)
+        return try {
+            val response = post("/v5/position/set-leverage", body)
+            isSuccess(response)
+        } catch (e: BybitApiException) {
+            // 110043 = "leverage not modified" - already at desired level, not an error
+            if (e.code == 110043) {
+                log.debug { "Leverage already set to $leverage for $symbol" }
+                true
+            } else {
+                throw e
+            }
+        }
     }
 
     override suspend fun setTradingStop(request: TradingStopRequest): Boolean {
