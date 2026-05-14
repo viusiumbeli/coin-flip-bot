@@ -70,7 +70,8 @@ class LiveTradingService(
     private fun sessionKey(
         symbol: String,
         timeframe: Timeframe,
-    ): String = "${symbol}_${timeframe.label}"
+        exchange: Exchange,
+    ): String = "${exchange}_${symbol}_${timeframe.label}"
 
     @PostConstruct
     fun initialize() {
@@ -108,9 +109,9 @@ class LiveTradingService(
         exchange: Exchange,
     ): LiveSessionEntity =
         mutex.withLock {
-            val key = sessionKey(symbol, timeframe)
+            val key = sessionKey(symbol, timeframe, exchange)
             if (sessionJobs.containsKey(key)) {
-                throw IllegalStateException("Session already running for $symbol ${timeframe.label}")
+                throw IllegalStateException("Session already running for $symbol ${timeframe.label} on $exchange")
             }
 
             // Create new session in database with specified exchange
@@ -156,10 +157,10 @@ class LiveTradingService(
      */
     private suspend fun resumeSession(session: LiveSessionEntity) =
         mutex.withLock {
-            val key = sessionKey(session.symbol, session.timeframe)
+            val key = sessionKey(session.symbol, session.timeframe, session.exchange)
 
             if (sessionJobs.containsKey(key)) {
-                log.warn { "Session already running for ${session.symbol} ${session.timeframe.label}, skipping resume" }
+                log.warn { "Session already running for ${session.symbol} ${session.timeframe.label} on ${session.exchange}, skipping resume" }
                 return
             }
 
@@ -181,13 +182,14 @@ class LiveTradingService(
     suspend fun stopSession(
         symbol: String,
         timeframe: Timeframe,
+        exchange: Exchange,
     ) = mutex.withLock {
-        val key = sessionKey(symbol, timeframe)
+        val key = sessionKey(symbol, timeframe, exchange)
         val job = sessionJobs.remove(key)
         val stateHolder = stateHolders.remove(key)
 
         if (job == null || stateHolder == null) {
-            throw IllegalStateException("No running session for $symbol ${timeframe.label}")
+            throw IllegalStateException("No running session for $symbol ${timeframe.label} on $exchange")
         }
 
         job.cancel()
@@ -200,7 +202,7 @@ class LiveTradingService(
             sessionRepository.save(session)
         }
 
-        log.info { "[#${stateHolder.sessionId} $symbol/${timeframe.label}] Stopped session" }
+        log.info { "[#${stateHolder.sessionId} $symbol/${timeframe.label} $exchange] Stopped session" }
     }
 
     /**
@@ -486,20 +488,22 @@ class LiveTradingService(
     suspend fun getAllSessionStatus(): List<LiveSessionEntity> = sessionRepository.findAllByOrderByStartedAtDesc().toList()
 
     /**
-     * Get state for a specific symbol and timeframe.
+     * Get state for a specific symbol, timeframe, and exchange.
      */
     fun getStateHolder(
         symbol: String,
         timeframe: Timeframe,
-    ): LiveTradingStateHolder? = stateHolders[sessionKey(symbol, timeframe)]
+        exchange: Exchange,
+    ): LiveTradingStateHolder? = stateHolders[sessionKey(symbol, timeframe, exchange)]
 
     /**
-     * Check if a symbol and timeframe has an active session.
+     * Check if a symbol, timeframe, and exchange has an active session.
      */
     fun isSessionActive(
         symbol: String,
         timeframe: Timeframe,
-    ): Boolean = sessionJobs.containsKey(sessionKey(symbol, timeframe))
+        exchange: Exchange,
+    ): Boolean = sessionJobs.containsKey(sessionKey(symbol, timeframe, exchange))
 
     /**
      * Get count of active sessions.
