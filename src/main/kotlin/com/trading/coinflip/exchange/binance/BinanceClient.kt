@@ -1,8 +1,10 @@
-package com.trading.coinflip.candle
+package com.trading.coinflip.exchange.binance
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.trading.coinflip.common.config.BacktestProperties
+import com.trading.coinflip.candle.CandleEntity
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.exchange.ExchangeClient
+import com.trading.coinflip.exchange.ExchangeRestConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
@@ -13,44 +15,38 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import mu.KotlinLogging
-import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.time.Instant
 
-@Service
+/**
+ * Binance REST API client for historical kline data.
+ * Implements ExchangeClient interface for exchange abstraction.
+ */
 class BinanceClient(
     private val objectMapper: ObjectMapper,
-    private val properties: BacktestProperties,
-) {
+    private val config: ExchangeRestConfig,
+) : ExchangeClient {
     private val log = KotlinLogging.logger {}
 
     private val client =
         HttpClient(CIO) {
             engine {
-                requestTimeout = properties.api.httpTimeoutMs
+                requestTimeout = config.httpTimeoutMs
             }
         }
 
-    private val baseUrl = "https://api.binance.com"
-
-    suspend fun fetchHistoricalKlines(
+    override suspend fun fetchHistoricalKlines(
         symbol: String,
         timeframe: Timeframe,
-        startTime: Instant? = null,
-        endTime: Instant? = null,
-        limit: Int = 1000,
+        startTime: Instant?,
+        endTime: Instant?,
+        limit: Int,
     ): List<CandleEntity> {
-        val interval =
-            when (timeframe) {
-                Timeframe.ONE_MINUTE -> "1m"
-                Timeframe.ONE_HOUR -> "1h"
-                Timeframe.FOUR_HOURS -> "4h"
-                Timeframe.ONE_DAY -> "1d"
-            }
+        val interval = timeframe.toBinanceInterval()
 
         val url =
             buildString {
-                append("$baseUrl/api/v3/klines")
+                append("${config.baseUrl}/api/v3/klines")
                 append("?symbol=$symbol")
                 append("&interval=$interval")
                 append("&limit=$limit")
@@ -88,7 +84,7 @@ class BinanceClient(
         }
     }
 
-    fun streamHistoricalData(
+    override fun streamHistoricalData(
         symbol: String,
         timeframe: Timeframe,
         startDate: Instant,
@@ -126,10 +122,24 @@ class BinanceClient(
                 // Move to next batch
                 currentStartTime = page.last().openTime.plusMillis(timeframe.minutes * 60 * 1000L)
 
-//                 Rate limiting
-                delay(properties.api.rateLimitDelayMs)
+                // Rate limiting
+                delay(config.rateLimitDelayMs)
             }
 
             log.info { "Completed streaming data for $symbol $timeframe" }
         }
+
+    companion object {
+        /**
+         * Convert Timeframe to Binance interval string.
+         * Binance uses: 1m, 1h, 4h, 1d
+         */
+        fun Timeframe.toBinanceInterval(): String =
+            when (this) {
+                Timeframe.ONE_MINUTE -> "1m"
+                Timeframe.ONE_HOUR -> "1h"
+                Timeframe.FOUR_HOURS -> "4h"
+                Timeframe.ONE_DAY -> "1d"
+            }
+    }
 }

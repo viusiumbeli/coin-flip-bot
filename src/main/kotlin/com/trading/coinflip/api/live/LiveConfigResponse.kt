@@ -8,4 +8,5 @@ data class LiveConfigResponse(
     val timeframes: List<String>,
     val initialCapital: BigDecimal,
     val websocketUrl: String,
+    val exchange: String,
 )

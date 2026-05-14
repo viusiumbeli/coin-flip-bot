@@ -4,6 +4,8 @@ import com.ninjasquad.springmockk.MockkBean
 import com.trading.coinflip.candle.CandleEntity
 import com.trading.coinflip.candle.CandleRepository
 import com.trading.coinflip.engine.model.PositionStatus
+import com.trading.coinflip.exchange.ExchangeClientFactory
+import com.trading.coinflip.exchange.ExchangeWebSocketClient
 import com.trading.coinflip.live.model.LiveSessionStatus
 import com.trading.coinflip.live.repository.LiveBalanceSnapshotRepository
 import com.trading.coinflip.live.repository.LivePositionRepository
@@ -54,20 +56,29 @@ class LiveTradingServiceIntegrationTest {
     lateinit var balanceSnapshotRepository: LiveBalanceSnapshotRepository
 
     @MockkBean
-    lateinit var webSocketClient: BinanceWebSocketClient
+    lateinit var exchangeClientFactory: ExchangeClientFactory
 
+    private lateinit var mockWebSocketClient: ExchangeWebSocketClient
     private var candleChannel = Channel<CandleEntity>(Channel.UNLIMITED)
 
     @BeforeEach
     fun setup() {
         candleChannel = Channel(Channel.UNLIMITED)
 
-        every {
-            webSocketClient.connectAndStream(any(), any(), any<CoroutineScope>())
-        } returns candleChannel.receiveAsFlow()
+        mockWebSocketClient =
+            io.mockk.mockk<ExchangeWebSocketClient> {
+                every { connectAndStream(any(), any(), any<CoroutineScope>()) } returns candleChannel.receiveAsFlow()
+                every { stop() } just runs
+                every { isRunning() } returns true
+                every { getReconnectAttempts() } returns 0
+            }
 
-        every { webSocketClient.stop() } just runs
-        every { webSocketClient.isRunning() } returns true
+        every { exchangeClientFactory.getWebSocketClient() } returns mockWebSocketClient
+        every { exchangeClientFactory.getRestClient() } returns
+            io.mockk.mockk {
+                io.mockk.coEvery { fetchHistoricalKlines(any(), any(), any(), any(), any()) } returns emptyList()
+            }
+        every { exchangeClientFactory.getExchange() } returns com.trading.coinflip.exchange.Exchange.BINANCE
     }
 
     private suspend fun waitFor(
@@ -498,7 +509,7 @@ class LiveTradingServiceIntegrationTest {
             val errorFlow: Flow<CandleEntity> = errorChannel.receiveAsFlow()
 
             every {
-                webSocketClient.connectAndStream(eq("ETHUSDT"), any(), any<CoroutineScope>())
+                mockWebSocketClient.connectAndStream(eq("ETHUSDT"), any(), any<CoroutineScope>())
             } returns errorFlow
 
             candleRepository.save(LiveTestFixtures.createCandle(symbol = "ETHUSDT"))
@@ -530,7 +541,7 @@ class LiveTradingServiceIntegrationTest {
 
             val solChannel = Channel<CandleEntity>(Channel.UNLIMITED)
             every {
-                webSocketClient.connectAndStream(eq("SOLUSDT"), any(), any<CoroutineScope>())
+                mockWebSocketClient.connectAndStream(eq("SOLUSDT"), any(), any<CoroutineScope>())
             } returns solChannel.receiveAsFlow()
 
             service.startSession("SOLUSDT", LiveTestFixtures.TEST_TIMEFRAME)

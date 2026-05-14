@@ -29,10 +29,14 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;" >
                 <h2>Trading Sessions</h2>
                 <div class="button-group">
-                    <select id="startSymbol" style="flex: 1; min-width: 350px;">
+                    <select id="startExchange" style="flex: 1; min-width: 200px;">
+                        <option value="BINANCE">Binance</option>
+                        <option value="BYBIT">ByBit</option>
+                    </select>
+                    <select id="startSymbol" style="flex: 1; min-width: 250px;">
                         <option value="">Select symbol...</option>
                     </select>
-                    <select id="startTimeframe" style="flex: 1; min-width: 350px;">
+                    <select id="startTimeframe" style="flex: 1; min-width: 200px;">
                         <option value="">Select timeframe...</option>
                     </select>
                 </div>
@@ -48,6 +52,7 @@
                     <thead>
                         <tr>
                             <th>ID</th>
+                            <th>Exchange</th>
                             <th>Symbol</th>
                             <th>Timeframe</th>
                             <th style="text-align: center;">Status</th>
@@ -62,7 +67,7 @@
                     </thead>
                     <tbody id="sessionsBody">
                         <tr>
-                            <td colspan="11" style="text-align: center; color: var(--text-muted);">Loading sessions...</td>
+                            <td colspan="12" style="text-align: center; color: var(--text-muted);">Loading sessions...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -77,6 +82,7 @@
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <button class="btn-secondary" onclick="hideSessionDetail()">&larr; Back</button>
                         <h2 id="sessionTitle" style="margin-bottom: 0;">Session Details</h2>
+                        <span id="sessionExchange" class="exchange-badge"></span>
                     </div>
                     <div class="button-group">
                         <span id="sessionStatus" class="status-badge"></span>
@@ -236,7 +242,12 @@
                     ? '<span class="positive">Enabled</span>'
                     : '<span class="negative">Disabled</span>';
 
+                const exchangeBadge = configData.exchange === 'BINANCE'
+                    ? '<span class="exchange-badge exchange-binance">Binance</span>'
+                    : '<span class="exchange-badge exchange-bybit">ByBit</span>';
+
                 document.getElementById('configInfo').innerHTML = `
+                    <strong>Exchange:</strong> ${exchangeBadge} |
                     <strong>Status:</strong> ${enabledText} |
                     <strong>Symbols:</strong> ${configData.symbols.join(', ')} |
                     <strong>Initial Capital:</strong> $${formatNumber(configData.initialCapital)}
@@ -266,15 +277,20 @@
                 if (sessions.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="11" style="text-align: center; color: var(--text-muted);">No sessions found. Start a new session above.</td>
+                            <td colspan="12" style="text-align: center; color: var(--text-muted);">No sessions found. Start a new session above.</td>
                         </tr>
                     `;
                     return;
                 }
 
-                tbody.innerHTML = sessions.map(session => `
+                tbody.innerHTML = sessions.map(session => {
+                    const exchangeBadge = session.exchange === 'BINANCE'
+                        ? '<span class="exchange-badge exchange-binance">Binance</span>'
+                        : '<span class="exchange-badge exchange-bybit">ByBit</span>';
+                    return `
                     <tr>
                         <td>${session.id}</td>
+                        <td>${exchangeBadge}</td>
                         <td>${session.symbol}</td>
                         <td>${session.timeframe}</td>
                         <td style="text-align: center;"><span class="status-badge ${statusColors[session.status]}">${session.status}</span></td>
@@ -292,13 +308,14 @@
                             <button class="btn-info btn-sm" onclick="viewSession(${session.id})">View</button>
                         </td>
                     </tr>
-                `).join('');
+                `}).join('');
             } catch (error) {
                 showError('Failed to load sessions: ' + error.message);
             }
         }
 
         async function startSession() {
+            const exchange = document.getElementById('startExchange').value;
             const symbol = document.getElementById('startSymbol').value;
             const timeframe = document.getElementById('startTimeframe').value;
 
@@ -323,7 +340,7 @@
                 const response = await fetch(`${API_BASE}/sessions/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ symbol, timeframe })
+                    body: JSON.stringify({ symbol, timeframe, exchange })
                 });
 
                 if (!response.ok) {
@@ -378,6 +395,11 @@
 
         function updateSessionUI(session) {
             document.getElementById('sessionTitle').textContent = `${session.symbol} - ${session.timeframe}`;
+
+            // Update exchange badge
+            const exchangeBadge = document.getElementById('sessionExchange');
+            exchangeBadge.textContent = session.exchange === 'BINANCE' ? 'Binance' : 'ByBit';
+            exchangeBadge.className = `exchange-badge ${session.exchange === 'BINANCE' ? 'exchange-binance' : 'exchange-bybit'}`;
 
             const statusBadge = document.getElementById('sessionStatus');
             statusBadge.textContent = session.status;
@@ -709,6 +731,26 @@
         .status-error {
             background: rgba(239, 68, 68, 0.2);
             color: #ef4444;
+        }
+
+        /* Exchange badge styles */
+        .exchange-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .exchange-binance {
+            background: linear-gradient(135deg, #f3ba2f 0%, #e6a817 100%);
+            color: #1a1a1a;
+        }
+
+        .exchange-bybit {
+            background: linear-gradient(135deg, #f7a600 0%, #ff6b00 100%);
+            color: #ffffff;
         }
 
         .btn-sm {

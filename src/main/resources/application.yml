@@ -72,9 +72,21 @@ live:
     - ETHUSDT
     - BNBUSDT
   initial-capital: 10000
+  prefetch-candle-count: 20
+  balance-snapshot-interval-minutes: 60
+
+  # Exchange selection: BINANCE or BYBIT
+  exchange: BINANCE
+
+  # Common WebSocket settings
   reconnect-delay-ms: 5000
   max-reconnect-attempts: 10
-  balance-snapshot-interval-minutes: 60
   heartbeat-interval-ms: 30000
-  websocket-url: wss://stream.binance.com:9443/ws
-  prefetch-candle-count: 20
+
+  # Binance URLs
+  binance-websocket-url: wss://stream.binance.com:9443/ws
+  binance-rest-url: https://api.binance.com
+
+  # ByBit URLs (Linear/USDT perpetuals)
+  bybit-websocket-url: wss://stream.bybit.com/v5/public/linear
+  bybit-rest-url: https://api.bybit.com

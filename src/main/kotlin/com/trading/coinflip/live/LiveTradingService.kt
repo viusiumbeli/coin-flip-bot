@@ -1,6 +1,5 @@
 package com.trading.coinflip.live
 
-import com.trading.coinflip.candle.BinanceClient
 import com.trading.coinflip.candle.CandleEntity
 import com.trading.coinflip.candle.CandleRepository
 import com.trading.coinflip.common.config.BacktestProperties
@@ -11,6 +10,8 @@ import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionStatus
 import com.trading.coinflip.engine.model.TradingEvent
 import com.trading.coinflip.engine.model.TradingState
+import com.trading.coinflip.exchange.Exchange
+import com.trading.coinflip.exchange.ExchangeClientFactory
 import com.trading.coinflip.live.model.LiveBalanceSnapshotEntity
 import com.trading.coinflip.live.model.LivePositionEntity
 import com.trading.coinflip.live.model.LiveSessionEntity
@@ -43,8 +44,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class LiveTradingService(
-    private val webSocketClient: BinanceWebSocketClient,
-    private val binanceClient: BinanceClient,
+    private val exchangeClientFactory: ExchangeClientFactory,
     private val tradingProcessor: TradingProcessor,
     private val recoveryService: LiveStateRecoveryService,
     private val sessionRepository: LiveSessionRepository,
@@ -62,6 +62,11 @@ class LiveTradingService(
     private val stateHolders = ConcurrentHashMap<String, LiveTradingStateHolder>()
     private val mutex = Mutex()
 
+    // Get clients from factory for specific exchange (factory handles caching)
+    private fun getRestClient(exchange: Exchange) = exchangeClientFactory.getRestClient(exchange)
+
+    private fun getWebSocketClient(exchange: Exchange) = exchangeClientFactory.getWebSocketClient(exchange)
+
     private fun sessionKey(
         symbol: String,
         timeframe: Timeframe,
@@ -74,7 +79,8 @@ class LiveTradingService(
             return
         }
 
-        log.info { "Initializing live trading service for symbols: ${liveProperties.symbols}" }
+        val exchange = exchangeClientFactory.getExchange()
+        log.info { "Initializing live trading service for symbols: ${liveProperties.symbols} via $exchange" }
 
         scope.launch {
             // Resume any running sessions from previous run
@@ -89,7 +95,7 @@ class LiveTradingService(
     @PreDestroy
     fun shutdown() {
         log.info { "Shutting down live trading service" }
-        webSocketClient.stop()
+        exchangeClientFactory.invalidateAllClients()
         scope.cancel()
     }
 
@@ -99,6 +105,7 @@ class LiveTradingService(
     suspend fun startSession(
         symbol: String,
         timeframe: Timeframe,
+        exchange: Exchange,
     ): LiveSessionEntity =
         mutex.withLock {
             val key = sessionKey(symbol, timeframe)
@@ -106,24 +113,26 @@ class LiveTradingService(
                 throw IllegalStateException("Session already running for $symbol ${timeframe.label}")
             }
 
-            // Create new session in database
+            // Create new session in database with specified exchange
             val session =
                 sessionRepository.save(
                     LiveSessionEntity(
                         symbol = symbol,
                         timeframe = timeframe,
+                        exchange = exchange,
                         initialCapital = liveProperties.initialCapital,
                         currentBalance = liveProperties.initialCapital,
                         peakBalance = liveProperties.initialCapital,
                     ),
                 )
 
-            // Initialize state holder
+            // Initialize state holder with exchange info
             val stateHolder =
                 LiveTradingStateHolder(
                     sessionId = session.id!!,
                     symbol = symbol,
                     timeframe = timeframe,
+                    exchange = exchange,
                     initialState = TradingState.create(liveProperties.initialCapital),
                 )
             stateHolders[key] = stateHolder
@@ -138,7 +147,7 @@ class LiveTradingService(
                 }
             sessionJobs[key] = job
 
-            log.info { "[#${session.id} $symbol/${timeframe.label}] Started live trading session" }
+            log.info { "[#${session.id} $symbol/${timeframe.label}] Started live trading session via $exchange" }
             session
         }
 
@@ -196,9 +205,11 @@ class LiveTradingService(
 
     /**
      * Main session loop - connects to WebSocket and processes candles.
+     * Uses the session's configured exchange for WebSocket connection.
      */
     private suspend fun runSession(stateHolder: LiveTradingStateHolder) {
-        webSocketClient
+        val wsClient = getWebSocketClient(stateHolder.exchange)
+        wsClient
             .connectAndStream(stateHolder.symbol, stateHolder.timeframe, scope)
             .onEach { rawCandle ->
                 processCompletedCandle(stateHolder, rawCandle)
@@ -272,22 +283,24 @@ class LiveTradingService(
     }
 
     /**
-     * Prefetch historical candles from Binance API to ensure ATR is available.
+     * Prefetch historical candles from exchange API to ensure ATR is available.
+     * Uses the session's configured exchange for API calls.
      */
     private suspend fun prefetchHistoricalCandles(stateHolder: LiveTradingStateHolder) {
         val count = liveProperties.prefetchCandleCount
         log.info { "${stateHolder.logPrefix} Prefetching last $count candles for ATR initialization" }
 
-        // Fetch from Binance REST API
+        // Fetch from session's exchange REST API
+        val restClient = getRestClient(stateHolder.exchange)
         val candles =
-            binanceClient.fetchHistoricalKlines(
+            restClient.fetchHistoricalKlines(
                 symbol = stateHolder.symbol,
                 timeframe = stateHolder.timeframe,
                 limit = count,
             )
 
         if (candles.isEmpty()) {
-            log.warn { "${stateHolder.logPrefix} No historical candles fetched from Binance API" }
+            log.warn { "${stateHolder.logPrefix} No historical candles fetched from ${stateHolder.exchange} API" }
             return
         }
 
@@ -487,4 +500,9 @@ class LiveTradingService(
         symbol: String,
         timeframe: Timeframe,
     ): Boolean = sessionJobs.containsKey(sessionKey(symbol, timeframe))
+
+    /**
+     * Get count of active sessions.
+     */
+    fun getActiveSessionCount(): Int = sessionJobs.size
 }

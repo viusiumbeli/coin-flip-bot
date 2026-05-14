@@ -1,6 +1,7 @@
 package com.trading.coinflip.live.model
 
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.exchange.Exchange
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Column
 import org.springframework.data.relational.core.mapping.Table
@@ -13,6 +14,7 @@ data class LiveSessionEntity(
     val id: Long? = null,
     val symbol: String,
     val timeframe: Timeframe,
+    val exchange: Exchange = Exchange.BINANCE,
     var status: LiveSessionStatus = LiveSessionStatus.RUNNING,
     @Column("initial_capital")
     val initialCapital: BigDecimal,

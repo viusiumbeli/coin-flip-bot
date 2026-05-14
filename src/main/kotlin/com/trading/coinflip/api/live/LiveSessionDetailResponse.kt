@@ -1,6 +1,7 @@
 package com.trading.coinflip.api.live
 
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.exchange.Exchange
 import com.trading.coinflip.live.model.LiveSessionStatus
 import java.math.BigDecimal
 import java.time.Instant
@@ -9,6 +10,7 @@ data class LiveSessionDetailResponse(
     val id: Long,
     val symbol: String,
     val timeframe: Timeframe,
+    val exchange: Exchange,
     val status: LiveSessionStatus,
     val initialCapital: BigDecimal,
     val currentBalance: BigDecimal,

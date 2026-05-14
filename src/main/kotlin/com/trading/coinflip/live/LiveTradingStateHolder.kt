@@ -4,6 +4,7 @@ import com.trading.coinflip.candle.CandleEntity
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.common.util.withReentrantLock
 import com.trading.coinflip.engine.model.TradingState
+import com.trading.coinflip.exchange.Exchange
 import kotlinx.coroutines.sync.Mutex
 
 /**
@@ -16,10 +17,11 @@ class LiveTradingStateHolder(
     val sessionId: Long,
     val symbol: String,
     val timeframe: Timeframe,
+    val exchange: Exchange,
     initialState: TradingState,
     var lastCandle: CandleEntity? = null,
 ) {
-    val logPrefix: String get() = "[#$sessionId $symbol/${timeframe.label}]"
+    val logPrefix: String get() = "[#$sessionId $symbol/${timeframe.label} $exchange]"
 
     private val mutex = Mutex()
     private var _state: TradingState = initialState

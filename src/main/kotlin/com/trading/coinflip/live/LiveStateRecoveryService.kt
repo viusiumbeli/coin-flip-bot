@@ -60,6 +60,7 @@ class LiveStateRecoveryService(
             sessionId = session.id,
             symbol = session.symbol,
             timeframe = session.timeframe,
+            exchange = session.exchange,
             initialState = tradingState,
             lastCandle = lastCandle,
         )
