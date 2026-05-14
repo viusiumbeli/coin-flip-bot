@@ -2,14 +2,13 @@ package com.trading.coinflip.simulation
 
 import com.trading.coinflip.api.simulation.SimulationInitRequest
 import com.trading.coinflip.candle.CandleEntity
-import com.trading.coinflip.candle.CandleRepository
+import com.trading.coinflip.candle.CandleService
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.dto.TradeDto
 import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.engine.TradingProcessor
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.TradingState
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
@@ -19,7 +18,7 @@ import java.math.RoundingMode
 
 @Service
 class SimulationService(
-    private val candleRepository: CandleRepository,
+    private val candleService: CandleService,
     private val properties: BacktestProperties,
     private val tradingProcessor: TradingProcessor,
 ) {
@@ -33,7 +32,6 @@ class SimulationService(
     private var timeframe: Timeframe? = null
     private var initialCapital: BigDecimal = BigDecimal.ZERO
     private var candles: List<CandleEntity> = emptyList()
-    private var allCandles: List<CandleEntity> = emptyList() // All loaded candles before filtering
     private var currentCandleIndex: Int = -1
 
     // Trading state
@@ -46,47 +44,30 @@ class SimulationService(
         mutex.withLock {
             log.info { "Initializing simulation for ${request.symbol} ${request.timeframe.label}" }
 
-            // Load candles from database
-            // todo fix it
             val loadedCandles =
-                candleRepository
-                    .findBySymbolAndTimeframeOrderByOpenTimeAsc(
-                        request.symbol,
-                        request.timeframe,
-                    ).toList()
+                candleService.loadCandlesParallel(
+                    symbol = request.symbol,
+                    timeframe = request.timeframe,
+                    startTime = request.startDate,
+                    endTime = request.endDate,
+                )
 
             if (loadedCandles.isEmpty()) {
-                throw IllegalStateException("No candles found for ${request.symbol} ${request.timeframe}")
+                throw IllegalStateException("No candles found for ${request.symbol} ${request.timeframe} in the specified date range")
             }
-
-            // Filter candles by date range if specified
-            val filteredCandles =
-                loadedCandles.filter { candle ->
-                    val afterStart = request.startDate?.let { candle.openTime >= it } ?: true
-                    val beforeEnd = request.endDate?.let { candle.openTime <= it } ?: true
-                    afterStart && beforeEnd
-                }
-
-            if (filteredCandles.isEmpty()) {
-                throw IllegalStateException("No candles found in the specified date range")
-            }
-
-            // Use initial capital from config
-            val configInitialCapital = properties.initialCapital
 
             // Reset all state
             symbol = request.symbol
             timeframe = request.timeframe
-            initialCapital = configInitialCapital
-            allCandles = loadedCandles
-            candles = filteredCandles
+            initialCapital = properties.initialCapital
+            candles = loadedCandles
             currentCandleIndex = -1 // Start before first candle
 
             // Create new state
             tradingState = TradingState.create(initialCapital)
             initialized = true
 
-            log.info { "Simulation initialized with ${candles.size} candles (${loadedCandles.size} total available)" }
+            log.info { "Simulation initialized with ${candles.size} candles" }
 
             getCurrentStateInternal()
         }
@@ -160,6 +141,11 @@ class SimulationService(
         val candle = candles[currentCandleIndex]
         val events = tradingProcessor.processCandle(tradingState, candle)
         tradingState = tradingState.applyEvents(events)
+
+        // Close all positions when reaching the last candle
+        if (currentCandleIndex == candles.size - 1) {
+            closeOpenPositions(candle)
+        }
     }
 
     /**
@@ -176,6 +162,29 @@ class SimulationService(
             val candle = candles[i]
             val events = tradingProcessor.processCandle(tradingState, candle)
             tradingState = tradingState.applyEvents(events)
+        }
+
+        // Close all positions if replaying to the last candle
+        if (currentCandleIndex == candles.size - 1 && candles.isNotEmpty()) {
+            closeOpenPositions(candles.last())
+        }
+    }
+
+    /**
+     * Close all open positions at given candle price
+     * Used when reaching end of simulation
+     */
+    private fun closeOpenPositions(lastCandle: CandleEntity) {
+        for (position in tradingState.openPositions.toList()) {
+            val closeEvent =
+                tradingProcessor.forceClosePosition(
+                    state = tradingState,
+                    position = position,
+                    exitPrice = lastCandle.close,
+                    exitTime = lastCandle.openTime,
+                    exitReason = "End of simulation period",
+                )
+            tradingState = tradingState.applyEvents(listOf(closeEvent))
         }
     }
 
