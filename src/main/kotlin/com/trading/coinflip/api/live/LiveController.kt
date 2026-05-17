@@ -7,6 +7,7 @@ import com.trading.coinflip.common.model.Timeframe
 import com.trading.coinflip.engine.model.PositionStatus
 import com.trading.coinflip.exchange.Exchange
 import com.trading.coinflip.exchange.ExchangeClientFactory
+import com.trading.coinflip.live.LiveEventPublisher
 import com.trading.coinflip.live.LiveTradingService
 import com.trading.coinflip.live.repository.LiveBalanceSnapshotRepository
 import com.trading.coinflip.live.repository.LivePositionRepository
@@ -19,6 +20,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import mu.KotlinLogging
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.codec.ServerSentEvent
+import reactor.core.publisher.Flux
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -39,6 +43,7 @@ class LiveController(
     private val candleRepository: CandleRepository,
     private val liveProperties: LiveProperties,
     private val exchangeClientFactory: ExchangeClientFactory,
+    private val eventPublisher: LiveEventPublisher,
 ) {
     private val log = KotlinLogging.logger {}
 
@@ -158,4 +163,33 @@ class LiveController(
 
         liveTradingService.stopSession(session.symbol, session.timeframe, session.exchange)
     }
+
+    /**
+     * SSE endpoint for real-time trading events.
+     * Clients subscribe to receive live updates (position opened/closed, balance changes, etc.)
+     */
+    @GetMapping("/events", produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
+    fun streamEvents(): Flux<ServerSentEvent<String>> =
+        eventPublisher
+            .getEventStream()
+            .map { event ->
+                ServerSentEvent
+                    .builder<String>()
+                    .id(event.timestamp.toString())
+                    .event(event.type.name)
+                    .data(
+                        """{"sessionId":${event.sessionId},"symbol":"${event.symbol}","data":${toJson(event.data)},"timestamp":${event.timestamp}}""",
+                    )
+                    .build()
+            }
+
+    private fun toJson(data: Map<String, Any?>): String =
+        data.entries.joinToString(",", "{", "}") { (k, v) ->
+            when (v) {
+                is String -> """"$k":"$v""""
+                is Number -> """"$k":$v"""
+                null -> """"$k":null"""
+                else -> """"$k":"$v""""
+            }
+        }
 }
