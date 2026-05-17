@@ -147,6 +147,19 @@ class LiveTradingService(
                 )
             stateHolders[key] = stateHolder
 
+            // Switch to Hedge Mode on exchange (required for separate Long/Short positions)
+            if (liveProperties.executeRealOrders) {
+                val tradingClient = getTradingClient(exchange)
+                if (tradingClient != null) {
+                    try {
+                        tradingClient.switchPositionMode(symbol, hedgeMode = true)
+                        log.info { "[#${session.id} $symbol] Hedge Mode enabled" }
+                    } catch (e: Exception) {
+                        log.warn(e) { "[#${session.id} $symbol] Failed to switch to Hedge Mode - may affect position handling" }
+                    }
+                }
+            }
+
             // Prefetch historical candles for ATR initialization
             prefetchHistoricalCandles(stateHolder)
 

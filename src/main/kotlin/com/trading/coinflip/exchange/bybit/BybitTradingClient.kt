@@ -172,6 +172,41 @@ class BybitTradingClient(
 
     // --- Account Operations ---
 
+    /**
+     * Switch position mode for a symbol.
+     * @param symbol Trading symbol (e.g., "BTCUSDT")
+     * @param hedgeMode true for Hedge Mode, false for One-Way (Merge/Netting) Mode
+     * @return true if switch was successful or mode already set
+     */
+    override suspend fun switchPositionMode(
+        symbol: String,
+        hedgeMode: Boolean,
+    ): Boolean {
+        val mode = if (hedgeMode) 3 else 0 // 0=One-Way (Merge), 3=Hedge (Both Side)
+        val body =
+            objectMapper.writeValueAsString(
+                mapOf(
+                    "category" to "linear",
+                    "symbol" to symbol,
+                    "mode" to mode,
+                ),
+            )
+        log.info { "Switching position mode for $symbol: hedgeMode=$hedgeMode (mode=$mode)" }
+
+        return try {
+            val response = post("/v5/position/switch-mode", body)
+            isSuccess(response)
+        } catch (e: BybitApiException) {
+            // 110025 = "Position mode is not modified" - already in desired mode
+            if (e.code == 110025) {
+                log.debug { "Position mode already set for $symbol: hedgeMode=$hedgeMode" }
+                true
+            } else {
+                throw e
+            }
+        }
+    }
+
     override suspend fun getWalletBalance(): WalletBalance {
         val params = "accountType=UNIFIED"
         val response = get("/v5/account/wallet-balance", params)

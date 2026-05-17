@@ -61,6 +61,17 @@ interface ExchangeTradingClient {
      * Get wallet balance information.
      */
     suspend fun getWalletBalance(): WalletBalance
+
+    /**
+     * Switch position mode for a symbol.
+     * @param symbol Trading symbol (e.g., "BTCUSDT")
+     * @param hedgeMode true for Hedge Mode (both sides), false for One-Way (netting) Mode
+     * @return true if switch was successful or mode already set
+     */
+    suspend fun switchPositionMode(
+        symbol: String,
+        hedgeMode: Boolean,
+    ): Boolean
 }
 
 // --- Common Trading DTOs ---
