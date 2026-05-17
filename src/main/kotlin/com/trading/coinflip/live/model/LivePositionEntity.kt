@@ -40,6 +40,8 @@ data class LivePositionEntity(
     val balanceAfterOpen: BigDecimal,
     @Column("allocated_capital")
     val allocatedCapital: BigDecimal,
+    @Column("stop_order_id")
+    var stopOrderId: String? = null, // Exchange order ID for conditional stop order
     @Column("created_at")
     val createdAt: Instant = Instant.now(),
     @Column("updated_at")
