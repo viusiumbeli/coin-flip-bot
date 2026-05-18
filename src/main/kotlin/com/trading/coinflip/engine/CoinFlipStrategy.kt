@@ -177,6 +177,10 @@ class CoinFlipStrategy {
      * Uses candle high/low for realistic stop checking:
      * - LONG: check if candle.low hit trailing stop, update trailing using candle.high
      * - SHORT: check if candle.high hit trailing stop, update trailing using candle.low
+     *
+     * IMPORTANT: Check stop hit FIRST using original trailing stop, then update.
+     * We can't know intra-candle price sequence, so conservatively assume
+     * unfavorable price movement happened before favorable movement.
      */
     fun updatePosition(
         position: PositionView,
@@ -190,43 +194,39 @@ class CoinFlipStrategy {
             return PositionUpdateResult.NoChange
         }
 
-        // Use favorable price for trailing stop updates (high for LONG, low for SHORT)
-        val favorablePrice =
-            when (position.side) {
-                PositionSide.LONG -> candle.high
-                PositionSide.SHORT -> candle.low
-            }
-
-        // Calculate potential trailing stop update using favorable price
-        val update = position.calculateTrailingStopUpdate(favorablePrice, atr, atrMultiplier)
-
-        // Determine current trailing stop and highest price (may be updated)
-        val currentTrailingStop = update?.newTrailingStop ?: position.trailingStop
-        val currentHighestPrice = update?.newHighestFavorablePrice ?: position.highestFavorablePrice
-
-        // Use unfavorable price for stop hit check (low for LONG, high for SHORT)
+        // STEP 1: Check if ORIGINAL stop is hit using unfavorable price
         val unfavorablePrice =
             when (position.side) {
                 PositionSide.LONG -> candle.low
                 PositionSide.SHORT -> candle.high
             }
 
-        // Check if stop is hit using potentially updated trailing stop
         val isStopHit =
             when (position.side) {
-                PositionSide.LONG -> unfavorablePrice <= currentTrailingStop
-                PositionSide.SHORT -> unfavorablePrice >= currentTrailingStop
+                PositionSide.LONG -> unfavorablePrice <= position.trailingStop
+                PositionSide.SHORT -> unfavorablePrice >= position.trailingStop
             }
 
-        return if (isStopHit) {
-            PositionUpdateResult.StopHit(
-                exitPrice = currentTrailingStop, // Exit at stop price, not unfavorable price
+        if (isStopHit) {
+            return PositionUpdateResult.StopHit(
+                exitPrice = position.trailingStop, // Exit at ORIGINAL stop price
                 exitTime = candle.openTime,
                 exitReason = "Trailing stop hit",
-                newTrailingStop = currentTrailingStop,
-                newHighestFavorablePrice = currentHighestPrice,
+                newTrailingStop = position.trailingStop,
+                newHighestFavorablePrice = position.highestFavorablePrice,
             )
-        } else if (update != null) {
+        }
+
+        // STEP 2: Only update trailing stop if position survives this candle
+        val favorablePrice =
+            when (position.side) {
+                PositionSide.LONG -> candle.high
+                PositionSide.SHORT -> candle.low
+            }
+
+        val update = position.calculateTrailingStopUpdate(favorablePrice, atr, atrMultiplier)
+
+        return if (update != null) {
             PositionUpdateResult.Updated(
                 newTrailingStop = update.newTrailingStop,
                 newHighestFavorablePrice = update.newHighestFavorablePrice,
