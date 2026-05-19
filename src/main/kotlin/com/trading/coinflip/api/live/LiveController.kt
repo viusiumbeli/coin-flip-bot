@@ -22,7 +22,6 @@ import mu.KotlinLogging
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.codec.ServerSentEvent
-import reactor.core.publisher.Flux
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -31,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import reactor.core.publisher.Flux
 
 @RestController
 @RequestMapping("/api/live")
@@ -178,9 +178,10 @@ class LiveController(
                     .id(event.timestamp.toString())
                     .event(event.type.name)
                     .data(
-                        """{"sessionId":${event.sessionId},"symbol":"${event.symbol}","data":${toJson(event.data)},"timestamp":${event.timestamp}}""",
-                    )
-                    .build()
+                        """{"sessionId":${event.sessionId},"symbol":"${event.symbol}","data":${toJson(
+                            event.data,
+                        )},"timestamp":${event.timestamp}}""",
+                    ).build()
             }
 
     private fun toJson(data: Map<String, Any?>): String =

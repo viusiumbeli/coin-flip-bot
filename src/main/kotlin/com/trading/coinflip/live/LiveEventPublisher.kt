@@ -34,13 +34,14 @@ class LiveEventPublisher(
         eventType: LiveEventType,
         data: Map<String, Any?> = emptyMap(),
     ) {
-        val event = LiveEvent(
-            type = eventType,
-            sessionId = sessionId,
-            symbol = symbol,
-            data = data,
-            timestamp = System.currentTimeMillis(),
-        )
+        val event =
+            LiveEvent(
+                type = eventType,
+                sessionId = sessionId,
+                symbol = symbol,
+                data = data,
+                timestamp = System.currentTimeMillis(),
+            )
 
         val result = sink.tryEmitNext(event)
         if (result.isFailure) {
@@ -66,13 +67,14 @@ class LiveEventPublisher(
             sessionId = sessionId,
             symbol = symbol,
             eventType = LiveEventType.POSITION_OPENED,
-            data = mapOf(
-                "positionId" to positionId,
-                "side" to side,
-                "entryPrice" to entryPrice,
-                "positionSize" to positionSize,
-                "trailingStop" to trailingStop,
-            ),
+            data =
+                mapOf(
+                    "positionId" to positionId,
+                    "side" to side,
+                    "entryPrice" to entryPrice,
+                    "positionSize" to positionSize,
+                    "trailingStop" to trailingStop,
+                ),
         )
     }
 
@@ -89,10 +91,11 @@ class LiveEventPublisher(
             sessionId = sessionId,
             symbol = symbol,
             eventType = LiveEventType.POSITION_UPDATED,
-            data = mapOf(
-                "positionId" to positionId,
-                "newTrailingStop" to newTrailingStop,
-            ),
+            data =
+                mapOf(
+                    "positionId" to positionId,
+                    "newTrailingStop" to newTrailingStop,
+                ),
         )
     }
 
@@ -111,12 +114,13 @@ class LiveEventPublisher(
             sessionId = sessionId,
             symbol = symbol,
             eventType = LiveEventType.POSITION_CLOSED,
-            data = mapOf(
-                "positionId" to positionId,
-                "pnl" to pnl,
-                "exitReason" to exitReason,
-                "newBalance" to newBalance,
-            ),
+            data =
+                mapOf(
+                    "positionId" to positionId,
+                    "pnl" to pnl,
+                    "exitReason" to exitReason,
+                    "newBalance" to newBalance,
+                ),
         )
     }
 
@@ -135,12 +139,13 @@ class LiveEventPublisher(
             sessionId = sessionId,
             symbol = symbol,
             eventType = LiveEventType.CANDLE_PROCESSED,
-            data = mapOf(
-                "currentBalance" to currentBalance,
-                "openPositionsCount" to openPositionsCount,
-                "lastPrice" to lastPrice,
-                "lastAtr" to lastAtr,
-            ),
+            data =
+                mapOf(
+                    "currentBalance" to currentBalance,
+                    "openPositionsCount" to openPositionsCount,
+                    "lastPrice" to lastPrice,
+                    "lastAtr" to lastAtr,
+                ),
         )
     }
 
@@ -157,10 +162,11 @@ class LiveEventPublisher(
             sessionId = sessionId,
             symbol = symbol,
             eventType = LiveEventType.SESSION_STARTED,
-            data = mapOf(
-                "timeframe" to timeframe,
-                "exchange" to exchange,
-            ),
+            data =
+                mapOf(
+                    "timeframe" to timeframe,
+                    "exchange" to exchange,
+                ),
         )
     }
 
