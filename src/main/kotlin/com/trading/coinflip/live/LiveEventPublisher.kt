@@ -17,8 +17,8 @@ class LiveEventPublisher(
 ) {
     private val log = KotlinLogging.logger {}
 
-    // Multicast sink that replays last event to new subscribers
-    private val sink: Sinks.Many<LiveEvent> = Sinks.many().multicast().onBackpressureBuffer()
+    // Multicast sink - drops events when no subscribers (expected for SSE)
+    private val sink: Sinks.Many<LiveEvent> = Sinks.many().multicast().directBestEffort()
 
     /**
      * Get event stream for SSE subscription.
@@ -44,11 +44,10 @@ class LiveEventPublisher(
             )
 
         val result = sink.tryEmitNext(event)
-        if (result.isFailure) {
-            log.warn { "Failed to emit event: $eventType for session $sessionId" }
-        } else {
+        if (result.isSuccess) {
             log.debug { "Published event: $eventType for session $sessionId" }
         }
+        // No logging for failures - expected when no subscribers connected
     }
 
     /**
