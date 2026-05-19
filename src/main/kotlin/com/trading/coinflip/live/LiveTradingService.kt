@@ -280,26 +280,31 @@ class LiveTradingService(
         }
 
         if (!liveProperties.executeRealOrders) {
-            log.debug { "Execution stream disabled (executeRealOrders=false)" }
+            log.info { "Execution stream disabled (executeRealOrders=false)" }
             return
         }
 
         val executionClient = getExecutionClient(exchange)
         if (executionClient == null) {
-            log.warn { "Execution client not available for $exchange - position sync disabled" }
+            log.warn { "Execution client not available for $exchange - WebSocket sync disabled" }
             return
         }
 
+        log.info { "Creating execution stream job for $exchange" }
         val job =
             scope.launch {
-                log.info { "Starting execution stream for $exchange" }
+                log.info { "Connecting to private WebSocket for $exchange execution events..." }
                 executionClient
                     .connectAndStream(scope)
-                    .onEach { event -> handleExecutionEvent(exchange, event) }
-                    .catch { e -> log.error(e) { "Execution stream error for $exchange" } }
+                    .onEach { event ->
+                        log.info { "Received execution event from $exchange: $event" }
+                        handleExecutionEvent(exchange, event)
+                    }.catch { e -> log.error(e) { "Execution stream error for $exchange" } }
                     .collect()
+                log.warn { "Execution stream for $exchange ended" }
             }
         executionJobs[exchange] = job
+        log.info { "Execution stream job started for $exchange" }
     }
 
     /**
@@ -333,11 +338,14 @@ class LiveTradingService(
             return
         }
 
+        log.info { "${stateHolder.logPrefix} Creating position sync job..." }
         val job =
             scope.launch {
+                log.info { "${stateHolder.logPrefix} Position sync job running, first check in ${SYNC_INTERVAL_MS / 1000}s" }
                 while (isActive) {
                     delay(SYNC_INTERVAL_MS)
                     try {
+                        log.debug { "${stateHolder.logPrefix} Running position sync check..." }
                         syncPositionsWithExchange(stateHolder, tradingClient)
                     } catch (e: Exception) {
                         log.warn(e) { "${stateHolder.logPrefix} Position sync failed" }
@@ -345,7 +353,7 @@ class LiveTradingService(
                 }
             }
         syncJobs[key] = job
-        log.info { "${stateHolder.logPrefix} Started position sync (every ${SYNC_INTERVAL_MS / 1000}s)" }
+        log.info { "${stateHolder.logPrefix} Position sync job started (every ${SYNC_INTERVAL_MS / 1000}s)" }
     }
 
     /**
