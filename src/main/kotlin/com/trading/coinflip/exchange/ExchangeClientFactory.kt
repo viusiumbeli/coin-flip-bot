@@ -9,6 +9,7 @@ import com.trading.coinflip.exchange.binance.BinanceWebSocketClient
 import com.trading.coinflip.exchange.binance.BinanceWebSocketConfig
 import com.trading.coinflip.exchange.bybit.BybitAuthenticator
 import com.trading.coinflip.exchange.bybit.BybitClient
+import com.trading.coinflip.exchange.bybit.BybitPrivateWebSocketClient
 import com.trading.coinflip.exchange.bybit.BybitRestConfig
 import com.trading.coinflip.exchange.bybit.BybitTradingClient
 import com.trading.coinflip.exchange.bybit.BybitTradingConfig
@@ -35,6 +36,7 @@ class ExchangeClientFactory(
     private val restClients = ConcurrentHashMap<Exchange, ExchangeClient>()
     private val webSocketClients = ConcurrentHashMap<Exchange, ExchangeWebSocketClient>()
     private val tradingClients = ConcurrentHashMap<Exchange, ExchangeTradingClient>()
+    private val executionClients = ConcurrentHashMap<Exchange, ExchangeExecutionClient>()
 
     /**
      * Get REST API client for a specific exchange.
@@ -108,6 +110,31 @@ class ExchangeClientFactory(
     fun getTradingClient(): ExchangeTradingClient? = getTradingClient(liveProperties.exchange)
 
     /**
+     * Get execution client (private WebSocket) for a specific exchange.
+     * Returns null if credentials are not configured.
+     */
+    fun getExecutionClient(exchange: Exchange): ExchangeExecutionClient? {
+        if (executionClients.containsKey(exchange)) {
+            return executionClients[exchange]
+        }
+
+        val client =
+            when (exchange) {
+                Exchange.BYBIT -> createBybitExecutionClient()
+                Exchange.BINANCE -> {
+                    log.warn { "Binance execution client not implemented yet" }
+                    null
+                }
+            }
+
+        if (client != null) {
+            executionClients[exchange] = client
+            log.info { "Created execution client for exchange: $exchange" }
+        }
+        return client
+    }
+
+    /**
      * Check if trading is available for the given exchange.
      */
     fun isTradingAvailable(exchange: Exchange): Boolean = getTradingClient(exchange) != null
@@ -125,6 +152,7 @@ class ExchangeClientFactory(
         restClients.remove(exchange)
         webSocketClients.remove(exchange)?.stop()
         tradingClients.remove(exchange)
+        executionClients.remove(exchange)?.stop()
     }
 
     /**
@@ -136,6 +164,8 @@ class ExchangeClientFactory(
         webSocketClients.values.forEach { it.stop() }
         webSocketClients.clear()
         tradingClients.clear()
+        executionClients.values.forEach { it.stop() }
+        executionClients.clear()
     }
 
     // --- Binance client creation ---
@@ -225,5 +255,47 @@ class ExchangeClientFactory(
         val authenticator = BybitAuthenticator(apiKey, apiSecret)
 
         return BybitTradingClient(objectMapper, config, authenticator)
+    }
+
+    /**
+     * Create Bybit private WebSocket client for execution events.
+     * Returns null if API credentials are not configured.
+     */
+    private fun createBybitExecutionClient(): BybitPrivateWebSocketClient? {
+        val apiKey =
+            System.getenv("BYBIT_API_KEY")?.takeIf { it.isNotBlank() }
+                ?: liveProperties.bybitApiKey.takeIf { it.isNotBlank() }
+        val apiSecret =
+            System.getenv("BYBIT_API_SECRET")?.takeIf { it.isNotBlank() }
+                ?: liveProperties.bybitApiSecret.takeIf { it.isNotBlank() }
+
+        if (apiKey == null || apiSecret == null) {
+            log.warn { "Bybit API credentials not configured - execution client unavailable" }
+            return null
+        }
+
+        // Select demo or mainnet WebSocket URL
+        val wsUrl =
+            if (liveProperties.bybitDemo) {
+                "wss://stream-testnet.bybit.com/v5/private"
+            } else {
+                "wss://stream.bybit.com/v5/private"
+            }
+
+        log.info {
+            "Creating Bybit execution client for ${if (liveProperties.bybitDemo) "DEMO" else "MAINNET"}: $wsUrl"
+        }
+
+        val config =
+            BybitWebSocketConfig(
+                websocketUrl = wsUrl,
+                heartbeatIntervalMs = 20000,
+                reconnectDelayMs = liveProperties.reconnectDelayMs,
+                maxReconnectAttempts = liveProperties.maxReconnectAttempts,
+            )
+
+        val authenticator = BybitAuthenticator(apiKey, apiSecret)
+
+        return BybitPrivateWebSocketClient(objectMapper, authenticator, config)
     }
 }
