@@ -1,6 +1,7 @@
 package com.trading.coinflip.engine
 
 import com.trading.coinflip.candle.CandleEntity
+import com.trading.coinflip.common.model.TrailingStopMode
 import com.trading.coinflip.engine.model.Position
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionStatus
@@ -16,6 +17,28 @@ import kotlin.random.Random
 class CoinFlipStrategy {
     private val log = KotlinLogging.logger {}
     private val random = Random.Default
+
+    companion object {
+        /**
+         * Calculate trailing stop distance based on mode.
+         * @param price Current price (for PERCENT mode)
+         * @param atr ATR value (for ATR mode)
+         * @param mode ATR or PERCENT
+         * @param atrMultiplier Multiplier for ATR (default 3.0)
+         * @param percentValue Percentage value (default 1.0)
+         */
+        fun calculateStopDistance(
+            price: BigDecimal,
+            atr: BigDecimal,
+            mode: TrailingStopMode,
+            atrMultiplier: BigDecimal,
+            percentValue: BigDecimal,
+        ): BigDecimal =
+            when (mode) {
+                TrailingStopMode.ATR -> atr * atrMultiplier
+                TrailingStopMode.PERCENT -> price * percentValue / BigDecimal(100)
+            }
+    }
 
     /**
      * Flip a coin to decide position side
@@ -55,7 +78,9 @@ class CoinFlipStrategy {
         candle: CandleEntity,
         accountBalance: BigDecimal,
         riskPercent: BigDecimal,
+        trailingStopMode: TrailingStopMode,
         atrMultiplier: BigDecimal,
+        trailingStopPercent: BigDecimal,
         maxPositionSizeRate: BigDecimal,
         balanceBeforeOpen: BigDecimal,
         positionId: Long,
@@ -72,11 +97,14 @@ class CoinFlipStrategy {
         val side = if (flipCoin()) PositionSide.LONG else PositionSide.SHORT
         val entryPrice = candle.close
 
-        // Calculate initial stop loss based on ATR
+        // Calculate stop distance based on mode (ATR or PERCENT)
+        val stopDistance = calculateStopDistance(entryPrice, atr, trailingStopMode, atrMultiplier, trailingStopPercent)
+
+        // Calculate initial stop loss
         val initialStopLoss =
             when (side) {
-                PositionSide.LONG -> entryPrice - (atr * atrMultiplier)
-                PositionSide.SHORT -> entryPrice + (atr * atrMultiplier)
+                PositionSide.LONG -> entryPrice - stopDistance
+                PositionSide.SHORT -> entryPrice + stopDistance
             }
 
         // Check minimum balance requirement before calculating position size
@@ -185,7 +213,9 @@ class CoinFlipStrategy {
     fun updatePosition(
         position: PositionView,
         candle: CandleEntity,
+        trailingStopMode: TrailingStopMode,
         atrMultiplier: BigDecimal,
+        trailingStopPercent: BigDecimal,
     ): PositionUpdateResult {
         val atr =
             candle.atr
@@ -224,7 +254,14 @@ class CoinFlipStrategy {
                 PositionSide.SHORT -> candle.low
             }
 
-        val update = position.calculateTrailingStopUpdate(favorablePrice, atr, atrMultiplier)
+        val update =
+            position.calculateTrailingStopUpdate(
+                favorablePrice,
+                atr,
+                trailingStopMode,
+                atrMultiplier,
+                trailingStopPercent,
+            )
 
         return if (update != null) {
             PositionUpdateResult.Updated(

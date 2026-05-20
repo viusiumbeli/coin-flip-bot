@@ -1,6 +1,7 @@
 package com.trading.coinflip.live.model
 
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.common.model.TrailingStopMode
 import com.trading.coinflip.exchange.Exchange
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Column
@@ -30,6 +31,12 @@ data class LiveSessionEntity(
     var tradeIdCounter: Long = 0,
     @Column("last_candle_id")
     var lastCandleId: Long? = null,
+    @Column("trailing_stop_mode")
+    val trailingStopMode: TrailingStopMode = TrailingStopMode.ATR,
+    @Column("trailing_stop_percent")
+    val trailingStopPercent: BigDecimal = BigDecimal("1.0"),
+    @Column("atr_multiplier")
+    val atrMultiplier: BigDecimal = BigDecimal("3.0"),
     @Column("started_at")
     val startedAt: Instant = Instant.now(),
     @Column("last_update_at")

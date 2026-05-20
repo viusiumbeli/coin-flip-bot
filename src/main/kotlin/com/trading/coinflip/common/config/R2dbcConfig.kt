@@ -1,6 +1,7 @@
 package com.trading.coinflip.common.config
 
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.common.model.TrailingStopMode
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionStatus
 import com.trading.coinflip.exchange.Exchange
@@ -36,6 +37,8 @@ class R2dbcConfig {
                 LiveSessionStatusReadConverter(),
                 ExchangeWriteConverter(),
                 ExchangeReadConverter(),
+                TrailingStopModeWriteConverter(),
+                TrailingStopModeReadConverter(),
             )
         return R2dbcCustomConversions.of(dialect, converters)
     }
@@ -99,4 +102,14 @@ class ExchangeWriteConverter : Converter<Exchange, String> {
 @ReadingConverter
 class ExchangeReadConverter : Converter<String, Exchange> {
     override fun convert(source: String): Exchange = Exchange.valueOf(source)
+}
+
+@WritingConverter
+class TrailingStopModeWriteConverter : Converter<TrailingStopMode, String> {
+    override fun convert(source: TrailingStopMode): String = source.name
+}
+
+@ReadingConverter
+class TrailingStopModeReadConverter : Converter<String, TrailingStopMode> {
+    override fun convert(source: String): TrailingStopMode = TrailingStopMode.valueOf(source)
 }

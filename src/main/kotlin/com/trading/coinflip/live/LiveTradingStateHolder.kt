@@ -2,10 +2,12 @@ package com.trading.coinflip.live
 
 import com.trading.coinflip.candle.CandleEntity
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.common.model.TrailingStopMode
 import com.trading.coinflip.common.util.withReentrantLock
 import com.trading.coinflip.engine.model.TradingState
 import com.trading.coinflip.exchange.Exchange
 import kotlinx.coroutines.sync.Mutex
+import java.math.BigDecimal
 
 /**
  * Thread-safe state holder for a single live trading session.
@@ -18,6 +20,9 @@ class LiveTradingStateHolder(
     val symbol: String,
     val timeframe: Timeframe,
     val exchange: Exchange,
+    val trailingStopMode: TrailingStopMode,
+    val trailingStopPercent: BigDecimal,
+    val atrMultiplier: BigDecimal,
     initialState: TradingState,
     var lastCandle: CandleEntity? = null,
 ) {

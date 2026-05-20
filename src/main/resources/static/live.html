@@ -41,7 +41,22 @@
                     </select>
                 </div>
             </div>
-            <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label style="color: var(--text-secondary);">Trailing Stop:</label>
+                    <select id="startTrailingMode" onchange="updateTrailingStopFields()" style="min-width: 120px;">
+                        <option value="ATR">ATR-based</option>
+                        <option value="PERCENT">Percent-based</option>
+                    </select>
+                    <div id="atrMultiplierGroup" style="display: flex; align-items: center; gap: 5px;">
+                        <label style="color: var(--text-secondary);">ATR ×</label>
+                        <input type="number" id="startAtrMultiplier" value="3.0" step="0.1" min="0.1" max="10" style="width: 80px;">
+                    </div>
+                    <div id="trailingPercentGroup" style="display: none; align-items: center; gap: 5px;">
+                        <label style="color: var(--text-secondary);">Stop %</label>
+                        <input type="number" id="startTrailingPercent" value="1.0" step="0.1" min="0.1" max="50" style="width: 80px;">
+                    </div>
+                </div>
                 <div class="button-group">
                     <button class="btn-success" style="flex: 1; min-width: 350px;" onclick="startSession()" id="startBtn">Start Session</button>
                     <button class="btn-secondary"style="flex: 1; min-width: 350px;"  onclick="loadSessions()">Refresh</button>
@@ -55,6 +70,7 @@
                             <th>Exchange</th>
                             <th>Symbol</th>
                             <th>Timeframe</th>
+                            <th>Trailing Stop</th>
                             <th style="text-align: center;">Status</th>
                             <th>Balance</th>
                             <th>P&L</th>
@@ -67,7 +83,7 @@
                     </thead>
                     <tbody id="sessionsBody">
                         <tr>
-                            <td colspan="12" style="text-align: center; color: var(--text-muted);">Loading sessions...</td>
+                            <td colspan="13" style="text-align: center; color: var(--text-muted);">Loading sessions...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -368,7 +384,7 @@
                 if (sessions.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="12" style="text-align: center; color: var(--text-muted);">No sessions found. Start a new session above.</td>
+                            <td colspan="13" style="text-align: center; color: var(--text-muted);">No sessions found. Start a new session above.</td>
                         </tr>
                     `;
                     return;
@@ -378,12 +394,16 @@
                     const exchangeBadge = session.exchange === 'BINANCE'
                         ? '<span class="exchange-badge exchange-binance">Binance</span>'
                         : '<span class="exchange-badge exchange-bybit">ByBit</span>';
+                    const trailingStopText = session.trailingStopMode === 'ATR'
+                        ? `ATR × ${formatNumber(session.atrMultiplier)}`
+                        : `${formatNumber(session.trailingStopPercent)}%`;
                     return `
                     <tr>
                         <td>${session.id}</td>
                         <td>${exchangeBadge}</td>
                         <td>${session.symbol}</td>
                         <td>${session.timeframe}</td>
+                        <td>${trailingStopText}</td>
                         <td style="text-align: center;"><span class="status-badge ${statusColors[session.status]}">${session.status}</span></td>
                         <td>$${formatNumber(session.currentBalance)}</td>
                         <td class="${session.profitLoss >= 0 ? 'positive' : 'negative'}">
@@ -405,10 +425,28 @@
             }
         }
 
+        // Toggle trailing stop fields based on selected mode
+        function updateTrailingStopFields() {
+            const mode = document.getElementById('startTrailingMode').value;
+            const atrGroup = document.getElementById('atrMultiplierGroup');
+            const percentGroup = document.getElementById('trailingPercentGroup');
+
+            if (mode === 'ATR') {
+                atrGroup.style.display = 'flex';
+                percentGroup.style.display = 'none';
+            } else {
+                atrGroup.style.display = 'none';
+                percentGroup.style.display = 'flex';
+            }
+        }
+
         async function startSession() {
             const exchange = document.getElementById('startExchange').value;
             const symbol = document.getElementById('startSymbol').value;
             const timeframe = document.getElementById('startTimeframe').value;
+            const trailingStopMode = document.getElementById('startTrailingMode').value;
+            const atrMultiplier = parseFloat(document.getElementById('startAtrMultiplier').value) || 3.0;
+            const trailingStopPercent = parseFloat(document.getElementById('startTrailingPercent').value) || 1.0;
 
             if (!symbol) {
                 showError('Please select a symbol');
@@ -431,7 +469,14 @@
                 const response = await fetch(`${API_BASE}/sessions/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ symbol, timeframe, exchange })
+                    body: JSON.stringify({
+                        symbol,
+                        timeframe,
+                        exchange,
+                        trailingStopMode,
+                        atrMultiplier,
+                        trailingStopPercent
+                    })
                 });
 
                 if (!response.ok) {

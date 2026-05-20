@@ -1,6 +1,8 @@
 package com.trading.coinflip.engine.model
 
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.common.model.TrailingStopMode
+import com.trading.coinflip.engine.CoinFlipStrategy
 import java.math.BigDecimal
 import java.time.Instant
 
@@ -34,7 +36,9 @@ interface PositionView {
     fun calculateTrailingStopUpdate(
         currentPrice: BigDecimal,
         atr: BigDecimal,
+        trailingStopMode: TrailingStopMode,
         atrMultiplier: BigDecimal,
+        trailingStopPercent: BigDecimal,
     ): TrailingStopUpdate? {
         val isFavorableMove =
             when (side) {
@@ -47,10 +51,21 @@ interface PositionView {
         }
 
         val newHighest = currentPrice
+
+        // Calculate stop distance based on mode
+        val stopDistance =
+            CoinFlipStrategy.calculateStopDistance(
+                currentPrice,
+                atr,
+                trailingStopMode,
+                atrMultiplier,
+                trailingStopPercent,
+            )
+
         val newStop =
             when (side) {
-                PositionSide.LONG -> currentPrice - (atr * atrMultiplier)
-                PositionSide.SHORT -> currentPrice + (atr * atrMultiplier)
+                PositionSide.LONG -> currentPrice - stopDistance
+                PositionSide.SHORT -> currentPrice + stopDistance
             }
 
         val shouldUpdate =

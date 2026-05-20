@@ -2,6 +2,7 @@ package com.trading.coinflip.engine
 
 import com.trading.coinflip.candle.CandleEntity
 import com.trading.coinflip.common.config.BacktestProperties
+import com.trading.coinflip.common.model.TrailingStopMode
 import com.trading.coinflip.engine.model.PositionSide
 import com.trading.coinflip.engine.model.PositionUpdateResult
 import com.trading.coinflip.engine.model.PositionView
@@ -29,11 +30,31 @@ class TradingProcessor(
 
     /**
      * Process a single candle: update positions, close stops, consider new entries.
+     * Uses global config for trailing stop settings (for backtesting).
      * Returns a list of events describing what should change.
      */
     fun processCandle(
         state: TradingStateView,
         candle: CandleEntity,
+    ): List<TradingEvent> =
+        processCandle(
+            state = state,
+            candle = candle,
+            trailingStopMode = TrailingStopMode.ATR,
+            atrMultiplier = config.atrMultiplier,
+            trailingStopPercent = BigDecimal("1.0"),
+        )
+
+    /**
+     * Process a single candle with custom trailing stop settings (for live trading).
+     * Returns a list of events describing what should change.
+     */
+    fun processCandle(
+        state: TradingStateView,
+        candle: CandleEntity,
+        trailingStopMode: TrailingStopMode,
+        atrMultiplier: BigDecimal,
+        trailingStopPercent: BigDecimal,
     ): List<TradingEvent> {
         val events = mutableListOf<TradingEvent>()
         var currentBalance = state.accountBalance
@@ -51,7 +72,9 @@ class TradingProcessor(
                 strategy.updatePosition(
                     position = position,
                     candle = candle,
-                    atrMultiplier = config.atrMultiplier,
+                    trailingStopMode = trailingStopMode,
+                    atrMultiplier = atrMultiplier,
+                    trailingStopPercent = trailingStopPercent,
                 )
 
             when (result) {
@@ -118,7 +141,9 @@ class TradingProcessor(
                             candle = candle,
                             accountBalance = currentBalance,
                             riskPercent = config.riskPerTrade,
-                            atrMultiplier = config.atrMultiplier,
+                            trailingStopMode = trailingStopMode,
+                            atrMultiplier = atrMultiplier,
+                            trailingStopPercent = trailingStopPercent,
                             maxPositionSizeRate = config.maxPositionSizeRate,
                             balanceBeforeOpen = currentBalance,
                             positionId = newPositionId,

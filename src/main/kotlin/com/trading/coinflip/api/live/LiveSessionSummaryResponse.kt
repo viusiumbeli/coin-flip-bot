@@ -1,6 +1,7 @@
 package com.trading.coinflip.api.live
 
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.common.model.TrailingStopMode
 import com.trading.coinflip.exchange.Exchange
 import com.trading.coinflip.live.model.LiveSessionStatus
 import java.math.BigDecimal
@@ -12,6 +13,9 @@ data class LiveSessionSummaryResponse(
     val timeframe: Timeframe,
     val exchange: Exchange,
     val status: LiveSessionStatus,
+    val trailingStopMode: TrailingStopMode,
+    val atrMultiplier: BigDecimal,
+    val trailingStopPercent: BigDecimal,
     val initialCapital: BigDecimal,
     val currentBalance: BigDecimal,
     val profitLoss: BigDecimal,
