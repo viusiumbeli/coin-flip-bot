@@ -138,6 +138,8 @@ class LiveController(
         val exchange = request.exchange ?: liveProperties.exchange
         log.info { "Starting live trading session for ${request.symbol} ${request.timeframe.label} on $exchange" }
 
+        log.info { "Starting session with request: $request" }
+
         if (!liveProperties.enabled) {
             throw IllegalStateException("Live trading is disabled")
         }
