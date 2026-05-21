@@ -21,12 +21,20 @@ class BacktestService(
     suspend fun runBacktestForSymbol(request: BacktestRequest): BacktestResult {
         log.info { "Processing: ${request.symbol} - ${request.timeframe.label}" }
 
+        // Allow per-request leverage override
+        val tradingConfig =
+            if (request.leverage != null) {
+                properties.trading.copy(leverage = request.leverage)
+            } else {
+                properties.trading
+            }
+
         val config =
             BacktestConfig(
                 symbol = request.symbol,
                 timeframe = request.timeframe,
                 initialCapital = properties.initialCapital,
-                trading = properties.trading,
+                trading = tradingConfig,
                 startDate = request.startDate,
                 endDate = request.endDate,
                 collectTrades = request.timeframe != Timeframe.ONE_MINUTE,

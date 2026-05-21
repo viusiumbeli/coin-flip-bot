@@ -802,7 +802,7 @@ class LiveTradingService(
         // Load current state from DB
         val currentState = loadStateFromDb(ctx.sessionId)
 
-        // Process candle through trading processor with session-specific trailing stop config
+        // Process candle through trading processor with session-specific config
         val events =
             tradingProcessor.processCandle(
                 state = currentState,
@@ -810,6 +810,7 @@ class LiveTradingService(
                 trailingStopMode = ctx.trailingStopMode,
                 atrMultiplier = ctx.atrMultiplier,
                 trailingStopPercent = ctx.trailingStopPercent,
+                leverage = ctx.leverage,
             )
 
         val stateToSave =
