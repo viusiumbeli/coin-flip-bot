@@ -37,6 +37,7 @@ data class LiveSessionEntity(
     val trailingStopPercent: BigDecimal = BigDecimal("1.0"),
     @Column("atr_multiplier")
     val atrMultiplier: BigDecimal = BigDecimal("3.0"),
+    val leverage: Int = 1,
     @Column("started_at")
     val startedAt: Instant = Instant.now(),
     @Column("last_update_at")

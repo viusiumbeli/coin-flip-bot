@@ -23,6 +23,7 @@ class LiveTradingStateHolder(
     val trailingStopMode: TrailingStopMode,
     val trailingStopPercent: BigDecimal,
     val atrMultiplier: BigDecimal,
+    val leverage: Int,
     initialState: TradingState,
     var lastCandle: CandleEntity? = null,
 ) {

@@ -156,6 +156,7 @@ class LiveController(
                 trailingStopMode = request.trailingStopMode,
                 trailingStopPercent = request.trailingStopPercent,
                 atrMultiplier = request.atrMultiplier,
+                leverage = request.leverage,
             )
         return session.toSummaryDto()
     }

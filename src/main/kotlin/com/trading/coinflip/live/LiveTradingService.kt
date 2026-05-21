@@ -46,6 +46,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
+import org.springframework.dao.DuplicateKeyException
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.time.Instant
@@ -131,6 +132,7 @@ class LiveTradingService(
         trailingStopMode: TrailingStopMode = TrailingStopMode.ATR,
         trailingStopPercent: BigDecimal = BigDecimal("1.0"),
         atrMultiplier: BigDecimal = BigDecimal("3.0"),
+        leverage: Int = 1,
     ): LiveSessionEntity =
         mutex.withLock {
             val key = sessionKey(symbol, timeframe, exchange)
@@ -151,6 +153,7 @@ class LiveTradingService(
                         trailingStopMode = trailingStopMode,
                         trailingStopPercent = trailingStopPercent,
                         atrMultiplier = atrMultiplier,
+                        leverage = leverage,
                     ),
                 )
 
@@ -164,6 +167,7 @@ class LiveTradingService(
                     trailingStopMode = trailingStopMode,
                     trailingStopPercent = trailingStopPercent,
                     atrMultiplier = atrMultiplier,
+                    leverage = leverage,
                     initialState = TradingState.create(liveProperties.initialCapital),
                 )
             stateHolders[key] = stateHolder
@@ -456,10 +460,11 @@ class LiveTradingService(
                     BigDecimal.ZERO
                 }
 
+            val newTradeId = currentState.tradeIdCounter + 1
             val trade =
                 LiveTradeEntity(
                     sessionId = stateHolder.sessionId,
-                    tradeId = currentState.tradeIdCounter + 1,
+                    tradeId = newTradeId,
                     symbol = stateHolder.symbol,
                     timeframe = stateHolder.timeframe,
                     side = position.side,
@@ -478,9 +483,18 @@ class LiveTradingService(
                     balanceBeforeClose = balanceBeforeClose,
                     balanceAfterClose = balanceAfterClose,
                 )
-            tradeRepository.save(trade)
 
-            // Update local state
+            // Try to save trade - may fail if another path already saved it
+            val tradeWasSaved =
+                try {
+                    tradeRepository.save(trade)
+                    true
+                } catch (e: DuplicateKeyException) {
+                    log.info { "${stateHolder.logPrefix} Trade for position #${position.id} already synced by another path" }
+                    false
+                }
+
+            // Update local state - always remove position to prevent repeated sync attempts
             val newBalance = balanceAfterClose
             val newPeak = maxOf(currentState.peakBalance, newBalance)
             val drawdown =
@@ -497,18 +511,21 @@ class LiveTradingService(
                     accountBalance = newBalance,
                     peakBalance = newPeak,
                     maxDrawdown = newMaxDrawdown,
+                    tradeIdCounter = if (tradeWasSaved) newTradeId else currentState.tradeIdCounter,
                 )
             stateHolder.updateState(newState)
 
-            // Publish SSE event
-            eventPublisher.publishPositionClosed(
-                sessionId = stateHolder.sessionId,
-                symbol = stateHolder.symbol,
-                positionId = position.id,
-                pnl = estimatedPnl,
-                exitReason = "Trailing stop (polling sync)",
-                newBalance = newBalance,
-            )
+            // Publish SSE event only if we actually saved the trade
+            if (tradeWasSaved) {
+                eventPublisher.publishPositionClosed(
+                    sessionId = stateHolder.sessionId,
+                    symbol = stateHolder.symbol,
+                    positionId = position.id,
+                    pnl = estimatedPnl,
+                    exitReason = "Trailing stop (polling sync)",
+                    newBalance = newBalance,
+                )
+            }
         }
     }
 
@@ -593,10 +610,11 @@ class LiveTradingService(
                     BigDecimal.ZERO
                 }
 
+            val newTradeId = currentState.tradeIdCounter + 1
             val trade =
                 LiveTradeEntity(
                     sessionId = stateHolder.sessionId,
-                    tradeId = currentState.tradeIdCounter + 1,
+                    tradeId = newTradeId,
                     symbol = event.symbol,
                     timeframe = stateHolder.timeframe,
                     side = positionSide,
@@ -615,9 +633,18 @@ class LiveTradingService(
                     balanceBeforeClose = balanceBeforeClose,
                     balanceAfterClose = balanceAfterClose,
                 )
-            tradeRepository.save(trade)
 
-            // Update local state - remove position and update balance
+            // Try to save trade - may fail if another path already saved it
+            val tradeWasSaved =
+                try {
+                    tradeRepository.save(trade)
+                    true
+                } catch (e: DuplicateKeyException) {
+                    log.info { "${stateHolder.logPrefix} Trade for position #${position.id} already synced by another path" }
+                    false
+                }
+
+            // Update local state - always remove position to prevent repeated sync attempts
             val newBalance = currentState.accountBalance + event.execPnl
             val newPeak = maxOf(currentState.peakBalance, newBalance)
             val drawdown =
@@ -634,18 +661,21 @@ class LiveTradingService(
                     accountBalance = newBalance,
                     peakBalance = newPeak,
                     maxDrawdown = newMaxDrawdown,
+                    tradeIdCounter = if (tradeWasSaved) newTradeId else currentState.tradeIdCounter,
                 )
             stateHolder.updateState(newState)
 
-            // Publish SSE event
-            eventPublisher.publishPositionClosed(
-                sessionId = stateHolder.sessionId,
-                symbol = stateHolder.symbol,
-                positionId = position.id,
-                pnl = event.execPnl,
-                exitReason = "Trailing stop (exchange)",
-                newBalance = newBalance,
-            )
+            // Publish SSE event only if we actually saved the trade
+            if (tradeWasSaved) {
+                eventPublisher.publishPositionClosed(
+                    sessionId = stateHolder.sessionId,
+                    symbol = stateHolder.symbol,
+                    positionId = position.id,
+                    pnl = event.execPnl,
+                    exitReason = "Trailing stop (exchange)",
+                    newBalance = newBalance,
+                )
+            }
         }
     }
 
@@ -898,8 +928,8 @@ class LiveTradingService(
                 "${stateHolder.logPrefix} [REAL ORDER] Opening ${position.side} qty=${position.positionSize} trailingStop=$trailingDistance"
             }
 
-            // Set leverage first
-            tradingClient.setLeverage(stateHolder.symbol, liveProperties.defaultLeverage)
+            // Set leverage based on session configuration
+            tradingClient.setLeverage(stateHolder.symbol, stateHolder.leverage)
 
             // 1. Place market order
             val entryResult =
