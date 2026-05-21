@@ -526,10 +526,11 @@ class LiveTradingService(
             }
         val balanceBeforeClose = currentState.accountBalance
         val balanceAfterClose = currentState.accountBalance + estimatedPnl
+        val positionValue = position.entryPrice * position.positionSize
         val profitLossPercent =
-            if (position.entryPrice > BigDecimal.ZERO) {
-                (exitPrice - position.entryPrice)
-                    .divide(position.entryPrice, 8, java.math.RoundingMode.HALF_UP)
+            if (positionValue > BigDecimal.ZERO) {
+                estimatedPnl
+                    .divide(positionValue, 8, java.math.RoundingMode.HALF_UP)
                     .multiply(BigDecimal(100))
             } else {
                 BigDecimal.ZERO
@@ -677,10 +678,11 @@ class LiveTradingService(
         val exitTime = Instant.now()
         val balanceBeforeClose = currentState.accountBalance
         val balanceAfterClose = currentState.accountBalance + event.execPnl
+        val positionValue = position.entryPrice * event.closedSize
         val profitLossPercent =
-            if (position.entryPrice > BigDecimal.ZERO) {
-                (event.execPrice - position.entryPrice)
-                    .divide(position.entryPrice, 8, java.math.RoundingMode.HALF_UP)
+            if (positionValue > BigDecimal.ZERO) {
+                event.execPnl
+                    .divide(positionValue, 8, java.math.RoundingMode.HALF_UP)
                     .multiply(BigDecimal(100))
             } else {
                 BigDecimal.ZERO
