@@ -104,7 +104,7 @@ class LiveTradingServiceIntegrationTest {
             val activeSessions = sessionRepository.findByStatus(LiveSessionStatus.RUNNING).toList()
             for (session in activeSessions) {
                 try {
-                    service.stopSession(session.symbol, session.timeframe, session.exchange)
+                    service.stopSessionById(session.id!!)
                 } catch (_: Exception) {
                 }
             }
@@ -135,10 +135,8 @@ class LiveTradingServiceIntegrationTest {
             assertThat(session.initialCapital).isEqualTo(LiveTestFixtures.DEFAULT_INITIAL_CAPITAL)
             assertThat(session.currentBalance).isEqualTo(LiveTestFixtures.DEFAULT_INITIAL_CAPITAL)
 
-            val stateHolder = service.getStateHolder(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
-            assertThat(stateHolder).isNotNull
-            assertThat(stateHolder!!.sessionId).isEqualTo(session.id)
-            assertThat(stateHolder.symbol).isEqualTo(LiveTestFixtures.TEST_SYMBOL)
+            // Verify session is active
+            assertThat(service.isSessionActive(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)).isTrue()
         }
     }
 
@@ -149,12 +147,13 @@ class LiveTradingServiceIntegrationTest {
             val candles = LiveTestFixtures.createCandleSequence(count = 5)
             candles.forEach { candleRepository.save(it) }
 
-            service.startSession(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
+            val session = service.startSession(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
 
-            val stateHolder = service.getStateHolder(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
-            assertThat(stateHolder).isNotNull
-            assertThat(stateHolder!!.lastCandle).isNotNull
-            assertThat(stateHolder.lastCandle!!.atr).isNotNull
+            // Verify session is active and last candle has ATR
+            assertThat(service.isSessionActive(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)).isTrue()
+            val lastCandle = candleRepository.findLastCandleWithATR(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME)
+            assertThat(lastCandle).isNotNull
+            assertThat(lastCandle!!.atr).isNotNull
         }
     }
 
@@ -179,25 +178,24 @@ class LiveTradingServiceIntegrationTest {
             candleRepository.save(LiveTestFixtures.createCandle())
             val session = service.startSession(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
 
-            service.stopSession(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
+            service.stopSessionById(session.id!!)
 
             val stoppedSession = sessionRepository.findById(session.id!!)
             assertThat(stoppedSession).isNotNull
             assertThat(stoppedSession!!.status).isEqualTo(LiveSessionStatus.STOPPED)
             assertThat(stoppedSession.stoppedAt).isNotNull
 
-            assertThat(service.getStateHolder(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)).isNull()
             assertThat(service.isSessionActive(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)).isFalse()
         }
     }
 
     @Test
-    @DisplayName("A5: stopSession throws when no running session")
-    fun stopSession_throwsWhenNotRunning() {
+    @DisplayName("A5: stopSession throws when session not found")
+    fun stopSession_throwsWhenNotFound() {
         assertThatThrownBy {
-            runBlocking { service.stopSession("NONEXISTENT", LiveTestFixtures.TEST_TIMEFRAME, testExchange) }
+            runBlocking { service.stopSessionById(99999L) }
         }.isInstanceOf(IllegalStateException::class.java)
-            .hasMessageContaining("No running session")
+            .hasMessageContaining("Session not found")
     }
 
     // =====================
@@ -221,8 +219,7 @@ class LiveTradingServiceIntegrationTest {
             delay(500)
 
             // Verify session started
-            val stateHolder = service.getStateHolder(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
-            assertThat(stateHolder).isNotNull
+            assertThat(service.isSessionActive(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)).isTrue()
 
             // Send a candle to trigger processing
             val newCandle =
@@ -312,10 +309,6 @@ class LiveTradingServiceIntegrationTest {
 
             // Verify session is still active (no errors from processing multiple candles)
             assertThat(service.isSessionActive(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)).isTrue()
-
-            // Verify state holder exists and has been updated
-            val stateHolder = service.getStateHolder(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
-            assertThat(stateHolder).isNotNull
         }
     }
 
@@ -457,7 +450,7 @@ class LiveTradingServiceIntegrationTest {
     fun sessionCounters_incrementCorrectly() {
         runBlocking {
             candleRepository.save(LiveTestFixtures.createCandle())
-            service.startSession(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
+            val session = service.startSession(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
 
             delay(100)
 
@@ -470,9 +463,10 @@ class LiveTradingServiceIntegrationTest {
                 delay(200)
             }
 
-            val stateHolder = service.getStateHolder(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
-            assertThat(stateHolder).isNotNull
-            assertThat(stateHolder!!.state.positionIdCounter).isGreaterThanOrEqualTo(0)
+            // Verify session state is updated by checking database
+            val updatedSession = sessionRepository.findById(session.id!!)
+            assertThat(updatedSession).isNotNull
+            assertThat(updatedSession!!.positionIdCounter).isGreaterThanOrEqualTo(0)
         }
     }
 
@@ -551,7 +545,6 @@ class LiveTradingServiceIntegrationTest {
             service.startSession("SOLUSDT", LiveTestFixtures.TEST_TIMEFRAME, testExchange)
 
             assertThat(service.isSessionActive("SOLUSDT", LiveTestFixtures.TEST_TIMEFRAME, testExchange)).isTrue()
-            assertThat(service.getStateHolder("SOLUSDT", LiveTestFixtures.TEST_TIMEFRAME, testExchange)).isNotNull
         }
     }
 
@@ -573,25 +566,25 @@ class LiveTradingServiceIntegrationTest {
     }
 
     @Test
-    @DisplayName("H2: getStateHolder returns correct state")
-    fun getStateHolder_returnsCorrectState() {
+    @DisplayName("H2: session state is stored in database")
+    fun sessionState_storedInDatabase() {
         runBlocking {
             candleRepository.save(LiveTestFixtures.createCandle())
-            service.startSession(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
+            val session = service.startSession(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
 
-            val stateHolder = service.getStateHolder(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
+            // Verify state is retrievable from database
+            val savedSession = sessionRepository.findById(session.id!!)
 
-            assertThat(stateHolder).isNotNull
-            assertThat(stateHolder!!.symbol).isEqualTo(LiveTestFixtures.TEST_SYMBOL)
-            assertThat(stateHolder.state.accountBalance).isEqualTo(LiveTestFixtures.DEFAULT_INITIAL_CAPITAL)
+            assertThat(savedSession).isNotNull
+            assertThat(savedSession!!.symbol).isEqualTo(LiveTestFixtures.TEST_SYMBOL)
+            assertThat(savedSession.currentBalance).isEqualTo(LiveTestFixtures.DEFAULT_INITIAL_CAPITAL)
         }
     }
 
     @Test
-    @DisplayName("H3: getStateHolder returns null for unknown symbol")
-    fun getStateHolder_returnsNullForUnknown() {
-        val stateHolder = service.getStateHolder("UNKNOWN", LiveTestFixtures.TEST_TIMEFRAME, testExchange)
-        assertThat(stateHolder).isNull()
+    @DisplayName("H3: isSessionActive returns false for unknown symbol")
+    fun isSessionActive_returnsFalseForUnknown() {
+        assertThat(service.isSessionActive("UNKNOWN", LiveTestFixtures.TEST_TIMEFRAME, testExchange)).isFalse()
     }
 
     @Test
@@ -601,11 +594,11 @@ class LiveTradingServiceIntegrationTest {
             assertThat(service.isSessionActive(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)).isFalse()
 
             candleRepository.save(LiveTestFixtures.createCandle())
-            service.startSession(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
+            val session = service.startSession(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
 
             assertThat(service.isSessionActive(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)).isTrue()
 
-            service.stopSession(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)
+            service.stopSessionById(session.id!!)
 
             assertThat(service.isSessionActive(LiveTestFixtures.TEST_SYMBOL, LiveTestFixtures.TEST_TIMEFRAME, testExchange)).isFalse()
         }

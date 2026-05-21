@@ -39,6 +39,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.isActive
@@ -53,11 +54,27 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * Lightweight context for a running session.
+ * Only holds metadata - state is loaded from DB on each candle.
+ */
+data class SessionContext(
+    val sessionId: Long,
+    val symbol: String,
+    val timeframe: Timeframe,
+    val exchange: Exchange,
+    val trailingStopMode: TrailingStopMode,
+    val trailingStopPercent: BigDecimal,
+    val atrMultiplier: BigDecimal,
+    val leverage: Int,
+) {
+    val logPrefix: String get() = "[#$sessionId $symbol/${timeframe.label} $exchange]"
+}
+
 @Service
 class LiveTradingService(
     private val exchangeClientFactory: ExchangeClientFactory,
     private val tradingProcessor: TradingProcessor,
-    private val recoveryService: LiveStateRecoveryService,
     private val sessionRepository: LiveSessionRepository,
     private val positionRepository: LivePositionRepository,
     private val tradeRepository: LiveTradeRepository,
@@ -73,7 +90,7 @@ class LiveTradingService(
     private val sessionJobs = ConcurrentHashMap<String, Job>()
     private val executionJobs = ConcurrentHashMap<Exchange, Job>() // One per exchange
     private val syncJobs = ConcurrentHashMap<String, Job>() // Periodic position sync per session
-    private val stateHolders = ConcurrentHashMap<String, LiveTradingStateHolder>()
+    private val sessionContexts = ConcurrentHashMap<String, SessionContext>() // Lightweight metadata only
     private val mutex = Mutex()
 
     companion object {
@@ -107,7 +124,10 @@ class LiveTradingService(
 
         scope.launch {
             // Resume any running sessions from previous run
-            val runningSessions = recoveryService.findRunningSessions()
+            val runningSessions =
+                sessionRepository
+                    .findByStatus(LiveSessionStatus.RUNNING)
+                    .toList()
             for (session in runningSessions) {
                 log.info { "Resuming session for ${session.symbol} ${session.timeframe.label}" }
                 resumeSession(session)
@@ -157,9 +177,9 @@ class LiveTradingService(
                     ),
                 )
 
-            // Initialize state holder with exchange info and trailing stop config
-            val stateHolder =
-                LiveTradingStateHolder(
+            // Create lightweight context (no state - loaded from DB on each candle)
+            val ctx =
+                SessionContext(
                     sessionId = session.id!!,
                     symbol = symbol,
                     timeframe = timeframe,
@@ -168,9 +188,8 @@ class LiveTradingService(
                     trailingStopPercent = trailingStopPercent,
                     atrMultiplier = atrMultiplier,
                     leverage = leverage,
-                    initialState = TradingState.create(liveProperties.initialCapital),
                 )
-            stateHolders[key] = stateHolder
+            sessionContexts[key] = ctx
 
             // Switch to Hedge Mode on exchange (required for separate Long/Short positions)
             if (liveProperties.executeRealOrders) {
@@ -186,18 +205,18 @@ class LiveTradingService(
             }
 
             // Prefetch historical candles for ATR initialization
-            prefetchHistoricalCandles(stateHolder)
+            prefetchHistoricalCandles(ctx)
 
             // Start execution WebSocket if not already running for this exchange
             startExecutionStream(exchange)
 
             // Start periodic position sync (every minute)
-            startPositionSyncJob(key, stateHolder)
+            startPositionSyncJob(key, ctx)
 
             // Start WebSocket streaming
             val job =
                 scope.launch {
-                    runSession(stateHolder)
+                    runSession(ctx)
                 }
             sessionJobs[key] = job
 
@@ -228,18 +247,29 @@ class LiveTradingService(
                 return
             }
 
-            val stateHolder = recoveryService.recoverState(session)
-            stateHolders[key] = stateHolder
+            // Create lightweight context from session entity
+            val ctx =
+                SessionContext(
+                    sessionId = session.id!!,
+                    symbol = session.symbol,
+                    timeframe = session.timeframe,
+                    exchange = session.exchange,
+                    trailingStopMode = session.trailingStopMode,
+                    trailingStopPercent = session.trailingStopPercent,
+                    atrMultiplier = session.atrMultiplier,
+                    leverage = session.leverage,
+                )
+            sessionContexts[key] = ctx
 
             // Start execution WebSocket if not already running for this exchange
             startExecutionStream(session.exchange)
 
             // Start periodic position sync (every minute)
-            startPositionSyncJob(key, stateHolder)
+            startPositionSyncJob(key, ctx)
 
             val job =
                 scope.launch {
-                    runSession(stateHolder)
+                    runSession(ctx)
                 }
             sessionJobs[key] = job
 
@@ -247,46 +277,88 @@ class LiveTradingService(
         }
 
     /**
-     * Stop a running session.
+     * Stop a session by ID. Works for both in-memory and orphaned (DB-only) sessions.
      */
-    suspend fun stopSession(
-        symbol: String,
-        timeframe: Timeframe,
-        exchange: Exchange,
-    ) = mutex.withLock {
-        val key = sessionKey(symbol, timeframe, exchange)
-        val job = sessionJobs.remove(key)
-        val syncJob = syncJobs.remove(key)
-        val stateHolder = stateHolders.remove(key)
+    suspend fun stopSessionById(sessionId: Long) =
+        mutex.withLock {
+            val session =
+                sessionRepository.findById(sessionId)
+                    ?: throw IllegalStateException("Session not found: $sessionId")
 
-        if (job == null || stateHolder == null) {
-            throw IllegalStateException("No running session for $symbol ${timeframe.label} on $exchange")
-        }
+            val key = sessionKey(session.symbol, session.timeframe, session.exchange)
 
-        job.cancel()
-        syncJob?.cancel()
+            // Cancel jobs if they exist in memory
+            sessionJobs.remove(key)?.cancel()
+            syncJobs.remove(key)?.cancel()
+            sessionContexts.remove(key)
 
-        // Update session status in database
-        val session = sessionRepository.findById(stateHolder.sessionId)
-        if (session != null) {
+            // Update session status in database
             session.status = LiveSessionStatus.STOPPED
             session.stoppedAt = Instant.now()
             sessionRepository.save(session)
+
+            log.info { "[#$sessionId ${session.symbol}/${session.timeframe.label} ${session.exchange}] Stopped session" }
+
+            // Publish session stopped event
+            eventPublisher.publishSessionStopped(
+                sessionId = sessionId,
+                symbol = session.symbol,
+            )
+
+            // Stop execution stream if no more sessions for this exchange
+            val hasSessionsForExchange = sessionContexts.values.any { it.exchange == session.exchange }
+            if (!hasSessionsForExchange) {
+                stopExecutionStream(session.exchange)
+            }
         }
 
-        log.info { "[#${stateHolder.sessionId} $symbol/${timeframe.label} $exchange] Stopped session" }
+    /**
+     * Load TradingState from database for a session.
+     * Called on every candle to ensure stateless operation.
+     */
+    private suspend fun loadStateFromDb(sessionId: Long): TradingState {
+        val session =
+            sessionRepository.findById(sessionId)
+                ?: throw IllegalStateException("Session not found: $sessionId")
 
-        // Publish session stopped event
-        eventPublisher.publishSessionStopped(
-            sessionId = stateHolder.sessionId,
-            symbol = symbol,
+        val openPositions =
+            positionRepository
+                .findBySessionIdAndStatus(sessionId, PositionStatus.OPEN)
+                .map { it.toPosition() }
+                .toList()
+
+        return TradingState(
+            accountBalance = session.currentBalance,
+            peakBalance = session.peakBalance,
+            maxDrawdown = session.maxDrawdown,
+            openPositions = openPositions,
+            closedTrades = emptyList(), // Not needed for live processing
+            tradeIdCounter = session.tradeIdCounter,
+            positionIdCounter = session.positionIdCounter,
         )
+    }
 
-        // Stop execution stream if no more sessions for this exchange
-        val hasSessionsForExchange = stateHolders.values.any { it.exchange == exchange }
-        if (!hasSessionsForExchange) {
-            stopExecutionStream(exchange)
-        }
+    /**
+     * Save TradingState to database for a session.
+     * Called after each candle is processed.
+     */
+    private suspend fun saveStateToDb(
+        sessionId: Long,
+        state: TradingState,
+        candle: CandleEntity,
+    ) {
+        val session =
+            sessionRepository.findById(sessionId)
+                ?: throw IllegalStateException("Session not found: $sessionId")
+
+        session.currentBalance = state.accountBalance
+        session.peakBalance = state.peakBalance
+        session.maxDrawdown = state.maxDrawdown
+        session.positionIdCounter = state.positionIdCounter
+        session.tradeIdCounter = state.tradeIdCounter
+        session.lastCandleId = candle.id
+        session.lastUpdateAt = Instant.now()
+        sessionRepository.save(session)
     }
 
     /**
@@ -345,35 +417,35 @@ class LiveTradingService(
      */
     private fun startPositionSyncJob(
         key: String,
-        stateHolder: LiveTradingStateHolder,
+        ctx: SessionContext,
     ) {
         if (!liveProperties.executeRealOrders) {
-            log.info { "${stateHolder.logPrefix} Position sync disabled (executeRealOrders=false)" }
+            log.info { "${ctx.logPrefix} Position sync disabled (executeRealOrders=false)" }
             return
         }
 
-        val tradingClient = getTradingClient(stateHolder.exchange)
+        val tradingClient = getTradingClient(ctx.exchange)
         if (tradingClient == null) {
-            log.warn { "${stateHolder.logPrefix} Trading client not available - position sync disabled" }
+            log.warn { "${ctx.logPrefix} Trading client not available - position sync disabled" }
             return
         }
 
-        log.info { "${stateHolder.logPrefix} Creating position sync job..." }
+        log.info { "${ctx.logPrefix} Creating position sync job..." }
         val job =
             scope.launch {
-                log.info { "${stateHolder.logPrefix} Position sync job running, first check in ${SYNC_INTERVAL_MS / 1000}s" }
+                log.info { "${ctx.logPrefix} Position sync job running, first check in ${SYNC_INTERVAL_MS / 1000}s" }
                 while (isActive) {
                     delay(SYNC_INTERVAL_MS)
                     try {
-                        log.debug { "${stateHolder.logPrefix} Running position sync check..." }
-                        syncPositionsWithExchange(stateHolder, tradingClient)
+                        log.debug { "${ctx.logPrefix} Running position sync check..." }
+                        syncPositionsWithExchange(ctx, tradingClient)
                     } catch (e: Exception) {
-                        log.warn(e) { "${stateHolder.logPrefix} Position sync failed" }
+                        log.warn(e) { "${ctx.logPrefix} Position sync failed" }
                     }
                 }
             }
         syncJobs[key] = job
-        log.info { "${stateHolder.logPrefix} Position sync job started (every ${SYNC_INTERVAL_MS / 1000}s)" }
+        log.info { "${ctx.logPrefix} Position sync job started (every ${SYNC_INTERVAL_MS / 1000}s)" }
     }
 
     /**
@@ -381,39 +453,40 @@ class LiveTradingService(
      * Detects positions that were closed on exchange but not synced locally.
      */
     private suspend fun syncPositionsWithExchange(
-        stateHolder: LiveTradingStateHolder,
+        ctx: SessionContext,
         tradingClient: ExchangeTradingClient,
     ) {
-        stateHolder.withState { currentState ->
-            if (currentState.openPositions.isEmpty()) {
-                return@withState // Nothing to sync
-            }
+        // Load current state from DB
+        val currentState = loadStateFromDb(ctx.sessionId)
 
-            // Get positions from exchange
-            val exchangePositions = tradingClient.getPositions(stateHolder.symbol)
+        if (currentState.openPositions.isEmpty()) {
+            return // Nothing to sync
+        }
 
-            for (localPosition in currentState.openPositions) {
-                // Find matching exchange position by side
-                val exchangePosition =
-                    exchangePositions.find {
-                        it.symbol == stateHolder.symbol &&
-                            (
-                                (localPosition.side == PositionSide.LONG && it.side == "Buy") ||
-                                    (localPosition.side == PositionSide.SHORT && it.side == "Sell")
-                            )
-                    }
+        // Get positions from exchange
+        val exchangePositions = tradingClient.getPositions(ctx.symbol)
 
-                // Check if position is closed on exchange (not found or size = 0)
-                val isClosedOnExchange = exchangePosition == null || exchangePosition.size == BigDecimal.ZERO
-
-                if (isClosedOnExchange) {
-                    log.warn {
-                        "${stateHolder.logPrefix} Position #${localPosition.id} ${localPosition.side} not found on exchange - syncing closure"
-                    }
-
-                    // Close position locally (we don't have P&L from exchange, use 0)
-                    syncPositionClosureFromPolling(stateHolder, localPosition)
+        for (localPosition in currentState.openPositions) {
+            // Find matching exchange position by side
+            val exchangePosition =
+                exchangePositions.find {
+                    it.symbol == ctx.symbol &&
+                        (
+                            (localPosition.side == PositionSide.LONG && it.side == "Buy") ||
+                                (localPosition.side == PositionSide.SHORT && it.side == "Sell")
+                        )
                 }
+
+            // Check if position is closed on exchange (not found or size = 0)
+            val isClosedOnExchange = exchangePosition == null || exchangePosition.size == BigDecimal.ZERO
+
+            if (isClosedOnExchange) {
+                log.warn {
+                    "${ctx.logPrefix} Position #${localPosition.id} ${localPosition.side} not found on exchange - syncing closure"
+                }
+
+                // Close position locally (we don't have P&L from exchange, use 0)
+                syncPositionClosureFromPolling(ctx, localPosition)
             }
         }
     }
@@ -422,116 +495,117 @@ class LiveTradingService(
      * Sync position closure detected via polling (fallback when WebSocket misses event).
      */
     private suspend fun syncPositionClosureFromPolling(
-        stateHolder: LiveTradingStateHolder,
+        ctx: SessionContext,
         position: com.trading.coinflip.engine.model.Position,
     ) {
-        stateHolder.withState { currentState ->
-            // Already closed?
-            if (currentState.openPositions.none { it.id == position.id }) {
-                return@withState
+        // Load current state from DB
+        val currentState = loadStateFromDb(ctx.sessionId)
+
+        // Already closed?
+        if (currentState.openPositions.none { it.id == position.id }) {
+            return
+        }
+
+        log.info { "${ctx.logPrefix} Syncing position #${position.id} closure from polling" }
+
+        // Update position in database
+        val entity = positionRepository.findBySessionIdAndPositionId(ctx.sessionId, position.id)
+        if (entity != null) {
+            entity.status = PositionStatus.CLOSED
+            entity.updatedAt = Instant.now()
+            positionRepository.save(entity)
+        }
+
+        // Create trade record (P&L unknown from polling, use trailing stop price estimate)
+        val exitPrice = position.trailingStop
+        val exitTime = Instant.now()
+        val estimatedPnl =
+            when (position.side) {
+                PositionSide.LONG -> (exitPrice - position.entryPrice) * position.positionSize
+                PositionSide.SHORT -> (position.entryPrice - exitPrice) * position.positionSize
+            }
+        val balanceBeforeClose = currentState.accountBalance
+        val balanceAfterClose = currentState.accountBalance + estimatedPnl
+        val profitLossPercent =
+            if (position.entryPrice > BigDecimal.ZERO) {
+                (exitPrice - position.entryPrice)
+                    .divide(position.entryPrice, 8, java.math.RoundingMode.HALF_UP)
+                    .multiply(BigDecimal(100))
+            } else {
+                BigDecimal.ZERO
             }
 
-            log.info { "${stateHolder.logPrefix} Syncing position #${position.id} closure from polling" }
+        val newTradeId = currentState.tradeIdCounter + 1
+        val trade =
+            LiveTradeEntity(
+                sessionId = ctx.sessionId,
+                tradeId = newTradeId,
+                symbol = ctx.symbol,
+                timeframe = ctx.timeframe,
+                side = position.side,
+                entryTime = position.entryTime,
+                entryPrice = position.entryPrice,
+                exitTime = exitTime,
+                exitPrice = exitPrice,
+                positionSize = position.positionSize,
+                initialStopLoss = position.initialStopLoss,
+                trailingStop = position.trailingStop,
+                profitLoss = estimatedPnl,
+                profitLossPercent = profitLossPercent,
+                exitReason = "Trailing stop (polling sync)",
+                balanceBeforeOpen = position.balanceBeforeOpen,
+                balanceAfterOpen = position.balanceAfterOpen,
+                balanceBeforeClose = balanceBeforeClose,
+                balanceAfterClose = balanceAfterClose,
+            )
 
-            // Update position in database
-            val entity = positionRepository.findBySessionIdAndPositionId(stateHolder.sessionId, position.id)
-            if (entity != null) {
-                entity.status = PositionStatus.CLOSED
-                entity.updatedAt = Instant.now()
-                positionRepository.save(entity)
+        // Try to save trade - may fail if another path already saved it
+        val tradeWasSaved =
+            try {
+                tradeRepository.save(trade)
+                true
+            } catch (e: DuplicateKeyException) {
+                log.info { "${ctx.logPrefix} Trade for position #${position.id} already synced by another path" }
+                false
             }
 
-            // Create trade record (P&L unknown from polling, use trailing stop price estimate)
-            val exitPrice = position.trailingStop
-            val exitTime = Instant.now()
-            val estimatedPnl =
-                when (position.side) {
-                    PositionSide.LONG -> (exitPrice - position.entryPrice) * position.positionSize
-                    PositionSide.SHORT -> (position.entryPrice - exitPrice) * position.positionSize
-                }
-            val balanceBeforeClose = currentState.accountBalance
-            val balanceAfterClose = currentState.accountBalance + estimatedPnl
-            val profitLossPercent =
-                if (position.entryPrice > BigDecimal.ZERO) {
-                    (exitPrice - position.entryPrice)
-                        .divide(position.entryPrice, 8, java.math.RoundingMode.HALF_UP)
-                        .multiply(BigDecimal(100))
-                } else {
-                    BigDecimal.ZERO
-                }
-
-            val newTradeId = currentState.tradeIdCounter + 1
-            val trade =
-                LiveTradeEntity(
-                    sessionId = stateHolder.sessionId,
-                    tradeId = newTradeId,
-                    symbol = stateHolder.symbol,
-                    timeframe = stateHolder.timeframe,
-                    side = position.side,
-                    entryTime = position.entryTime,
-                    entryPrice = position.entryPrice,
-                    exitTime = exitTime,
-                    exitPrice = exitPrice,
-                    positionSize = position.positionSize,
-                    initialStopLoss = position.initialStopLoss,
-                    trailingStop = position.trailingStop,
-                    profitLoss = estimatedPnl,
-                    profitLossPercent = profitLossPercent,
-                    exitReason = "Trailing stop (polling sync)",
-                    balanceBeforeOpen = position.balanceBeforeOpen,
-                    balanceAfterOpen = position.balanceAfterOpen,
-                    balanceBeforeClose = balanceBeforeClose,
-                    balanceAfterClose = balanceAfterClose,
-                )
-
-            // Try to save trade - may fail if another path already saved it
-            val tradeWasSaved =
-                try {
-                    tradeRepository.save(trade)
-                    true
-                } catch (e: DuplicateKeyException) {
-                    log.info { "${stateHolder.logPrefix} Trade for position #${position.id} already synced by another path" }
-                    false
-                }
-
-            // Update local state - always remove position to prevent repeated sync attempts
-            val newBalance = balanceAfterClose
-            val newPeak = maxOf(currentState.peakBalance, newBalance)
-            val drawdown =
-                if (newPeak > BigDecimal.ZERO) {
-                    (newPeak - newBalance).divide(newPeak, 8, java.math.RoundingMode.HALF_UP)
-                } else {
-                    BigDecimal.ZERO
-                }
-            val newMaxDrawdown = maxOf(currentState.maxDrawdown, drawdown)
-
-            val newState =
-                currentState.copy(
-                    openPositions = currentState.openPositions.filter { it.id != position.id },
-                    accountBalance = newBalance,
-                    peakBalance = newPeak,
-                    maxDrawdown = newMaxDrawdown,
-                    tradeIdCounter = if (tradeWasSaved) newTradeId else currentState.tradeIdCounter,
-                )
-            stateHolder.updateState(newState)
-
-            // Publish SSE event only if we actually saved the trade
-            if (tradeWasSaved) {
-                eventPublisher.publishPositionClosed(
-                    sessionId = stateHolder.sessionId,
-                    symbol = stateHolder.symbol,
-                    positionId = position.id,
-                    pnl = estimatedPnl,
-                    exitReason = "Trailing stop (polling sync)",
-                    newBalance = newBalance,
-                )
+        // Update session in DB
+        val newBalance = balanceAfterClose
+        val newPeak = maxOf(currentState.peakBalance, newBalance)
+        val drawdown =
+            if (newPeak > BigDecimal.ZERO) {
+                (newPeak - newBalance).divide(newPeak, 8, java.math.RoundingMode.HALF_UP)
+            } else {
+                BigDecimal.ZERO
             }
+        val newMaxDrawdown = maxOf(currentState.maxDrawdown, drawdown)
+
+        val session = sessionRepository.findById(ctx.sessionId)
+        if (session != null) {
+            session.currentBalance = newBalance
+            session.peakBalance = newPeak
+            session.maxDrawdown = newMaxDrawdown
+            if (tradeWasSaved) session.tradeIdCounter = newTradeId
+            session.lastUpdateAt = Instant.now()
+            sessionRepository.save(session)
+        }
+
+        // Publish SSE event only if we actually saved the trade
+        if (tradeWasSaved) {
+            eventPublisher.publishPositionClosed(
+                sessionId = ctx.sessionId,
+                symbol = ctx.symbol,
+                positionId = position.id,
+                pnl = estimatedPnl,
+                exitReason = "Trailing stop (polling sync)",
+                newBalance = newBalance,
+            )
         }
     }
 
     /**
      * Handle execution events from exchange.
-     * Updates local state when position is closed by exchange (trailing stop triggered).
+     * Updates DB directly when position is closed by exchange (trailing stop triggered).
      */
     private suspend fun handleExecutionEvent(
         exchange: Exchange,
@@ -543,19 +617,19 @@ class LiveTradingService(
                     "[$exchange] Position closed by exchange: ${event.symbol} ${event.side} qty=${event.closedSize} pnl=${event.execPnl}"
                 }
 
-                // Find matching session for this symbol
-                val stateHolder =
-                    stateHolders.values.find {
+                // Find matching session context for this symbol
+                val ctx =
+                    sessionContexts.values.find {
                         it.exchange == exchange && it.symbol == event.symbol
                     }
 
-                if (stateHolder == null) {
+                if (ctx == null) {
                     log.debug { "No active session for ${event.symbol} on $exchange" }
                     return
                 }
 
-                // Sync position closure with local state
-                syncPositionClosure(stateHolder, event)
+                // Sync position closure with DB
+                syncPositionClosure(ctx, event)
             }
 
             is ExecutionEvent.PositionUpdate -> {
@@ -568,114 +642,115 @@ class LiveTradingService(
     }
 
     /**
-     * Sync position closure from exchange with local state.
+     * Sync position closure from exchange with DB.
      * Called when trailing stop triggers on exchange side.
      */
     private suspend fun syncPositionClosure(
-        stateHolder: LiveTradingStateHolder,
+        ctx: SessionContext,
         event: ExecutionEvent.PositionClosed,
     ) {
         // Determine position side from execution event
         // If exchange closed with Sell, our position was Long (and vice versa)
         val positionSide = if (event.side == "Sell") PositionSide.LONG else PositionSide.SHORT
 
-        stateHolder.withState { currentState ->
-            // Find matching open position
-            val position = currentState.openPositions.find { it.side == positionSide }
-            if (position == null) {
-                log.warn { "${stateHolder.logPrefix} No open $positionSide position to sync with exchange close" }
-                return@withState
+        // Load current state from DB
+        val currentState = loadStateFromDb(ctx.sessionId)
+
+        // Find matching open position
+        val position = currentState.openPositions.find { it.side == positionSide }
+        if (position == null) {
+            log.warn { "${ctx.logPrefix} No open $positionSide position to sync with exchange close" }
+            return
+        }
+
+        log.info { "${ctx.logPrefix} Syncing position #${position.id} closure from exchange (pnl=${event.execPnl})" }
+
+        // Update position in database
+        val entity = positionRepository.findBySessionIdAndPositionId(ctx.sessionId, position.id)
+        if (entity != null) {
+            entity.status = PositionStatus.CLOSED
+            entity.updatedAt = Instant.now()
+            positionRepository.save(entity)
+        }
+
+        // Create trade record with exchange data
+        val exitTime = Instant.now()
+        val balanceBeforeClose = currentState.accountBalance
+        val balanceAfterClose = currentState.accountBalance + event.execPnl
+        val profitLossPercent =
+            if (position.entryPrice > BigDecimal.ZERO) {
+                (event.execPrice - position.entryPrice)
+                    .divide(position.entryPrice, 8, java.math.RoundingMode.HALF_UP)
+                    .multiply(BigDecimal(100))
+            } else {
+                BigDecimal.ZERO
             }
 
-            log.info { "${stateHolder.logPrefix} Syncing position #${position.id} closure from exchange (pnl=${event.execPnl})" }
+        val newTradeId = currentState.tradeIdCounter + 1
+        val trade =
+            LiveTradeEntity(
+                sessionId = ctx.sessionId,
+                tradeId = newTradeId,
+                symbol = event.symbol,
+                timeframe = ctx.timeframe,
+                side = positionSide,
+                entryTime = position.entryTime,
+                entryPrice = position.entryPrice,
+                exitTime = exitTime,
+                exitPrice = event.execPrice,
+                positionSize = event.closedSize,
+                initialStopLoss = position.initialStopLoss,
+                trailingStop = position.trailingStop,
+                profitLoss = event.execPnl,
+                profitLossPercent = profitLossPercent,
+                exitReason = "Trailing stop (exchange)",
+                balanceBeforeOpen = position.balanceBeforeOpen,
+                balanceAfterOpen = position.balanceAfterOpen,
+                balanceBeforeClose = balanceBeforeClose,
+                balanceAfterClose = balanceAfterClose,
+            )
 
-            // Update position in database
-            val entity = positionRepository.findBySessionIdAndPositionId(stateHolder.sessionId, position.id)
-            if (entity != null) {
-                entity.status = PositionStatus.CLOSED
-                entity.updatedAt = Instant.now()
-                positionRepository.save(entity)
+        // Try to save trade - may fail if another path already saved it
+        val tradeWasSaved =
+            try {
+                tradeRepository.save(trade)
+                true
+            } catch (e: DuplicateKeyException) {
+                log.info { "${ctx.logPrefix} Trade for position #${position.id} already synced by another path" }
+                false
             }
 
-            // Create trade record with exchange data
-            val exitTime = Instant.now()
-            val balanceBeforeClose = currentState.accountBalance
-            val balanceAfterClose = currentState.accountBalance + event.execPnl
-            val profitLossPercent =
-                if (position.entryPrice > BigDecimal.ZERO) {
-                    (event.execPrice - position.entryPrice)
-                        .divide(position.entryPrice, 8, java.math.RoundingMode.HALF_UP)
-                        .multiply(BigDecimal(100))
-                } else {
-                    BigDecimal.ZERO
-                }
-
-            val newTradeId = currentState.tradeIdCounter + 1
-            val trade =
-                LiveTradeEntity(
-                    sessionId = stateHolder.sessionId,
-                    tradeId = newTradeId,
-                    symbol = event.symbol,
-                    timeframe = stateHolder.timeframe,
-                    side = positionSide,
-                    entryTime = position.entryTime,
-                    entryPrice = position.entryPrice,
-                    exitTime = exitTime,
-                    exitPrice = event.execPrice,
-                    positionSize = event.closedSize,
-                    initialStopLoss = position.initialStopLoss,
-                    trailingStop = position.trailingStop,
-                    profitLoss = event.execPnl,
-                    profitLossPercent = profitLossPercent,
-                    exitReason = "Trailing stop (exchange)",
-                    balanceBeforeOpen = position.balanceBeforeOpen,
-                    balanceAfterOpen = position.balanceAfterOpen,
-                    balanceBeforeClose = balanceBeforeClose,
-                    balanceAfterClose = balanceAfterClose,
-                )
-
-            // Try to save trade - may fail if another path already saved it
-            val tradeWasSaved =
-                try {
-                    tradeRepository.save(trade)
-                    true
-                } catch (e: DuplicateKeyException) {
-                    log.info { "${stateHolder.logPrefix} Trade for position #${position.id} already synced by another path" }
-                    false
-                }
-
-            // Update local state - always remove position to prevent repeated sync attempts
-            val newBalance = currentState.accountBalance + event.execPnl
-            val newPeak = maxOf(currentState.peakBalance, newBalance)
-            val drawdown =
-                if (newPeak > BigDecimal.ZERO) {
-                    (newPeak - newBalance).divide(newPeak, 8, java.math.RoundingMode.HALF_UP)
-                } else {
-                    BigDecimal.ZERO
-                }
-            val newMaxDrawdown = maxOf(currentState.maxDrawdown, drawdown)
-
-            val newState =
-                currentState.copy(
-                    openPositions = currentState.openPositions.filter { it.id != position.id },
-                    accountBalance = newBalance,
-                    peakBalance = newPeak,
-                    maxDrawdown = newMaxDrawdown,
-                    tradeIdCounter = if (tradeWasSaved) newTradeId else currentState.tradeIdCounter,
-                )
-            stateHolder.updateState(newState)
-
-            // Publish SSE event only if we actually saved the trade
-            if (tradeWasSaved) {
-                eventPublisher.publishPositionClosed(
-                    sessionId = stateHolder.sessionId,
-                    symbol = stateHolder.symbol,
-                    positionId = position.id,
-                    pnl = event.execPnl,
-                    exitReason = "Trailing stop (exchange)",
-                    newBalance = newBalance,
-                )
+        // Update session in DB
+        val newBalance = currentState.accountBalance + event.execPnl
+        val newPeak = maxOf(currentState.peakBalance, newBalance)
+        val drawdown =
+            if (newPeak > BigDecimal.ZERO) {
+                (newPeak - newBalance).divide(newPeak, 8, java.math.RoundingMode.HALF_UP)
+            } else {
+                BigDecimal.ZERO
             }
+        val newMaxDrawdown = maxOf(currentState.maxDrawdown, drawdown)
+
+        val session = sessionRepository.findById(ctx.sessionId)
+        if (session != null) {
+            session.currentBalance = newBalance
+            session.peakBalance = newPeak
+            session.maxDrawdown = newMaxDrawdown
+            if (tradeWasSaved) session.tradeIdCounter = newTradeId
+            session.lastUpdateAt = Instant.now()
+            sessionRepository.save(session)
+        }
+
+        // Publish SSE event only if we actually saved the trade
+        if (tradeWasSaved) {
+            eventPublisher.publishPositionClosed(
+                sessionId = ctx.sessionId,
+                symbol = ctx.symbol,
+                positionId = position.id,
+                pnl = event.execPnl,
+                exitReason = "Trailing stop (exchange)",
+                newBalance = newBalance,
+            )
         }
     }
 
@@ -683,117 +758,115 @@ class LiveTradingService(
      * Main session loop - connects to WebSocket and processes candles.
      * Uses the session's configured exchange for WebSocket connection.
      */
-    private suspend fun runSession(stateHolder: LiveTradingStateHolder) {
-        val wsClient = getWebSocketClient(stateHolder.exchange)
+    private suspend fun runSession(ctx: SessionContext) {
+        val wsClient = getWebSocketClient(ctx.exchange)
         wsClient
-            .connectAndStream(stateHolder.symbol, stateHolder.timeframe, scope)
+            .connectAndStream(ctx.symbol, ctx.timeframe, scope)
             .onEach { rawCandle ->
-                processCompletedCandle(stateHolder, rawCandle)
+                processCompletedCandle(ctx, rawCandle)
             }.catch { e ->
-                log.error(e) { "${stateHolder.logPrefix} Session error" }
-                handleSessionError(stateHolder, e)
+                log.error(e) { "${ctx.logPrefix} Session error" }
+                handleSessionError(ctx, e)
             }.collect()
     }
 
     /**
      * Process a completed candle from WebSocket.
+     * Loads state from DB, processes, saves state back to DB.
      */
     private suspend fun processCompletedCandle(
-        stateHolder: LiveTradingStateHolder,
+        ctx: SessionContext,
         rawCandle: CandleEntity,
     ) {
-        log.info { "${stateHolder.logPrefix} Processing candle at ${rawCandle.openTime}" }
+        log.info { "${ctx.logPrefix} Processing candle at ${rawCandle.openTime}" }
 
         // Save candle to database - ATR is calculated atomically by PostgreSQL trigger
         val savedCandle = persistCandle(rawCandle)
 
         // Verify ATR was calculated (requires enough historical data)
         if (savedCandle.atr == null) {
-            log.warn { "${stateHolder.logPrefix} No ATR calculated (not enough history), skipping candle" }
-            stateHolder.updateLastCandle(savedCandle)
+            log.warn { "${ctx.logPrefix} No ATR calculated (not enough history), skipping candle" }
             return
         }
 
-        stateHolder.updateLastCandle(savedCandle)
+        // Load current state from DB
+        val currentState = loadStateFromDb(ctx.sessionId)
 
         // Process candle through trading processor with session-specific trailing stop config
-        stateHolder.withState { currentState ->
-            val events =
-                tradingProcessor.processCandle(
-                    state = currentState,
-                    candle = savedCandle,
-                    trailingStopMode = stateHolder.trailingStopMode,
-                    atrMultiplier = stateHolder.atrMultiplier,
-                    trailingStopPercent = stateHolder.trailingStopPercent,
-                )
-
-            val stateToSave =
-                if (events.isNotEmpty()) {
-                    val newState = currentState.applyEvents(events)
-                    stateHolder.updateState(newState)
-
-                    // Persist events
-                    persistEvents(stateHolder, events)
-
-                    for (event in events) {
-                        when (event) {
-                            is TradingEvent.PositionOpened ->
-                                log.info {
-                                    "${stateHolder.logPrefix} Opened ${event.position.side} #${event.position.id} at ${event.position.entryPrice}"
-                                }
-                            is TradingEvent.PositionUpdated ->
-                                log.info {
-                                    "${stateHolder.logPrefix} Updated trailing stop #${event.positionId} to ${event.newTrailingStop}"
-                                }
-                            is TradingEvent.PositionClosed ->
-                                log.info {
-                                    "${stateHolder.logPrefix} Closed #${event.positionId} P&L=${event.pnl} (${event.exitReason})"
-                                }
-                        }
-                    }
-                    newState
-                } else {
-                    log.info { "${stateHolder.logPrefix} Processed candle, no position changes" }
-                    currentState
-                }
-
-            // Always update session with latest candle ID
-            updateSessionFromState(stateHolder, stateToSave, savedCandle)
-
-            // Publish candle processed event for UI updates
-            eventPublisher.publishCandleProcessed(
-                sessionId = stateHolder.sessionId,
-                symbol = stateHolder.symbol,
-                currentBalance = stateToSave.accountBalance,
-                openPositionsCount = stateToSave.openPositions.size,
-                lastPrice = savedCandle.close,
-                lastAtr = savedCandle.atr,
+        val events =
+            tradingProcessor.processCandle(
+                state = currentState,
+                candle = savedCandle,
+                trailingStopMode = ctx.trailingStopMode,
+                atrMultiplier = ctx.atrMultiplier,
+                trailingStopPercent = ctx.trailingStopPercent,
             )
-        }
+
+        val stateToSave =
+            if (events.isNotEmpty()) {
+                val newState = currentState.applyEvents(events)
+
+                // Persist events
+                persistEvents(ctx, events)
+
+                for (event in events) {
+                    when (event) {
+                        is TradingEvent.PositionOpened ->
+                            log.info {
+                                "${ctx.logPrefix} Opened ${event.position.side} #${event.position.id} at ${event.position.entryPrice}"
+                            }
+                        is TradingEvent.PositionUpdated ->
+                            log.info {
+                                "${ctx.logPrefix} Updated trailing stop #${event.positionId} to ${event.newTrailingStop}"
+                            }
+                        is TradingEvent.PositionClosed ->
+                            log.info {
+                                "${ctx.logPrefix} Closed #${event.positionId} P&L=${event.pnl} (${event.exitReason})"
+                            }
+                    }
+                }
+                newState
+            } else {
+                log.info { "${ctx.logPrefix} Processed candle, no position changes" }
+                currentState
+            }
+
+        // Save state to DB
+        saveStateToDb(ctx.sessionId, stateToSave, savedCandle)
+
+        // Publish candle processed event for UI updates
+        eventPublisher.publishCandleProcessed(
+            sessionId = ctx.sessionId,
+            symbol = ctx.symbol,
+            currentBalance = stateToSave.accountBalance,
+            openPositionsCount = stateToSave.openPositions.size,
+            lastPrice = savedCandle.close,
+            lastAtr = savedCandle.atr,
+        )
 
         // Take balance snapshot if needed
-        maybeCreateBalanceSnapshot(stateHolder, savedCandle)
+        maybeCreateBalanceSnapshot(ctx, stateToSave, savedCandle)
     }
 
     /**
      * Prefetch historical candles from exchange API to ensure ATR is available.
      * Uses the session's configured exchange for API calls.
      */
-    private suspend fun prefetchHistoricalCandles(stateHolder: LiveTradingStateHolder) {
+    private suspend fun prefetchHistoricalCandles(ctx: SessionContext) {
         val count = liveProperties.prefetchCandleCount
-        log.info { "${stateHolder.logPrefix} Prefetching last $count candles for ATR initialization" }
+        log.info { "${ctx.logPrefix} Prefetching last $count candles for ATR initialization" }
 
         // Fetch from session's exchange REST API
-        val restClient = getRestClient(stateHolder.exchange)
+        val restClient = getRestClient(ctx.exchange)
         val candles =
             restClient.fetchHistoricalKlines(
-                symbol = stateHolder.symbol,
-                timeframe = stateHolder.timeframe,
+                symbol = ctx.symbol,
+                timeframe = ctx.timeframe,
                 limit = count,
             )
 
         if (candles.isEmpty()) {
-            log.warn { "${stateHolder.logPrefix} No historical candles fetched from ${stateHolder.exchange} API" }
+            log.warn { "${ctx.logPrefix} No historical candles fetched from ${ctx.exchange} API" }
             return
         }
 
@@ -802,17 +875,16 @@ class LiveTradingService(
             persistCandle(candle)
         }
 
-        // Update lastCandle with most recent that has ATR
+        // Check if ATR is now available
         val lastWithAtr =
             candleRepository.findLastCandleWithATR(
-                stateHolder.symbol,
-                stateHolder.timeframe,
+                ctx.symbol,
+                ctx.timeframe,
             )
         if (lastWithAtr != null) {
-            stateHolder.lastCandle = lastWithAtr
-            log.info { "${stateHolder.logPrefix} ATR initialized: ${lastWithAtr.atr} at ${lastWithAtr.openTime}" }
+            log.info { "${ctx.logPrefix} ATR initialized: ${lastWithAtr.atr} at ${lastWithAtr.openTime}" }
         } else {
-            log.warn { "${stateHolder.logPrefix} No ATR calculated after prefetch (need more history)" }
+            log.warn { "${ctx.logPrefix} No ATR calculated after prefetch (need more history)" }
         }
     }
 
@@ -820,28 +892,28 @@ class LiveTradingService(
      * Persist trading events to database and execute real orders if enabled.
      */
     private suspend fun persistEvents(
-        stateHolder: LiveTradingStateHolder,
+        ctx: SessionContext,
         events: List<TradingEvent>,
     ) {
-        val sessionId = stateHolder.sessionId
-        val tradingClient = if (liveProperties.executeRealOrders) getTradingClient(stateHolder.exchange) else null
+        val sessionId = ctx.sessionId
+        val tradingClient = if (liveProperties.executeRealOrders) getTradingClient(ctx.exchange) else null
 
         for (event in events) {
             when (event) {
                 is TradingEvent.PositionOpened -> {
                     val entity = LivePositionEntity.fromPosition(event.position, sessionId)
                     positionRepository.save(entity)
-                    log.info { "${stateHolder.logPrefix} Persisted new position: ${event.position.id} ${event.position.side}" }
+                    log.info { "${ctx.logPrefix} Persisted new position: ${event.position.id} ${event.position.side}" }
 
                     // Execute real order on exchange with native trailing stop
                     if (tradingClient != null) {
-                        executeOpenPosition(stateHolder, tradingClient, event)
+                        executeOpenPosition(ctx, tradingClient, event)
                     }
 
                     // Publish SSE event
                     eventPublisher.publishPositionOpened(
                         sessionId = sessionId,
-                        symbol = stateHolder.symbol,
+                        symbol = ctx.symbol,
                         positionId = event.position.id,
                         side = event.position.side.name,
                         entryPrice = event.position.entryPrice,
@@ -866,7 +938,7 @@ class LiveTradingService(
                         // Publish SSE event
                         eventPublisher.publishPositionUpdated(
                             sessionId = sessionId,
-                            symbol = stateHolder.symbol,
+                            symbol = ctx.symbol,
                             positionId = event.positionId,
                             newTrailingStop = event.newTrailingStop,
                         )
@@ -887,7 +959,7 @@ class LiveTradingService(
                     val tradeEntity = LiveTradeEntity.fromTrade(event.trade, sessionId)
                     tradeRepository.save(tradeEntity)
                     log.info {
-                        "${stateHolder.logPrefix} Closed position ${event.positionId}: P&L=${event.pnl}, Reason=${event.exitReason}"
+                        "${ctx.logPrefix} Closed position ${event.positionId}: P&L=${event.pnl}, Reason=${event.exitReason}"
                     }
 
                     // NOTE: We don't close position on exchange - ByBit's trailing stop handles it
@@ -895,7 +967,7 @@ class LiveTradingService(
                     // Publish SSE event
                     eventPublisher.publishPositionClosed(
                         sessionId = sessionId,
-                        symbol = stateHolder.symbol,
+                        symbol = ctx.symbol,
                         positionId = event.positionId,
                         pnl = event.pnl,
                         exitReason = event.exitReason,
@@ -912,7 +984,7 @@ class LiveTradingService(
      * ByBit handles trailing automatically - no need to amend on each candle.
      */
     private suspend fun executeOpenPosition(
-        stateHolder: LiveTradingStateHolder,
+        ctx: SessionContext,
         tradingClient: ExchangeTradingClient,
         event: TradingEvent.PositionOpened,
     ) {
@@ -925,56 +997,37 @@ class LiveTradingService(
             val trailingDistance = (position.entryPrice - position.trailingStop).abs()
 
             log.info {
-                "${stateHolder.logPrefix} [REAL ORDER] Opening ${position.side} qty=${position.positionSize} trailingStop=$trailingDistance"
+                "${ctx.logPrefix} [REAL ORDER] Opening ${position.side} qty=${position.positionSize} trailingStop=$trailingDistance"
             }
 
             // Set leverage based on session configuration
-            tradingClient.setLeverage(stateHolder.symbol, stateHolder.leverage)
+            tradingClient.setLeverage(ctx.symbol, ctx.leverage)
 
             // 1. Place market order
             val entryResult =
                 tradingClient.placeOrder(
                     PlaceOrderRequest(
-                        symbol = stateHolder.symbol,
+                        symbol = ctx.symbol,
                         side = orderSide,
                         orderType = OrderType.Market,
                         qty = position.positionSize,
                         positionIdx = positionIdx,
                     ),
                 )
-            log.info { "${stateHolder.logPrefix} [REAL ORDER] Entry order placed: orderId=${entryResult.orderId}" }
+            log.info { "${ctx.logPrefix} [REAL ORDER] Entry order placed: orderId=${entryResult.orderId}" }
 
             // 2. Set native trailing stop on position (ByBit manages trailing automatically)
             tradingClient.setTradingStop(
                 TradingStopRequest(
-                    symbol = stateHolder.symbol,
+                    symbol = ctx.symbol,
                     positionIdx = positionIdx,
                     trailingStop = trailingDistance,
                 ),
             )
-            log.info { "${stateHolder.logPrefix} [REAL ORDER] Trailing stop set: distance=$trailingDistance" }
+            log.info { "${ctx.logPrefix} [REAL ORDER] Trailing stop set: distance=$trailingDistance" }
         } catch (e: Exception) {
-            log.error(e) { "${stateHolder.logPrefix} [REAL ORDER] Failed to open position on exchange" }
+            log.error(e) { "${ctx.logPrefix} [REAL ORDER] Failed to open position on exchange" }
         }
-    }
-
-    /**
-     * Update session entity from current trading state.
-     */
-    private suspend fun updateSessionFromState(
-        stateHolder: LiveTradingStateHolder,
-        state: TradingState,
-        candle: CandleEntity,
-    ) {
-        val session = sessionRepository.findById(stateHolder.sessionId) ?: return
-        session.currentBalance = state.accountBalance
-        session.peakBalance = state.peakBalance
-        session.maxDrawdown = state.maxDrawdown
-        session.positionIdCounter = state.positionIdCounter
-        session.tradeIdCounter = state.tradeIdCounter
-        session.lastCandleId = candle.id
-        session.lastUpdateAt = Instant.now()
-        sessionRepository.save(session)
     }
 
     /**
@@ -1003,7 +1056,8 @@ class LiveTradingService(
      * Create balance snapshot at configured intervals.
      */
     private suspend fun maybeCreateBalanceSnapshot(
-        stateHolder: LiveTradingStateHolder,
+        ctx: SessionContext,
+        state: TradingState,
         candle: CandleEntity,
     ) {
         // Snapshot every N hours (N = snapshot interval in minutes / 60)
@@ -1013,20 +1067,18 @@ class LiveTradingService(
         val hourOfDay = candle.openTime.atZone(ZoneOffset.UTC).hour
 
         if (hourOfDay % snapshotEveryNHours == 0) {
-            stateHolder.withState { state ->
-                val unrealizedPnl = calculateUnrealizedPnl(state, candle.close)
+            val unrealizedPnl = calculateUnrealizedPnl(state, candle.close)
 
-                balanceSnapshotRepository.save(
-                    LiveBalanceSnapshotEntity(
-                        sessionId = stateHolder.sessionId,
-                        balance = state.accountBalance,
-                        openPositionsCount = state.openPositions.size,
-                        unrealizedPnl = unrealizedPnl,
-                        candleTime = candle.openTime,
-                    ),
-                )
-                log.debug { "Created balance snapshot: ${state.accountBalance}" }
-            }
+            balanceSnapshotRepository.save(
+                LiveBalanceSnapshotEntity(
+                    sessionId = ctx.sessionId,
+                    balance = state.accountBalance,
+                    openPositionsCount = state.openPositions.size,
+                    unrealizedPnl = unrealizedPnl,
+                    candleTime = candle.openTime,
+                ),
+            )
+            log.debug { "Created balance snapshot: ${state.accountBalance}" }
         }
     }
 
@@ -1052,10 +1104,10 @@ class LiveTradingService(
      * Handle session error.
      */
     private suspend fun handleSessionError(
-        stateHolder: LiveTradingStateHolder,
+        ctx: SessionContext,
         error: Throwable,
     ) {
-        val session = sessionRepository.findById(stateHolder.sessionId) ?: return
+        val session = sessionRepository.findById(ctx.sessionId) ?: return
         session.status = LiveSessionStatus.ERROR
         session.errorMessage = error.message
         session.lastUpdateAt = Instant.now()
@@ -1068,15 +1120,6 @@ class LiveTradingService(
      * Get current status for all sessions.
      */
     suspend fun getAllSessionStatus(): List<LiveSessionEntity> = sessionRepository.findAllByOrderByStartedAtDesc().toList()
-
-    /**
-     * Get state for a specific symbol, timeframe, and exchange.
-     */
-    fun getStateHolder(
-        symbol: String,
-        timeframe: Timeframe,
-        exchange: Exchange,
-    ): LiveTradingStateHolder? = stateHolders[sessionKey(symbol, timeframe, exchange)]
 
     /**
      * Check if a symbol, timeframe, and exchange has an active session.
