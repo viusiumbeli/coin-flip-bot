@@ -44,12 +44,17 @@ class PerformanceAnalytics {
 
         val totalReturn = finalCapital - config.initialCapital
         val totalReturnPercent =
-            (totalReturn / config.initialCapital * BigDecimal(100))
+            totalReturn
+                .divide(config.initialCapital, 8, RoundingMode.HALF_UP)
+                .multiply(BigDecimal(100))
                 .setScale(2, RoundingMode.HALF_UP)
 
         val maxDrawdownPercent =
             if (peakBalance > BigDecimal.ZERO) {
-                (maxDrawdown / peakBalance * BigDecimal(100)).setScale(2, RoundingMode.HALF_UP)
+                maxDrawdown
+                    .divide(peakBalance, 8, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal(100))
+                    .setScale(2, RoundingMode.HALF_UP)
             } else {
                 BigDecimal.ZERO
             }
@@ -91,7 +96,9 @@ class PerformanceAnalytics {
         val sharpeRatio = calculateSharpe(stats, startDate, endDate)
 
         val buyAndHoldReturnPercent =
-            (buyAndHoldReturn / config.initialCapital * BigDecimal(100))
+            buyAndHoldReturn
+                .divide(config.initialCapital, 8, RoundingMode.HALF_UP)
+                .multiply(BigDecimal(100))
                 .setScale(2, RoundingMode.HALF_UP)
 
         return BacktestResult(
@@ -193,7 +200,9 @@ class PerformanceAnalytics {
             endDate = endDate,
             buyAndHoldReturn = buyAndHoldReturn,
             buyAndHoldReturnPercent =
-                (buyAndHoldReturn / config.initialCapital * BigDecimal(100))
+                buyAndHoldReturn
+                    .divide(config.initialCapital, 8, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal(100))
                     .setScale(2, RoundingMode.HALF_UP),
         )
 }

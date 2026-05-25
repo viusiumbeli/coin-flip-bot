@@ -235,7 +235,10 @@ class SimulationService(
         // Calculate drawdown percent
         val drawdownPercent =
             if (tradingState.peakBalance > BigDecimal.ZERO) {
-                (tradingState.maxDrawdown / tradingState.peakBalance * BigDecimal(100)).setScale(2, RoundingMode.HALF_UP)
+                tradingState.maxDrawdown
+                    .divide(tradingState.peakBalance, 8, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal(100))
+                    .setScale(2, RoundingMode.HALF_UP)
             } else {
                 BigDecimal.ZERO
             }
@@ -294,7 +297,10 @@ class SimulationService(
                     val positionValue = position.entryPrice * position.positionSize
                     val unrealizedPnLPercent =
                         if (positionValue > BigDecimal.ZERO) {
-                            (unrealizedPnL / positionValue * BigDecimal(100)).setScale(2, RoundingMode.HALF_UP)
+                            unrealizedPnL
+                                .divide(positionValue, 8, RoundingMode.HALF_UP)
+                                .multiply(BigDecimal(100))
+                                .setScale(2, RoundingMode.HALF_UP)
                         } else {
                             BigDecimal.ZERO
                         }

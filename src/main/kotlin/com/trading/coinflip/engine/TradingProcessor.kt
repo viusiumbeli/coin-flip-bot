@@ -12,6 +12,7 @@ import com.trading.coinflip.engine.model.TradingStateView
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Instant
 import kotlin.random.Random
 
@@ -213,9 +214,11 @@ class TradingProcessor(
             }
 
         // Calculate transaction cost (entry + exit)
+        // Note: Must use divide() with scale to avoid BigDecimal precision loss
+        // when config value comes from YAML (e.g., "0.1" has scale 1, 0.1/100 = 0.0!)
         val transactionCost =
             position.entryPrice * position.positionSize *
-                (config.transactionCostPercent / BigDecimal(100)) * BigDecimal(2)
+                config.transactionCostPercent.divide(BigDecimal(100), 8, RoundingMode.HALF_UP) * BigDecimal(2)
 
         // New balance after P&L and costs
         val newBalance = currentBalance + pnl - transactionCost
@@ -230,7 +233,7 @@ class TradingProcessor(
         val positionValue = position.entryPrice * position.positionSize
         val pnlPercent =
             if (positionValue > BigDecimal.ZERO) {
-                (pnl / positionValue) * BigDecimal(100)
+                pnl.divide(positionValue, 8, RoundingMode.HALF_UP) * BigDecimal(100)
             } else {
                 BigDecimal.ZERO
             }

@@ -2,6 +2,7 @@ package com.trading.coinflip.engine.model
 
 import com.trading.coinflip.common.model.Timeframe
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Instant
 
 /**
@@ -57,7 +58,7 @@ data class Position(
         val positionValue = entryPrice * positionSize
         val pnlPercent =
             if (positionValue > BigDecimal.ZERO) {
-                (pnl / positionValue) * BigDecimal(100)
+                pnl.divide(positionValue, 8, RoundingMode.HALF_UP) * BigDecimal(100)
             } else {
                 BigDecimal.ZERO
             }
