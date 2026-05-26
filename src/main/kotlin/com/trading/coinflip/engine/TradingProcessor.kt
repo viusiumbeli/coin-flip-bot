@@ -152,6 +152,7 @@ class TradingProcessor(
                             positionId = newPositionId,
                             maxAllocation = availableBalance,
                             leverage = leverage,
+                            feeRate = config.transactionCostPercent,
                         )
 
                     newPosition?.let {
@@ -213,12 +214,10 @@ class TradingProcessor(
                 PositionSide.SHORT -> (position.entryPrice - exitPrice) * position.positionSize
             }
 
-        // Calculate transaction cost (entry + exit)
+        // Calculate transaction cost
         // Note: Must use divide() with scale to avoid BigDecimal precision loss
-        // when config value comes from YAML (e.g., "0.1" has scale 1, 0.1/100 = 0.0!)
-        val transactionCost =
-            position.entryPrice * position.positionSize *
-                config.transactionCostPercent.divide(BigDecimal(100), 8, RoundingMode.HALF_UP) * BigDecimal(2)
+        val positionValue = position.entryPrice * position.positionSize
+        val transactionCost = positionValue * config.transactionCostPercent.divide(BigDecimal(100), 8, RoundingMode.HALF_UP)
 
         // New balance after P&L and costs
         val newBalance = currentBalance + pnl - transactionCost
@@ -229,8 +228,7 @@ class TradingProcessor(
 
         val newTradeIdCounter = tradeIdCounter + 1
 
-        // Calculate P&L percent
-        val positionValue = position.entryPrice * position.positionSize
+        // Calculate P&L percent (using positionValue from above)
         val pnlPercent =
             if (positionValue > BigDecimal.ZERO) {
                 pnl.divide(positionValue, 8, RoundingMode.HALF_UP) * BigDecimal(100)
@@ -254,6 +252,7 @@ class TradingProcessor(
                 trailingStop = position.trailingStop,
                 profitLoss = pnl,
                 profitLossPercent = pnlPercent,
+                transactionCost = transactionCost,
                 exitReason = exitReason,
                 balanceBeforeOpen = position.balanceBeforeOpen,
                 balanceAfterOpen = position.balanceAfterOpen,

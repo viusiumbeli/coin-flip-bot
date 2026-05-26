@@ -47,28 +47,32 @@ class CoinFlipStrategy {
     fun flipCoin(): Boolean = random.nextBoolean()
 
     /**
-     * Calculate position size based on 1% risk model
+     * Calculate position size based on 1% risk model INCLUDING transaction costs.
      * Risk Amount = Account Balance * Risk Percentage
-     * Position Size = Risk Amount / Stop Distance
+     * Position Size = Risk Amount / (Stop Distance + Fee Per Unit)
+     *
+     * This ensures total risk (stop loss + fees) never exceeds the risk budget.
      */
     fun calculatePositionSize(
         accountBalance: BigDecimal,
         riskPercent: BigDecimal,
         entryPrice: BigDecimal,
         stopLoss: BigDecimal,
+        feeRate: BigDecimal,
     ): BigDecimal {
-        // Ensure proper scale for division to avoid precision loss
         val riskAmount = accountBalance * riskPercent.divide(BigDecimal(100), 8, RoundingMode.HALF_UP)
         val stopDistance = (entryPrice - stopLoss).abs()
 
-        if (stopDistance <= BigDecimal.ZERO) {
-            log.warn { "Invalid stop distance: $stopDistance" }
+        // Include fee cost per unit in risk calculation
+        val feePerUnit = entryPrice * feeRate.divide(BigDecimal(100), 8, RoundingMode.HALF_UP)
+        val totalRiskPerUnit = stopDistance + feePerUnit
+
+        if (totalRiskPerUnit <= BigDecimal.ZERO) {
+            log.warn { "Invalid total risk per unit: $totalRiskPerUnit" }
             return BigDecimal.ZERO
         }
 
-        val positionSize = riskAmount.divide(stopDistance, 8, RoundingMode.HALF_UP)
-
-        return positionSize
+        return riskAmount.divide(totalRiskPerUnit, 8, RoundingMode.HALF_UP)
     }
 
     /**
@@ -87,6 +91,7 @@ class CoinFlipStrategy {
         positionId: Long,
         maxAllocation: BigDecimal,
         leverage: Int = 1,
+        feeRate: BigDecimal,
     ): Position? {
         val atr =
             candle.atr
@@ -128,6 +133,7 @@ class CoinFlipStrategy {
                 riskPercent = riskPercent,
                 entryPrice = entryPrice,
                 stopLoss = initialStopLoss,
+                feeRate = feeRate,
             )
 
         if (positionSize <= BigDecimal.ZERO) {

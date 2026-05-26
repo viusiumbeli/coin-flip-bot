@@ -43,7 +43,7 @@ backtest:
     risk-per-trade: 1.0
     atr-period: 10
     atr-multiplier: 3.0
-    transaction-cost-percent: 0.1
+    transaction-cost-percent: 0.0
     max-concurrent-positions: 5
     max-position-size-percent: 20
     entry-frequency: 2
@@ -78,7 +78,7 @@ live:
   balance-snapshot-interval-minutes: 60
 
   # Exchange selection: BINANCE or BYBIT
-  exchange: BYBIT
+  exchange: BINANCE
 
   # Common WebSocket settings
   reconnect-delay-ms: 5000

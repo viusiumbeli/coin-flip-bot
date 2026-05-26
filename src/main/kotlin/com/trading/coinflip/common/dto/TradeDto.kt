@@ -15,6 +15,7 @@ data class TradeDto(
     val positionSize: BigDecimal,
     val profitLoss: BigDecimal,
     val profitLossPercent: BigDecimal,
+    val transactionCost: BigDecimal,
     val exitReason: String,
     val balanceBeforeOpen: BigDecimal,
     val balanceAfterOpen: BigDecimal,

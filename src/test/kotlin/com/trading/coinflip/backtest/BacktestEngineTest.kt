@@ -119,6 +119,7 @@ class BacktestEngineTest {
             trailingStop = BigDecimal("80"),
             profitLoss = pnl,
             profitLossPercent = BigDecimal("10"),
+            transactionCost = BigDecimal("0.15"),
             exitReason = "Stop hit",
             balanceBeforeOpen = INITIAL_CAPITAL,
             balanceAfterOpen = INITIAL_CAPITAL,

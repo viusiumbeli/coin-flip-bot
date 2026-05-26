@@ -212,12 +212,13 @@
                                 <th>Size</th>
                                 <th>P&L</th>
                                 <th>P&L %</th>
+                                <th>Tx Cost</th>
                                 <th>Exit Reason</th>
                             </tr>
                         </thead>
                         <tbody id="closedTradesBody">
                             <tr>
-                                <td colspan="10" style="text-align: center; color: var(--text-muted);">No closed trades yet</td>
+                                <td colspan="11" style="text-align: center; color: var(--text-muted);">No closed trades yet</td>
                             </tr>
                         </tbody>
                     </table>
@@ -267,7 +268,8 @@
                     Risk per Trade: ${config.riskPerTrade}% |
                     ATR Period: ${config.atrPeriod} |
                     ATR Multiplier: ${config.atrMultiplier} |
-                    Max Positions: ${config.maxConcurrentPositions}
+                    Max Positions: ${config.maxConcurrentPositions} |
+                    Transaction Cost: ${config.transactionCostPercent}%
                 `;
 
                 // Pre-fill date fields (1 year ago to now)
@@ -459,7 +461,7 @@
             if (state.closedTrades.length === 0) {
                 closedTradesBody.innerHTML = `
                     <tr>
-                        <td colspan="10" style="text-align: center; color: var(--text-muted);">No closed trades yet</td>
+                        <td colspan="11" style="text-align: center; color: var(--text-muted);">No closed trades yet</td>
                     </tr>
                 `;
             } else {
@@ -478,6 +480,7 @@
                         <td class="${trade.profitLossPercent >= 0 ? 'trade-profit' : 'trade-loss'}">
                             ${formatNumber(trade.profitLossPercent)}%
                         </td>
+                        <td>$${formatNumber(trade.transactionCost)}</td>
                         <td>${trade.exitReason}</td>
                     </tr>
                 `).join('');

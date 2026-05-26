@@ -18,6 +18,7 @@ data class Trade(
     val trailingStop: BigDecimal,
     val profitLoss: BigDecimal,
     val profitLossPercent: BigDecimal,
+    val transactionCost: BigDecimal,
     val exitReason: String,
     val balanceBeforeOpen: BigDecimal,
     val balanceAfterOpen: BigDecimal,

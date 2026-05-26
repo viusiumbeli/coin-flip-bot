@@ -333,6 +333,7 @@ class SimulationService(
                         positionSize = trade.positionSize,
                         profitLoss = trade.profitLoss,
                         profitLossPercent = trade.profitLossPercent,
+                        transactionCost = trade.transactionCost,
                         exitReason = trade.exitReason,
                         balanceBeforeOpen = trade.balanceBeforeOpen,
                         balanceAfterOpen = trade.balanceAfterOpen,
