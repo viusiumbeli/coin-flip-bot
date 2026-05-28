@@ -43,7 +43,7 @@ backtest:
     risk-per-trade: 1.0
     atr-period: 10
     atr-multiplier: 3.0
-    transaction-cost-percent: 0.0
+    transaction-cost-percent: 0.02
     max-concurrent-positions: 5
     max-position-size-percent: 20
     entry-frequency: 2
@@ -98,6 +98,11 @@ live:
   bybit-api-secret: ${BYBIT_API_SECRET:}
   bybit-demo: true  # true = demo (api-demo.bybit.com), false = mainnet
   bybit-demo-rest-url: https://api-demo.bybit.com
+
+  # Deribit URLs
+  deribit-rest-url: https://www.deribit.com/api/v2
+  deribit-websocket-url: wss://www.deribit.com/ws/api/v2
+  deribit-testnet: false
 
   # Real order execution - when true, places actual orders on exchange (uses demo if bybit-demo=true)
   execute-real-orders: true

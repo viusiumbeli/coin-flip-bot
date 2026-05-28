@@ -6,4 +6,5 @@ package com.trading.coinflip.exchange
 enum class Exchange {
     BINANCE,
     BYBIT,
+    DERIBIT,
 }

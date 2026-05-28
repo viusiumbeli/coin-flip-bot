@@ -15,6 +15,11 @@ import com.trading.coinflip.exchange.bybit.BybitTradingClient
 import com.trading.coinflip.exchange.bybit.BybitTradingConfig
 import com.trading.coinflip.exchange.bybit.BybitWebSocketClient
 import com.trading.coinflip.exchange.bybit.BybitWebSocketConfig
+import com.trading.coinflip.exchange.deribit.DeribitClient
+import com.trading.coinflip.exchange.deribit.DeribitInstrumentService
+import com.trading.coinflip.exchange.deribit.DeribitRestConfig
+import com.trading.coinflip.exchange.deribit.DeribitWebSocketClient
+import com.trading.coinflip.exchange.deribit.DeribitWebSocketConfig
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import java.util.concurrent.ConcurrentHashMap
@@ -38,6 +43,9 @@ class ExchangeClientFactory(
     private val tradingClients = ConcurrentHashMap<Exchange, ExchangeTradingClient>()
     private val executionClients = ConcurrentHashMap<Exchange, ExchangeExecutionClient>()
 
+    // Deribit instrument service (lazily created)
+    private var deribitInstrumentService: DeribitInstrumentService? = null
+
     /**
      * Get REST API client for a specific exchange.
      * Creates and caches client if not already present.
@@ -48,6 +56,7 @@ class ExchangeClientFactory(
             when (exchange) {
                 Exchange.BINANCE -> createBinanceRestClient()
                 Exchange.BYBIT -> createBybitRestClient()
+                Exchange.DERIBIT -> createDeribitRestClient()
             }
         }
 
@@ -66,6 +75,7 @@ class ExchangeClientFactory(
             when (exchange) {
                 Exchange.BINANCE -> createBinanceWebSocketClient()
                 Exchange.BYBIT -> createBybitWebSocketClient()
+                Exchange.DERIBIT -> createDeribitWebSocketClient()
             }
         }
 
@@ -91,6 +101,10 @@ class ExchangeClientFactory(
                 Exchange.BYBIT -> createBybitTradingClient()
                 Exchange.BINANCE -> {
                     log.warn { "Binance trading client not implemented yet" }
+                    null
+                }
+                Exchange.DERIBIT -> {
+                    log.warn { "Deribit trading client not implemented yet" }
                     null
                 }
             }
@@ -123,6 +137,10 @@ class ExchangeClientFactory(
                 Exchange.BYBIT -> createBybitExecutionClient()
                 Exchange.BINANCE -> {
                     log.warn { "Binance execution client not implemented yet" }
+                    null
+                }
+                Exchange.DERIBIT -> {
+                    log.warn { "Deribit execution client not implemented yet" }
                     null
                 }
             }
@@ -212,6 +230,39 @@ class ExchangeClientFactory(
                 maxReconnectAttempts = liveProperties.maxReconnectAttempts,
             )
         return BybitWebSocketClient(objectMapper, config)
+    }
+
+    // --- Deribit client creation ---
+
+    private fun createDeribitRestClient(): DeribitClient {
+        val config =
+            DeribitRestConfig(
+                baseUrl = liveProperties.deribitRestUrl,
+                httpTimeoutMs = backtestProperties.api.httpTimeoutMs,
+                rateLimitDelayMs = backtestProperties.api.rateLimitDelayMs.coerceAtLeast(1000),
+            )
+        return DeribitClient(objectMapper, config)
+    }
+
+    private fun createDeribitWebSocketClient(): DeribitWebSocketClient {
+        val config =
+            DeribitWebSocketConfig(
+                websocketUrl = liveProperties.deribitWebsocketUrl,
+                heartbeatIntervalMs = 15000,
+                reconnectDelayMs = liveProperties.reconnectDelayMs,
+                maxReconnectAttempts = liveProperties.maxReconnectAttempts,
+            )
+        return DeribitWebSocketClient(objectMapper, config)
+    }
+
+    /**
+     * Get Deribit instrument discovery service.
+     */
+    fun getDeribitInstrumentService(): DeribitInstrumentService {
+        if (deribitInstrumentService == null) {
+            deribitInstrumentService = DeribitInstrumentService(objectMapper, liveProperties.deribitRestUrl)
+        }
+        return deribitInstrumentService!!
     }
 
     /**

@@ -17,16 +17,21 @@ async function init() {
 
 async function loadConfig() {
     try {
-        const [configRes, symbolsRes] = await Promise.all([
+        const [configRes, symbolsRes, dbSymbolsRes] = await Promise.all([
             fetch(`${API_BASE}/backtest/config`),
-            fetch(`${API_BASE}/backtest/symbols`)
+            fetch(`${API_BASE}/backtest/symbols`),
+            fetch(`${API_BASE}/candles/distinct-symbols`)
         ]);
 
         const symbols = await symbolsRes.json();
+        const dbSymbols = await dbSymbolsRes.json();
+
+        // Merge configured symbols with DB symbols (unique, config first)
+        const allSymbols = [...new Set([...symbols.symbols, ...dbSymbols])];
 
         // Populate symbols dropdown
         const symbolSelect = document.getElementById('symbol');
-        symbolSelect.innerHTML = symbols.symbols.map(s =>
+        symbolSelect.innerHTML = allSymbols.map(s =>
             `<option value="${s}">${s}</option>`
         ).join('');
 

@@ -52,6 +52,7 @@ class LiveController(
             when (liveProperties.exchange) {
                 com.trading.coinflip.exchange.Exchange.BINANCE -> liveProperties.binanceWebsocketUrl
                 com.trading.coinflip.exchange.Exchange.BYBIT -> liveProperties.bybitWebsocketUrl
+                com.trading.coinflip.exchange.Exchange.DERIBIT -> liveProperties.deribitWebsocketUrl
             }
         return LiveConfigResponse(
             enabled = liveProperties.enabled,

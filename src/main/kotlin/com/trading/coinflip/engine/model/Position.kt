@@ -37,5 +37,4 @@ data class Position(
     override val exitReason: String? = null,
 ) : PositionView {
     // calculateTrailingStopUpdate and isStopHit are inherited from PositionView
-
 }

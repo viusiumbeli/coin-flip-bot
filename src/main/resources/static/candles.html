@@ -44,6 +44,46 @@
         </div>
     </div>
 
+        <div class="card">
+            <h2>Deribit Options</h2>
+            <div class="grid-2" style="margin-bottom: 15px;">
+                <div class="form-group">
+                    <label for="deribitCurrency">Currency</label>
+                    <select id="deribitCurrency">
+                        <option value="ETH">ETH</option>
+                        <option value="BTC">BTC</option>
+                    </select>
+                </div>
+                <div class="form-group" style="display: flex; align-items: flex-end;">
+                    <button class="btn-primary" onclick="loadDeribitInstruments()" id="loadInstrumentsBtn">Load Instruments</button>
+                </div>
+            </div>
+
+            <div id="deribitError" class="error" style="display: none;"></div>
+
+            <div id="deribitSearch" style="display: none; margin-bottom: 10px;">
+                <input type="text" id="instrumentSearch" placeholder="Filter instruments (e.g. 2200-C, MAR26)..." oninput="filterInstruments()" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-color); color: var(--text-color);">
+            </div>
+
+            <div class="data-table" id="deribitTableContainer" style="display: none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Instrument</th>
+                            <th>Type</th>
+                            <th>Strike</th>
+                            <th>Expiration</th>
+                            <th>Timeframe</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deribitTableBody">
+                    </tbody>
+                </table>
+            </div>
+            <div id="deribitCount" style="margin-top: 8px; color: var(--text-secondary); font-size: 13px;"></div>
+        </div>
+
     <div id="loadingOverlay" class="loading-overlay">
         <div class="loading-box">
             <div class="spinner"></div>
@@ -213,6 +253,133 @@
 
             refreshBtn.disabled = false;
             refreshBtn.textContent = 'Refresh Status';
+        }
+
+        // --- Deribit Options ---
+
+        let deribitInstruments = [];
+
+        async function loadDeribitInstruments() {
+            const currency = document.getElementById('deribitCurrency').value;
+            const btn = document.getElementById('loadInstrumentsBtn');
+            const errDiv = document.getElementById('deribitError');
+
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+            errDiv.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/deribit/instruments?currency=${currency}`);
+                if (!response.ok) throw new Error('Failed to load instruments');
+
+                deribitInstruments = await response.json();
+
+                // Sort by expiration, then strike
+                deribitInstruments.sort((a, b) => {
+                    const expDiff = new Date(a.expirationTimestamp) - new Date(b.expirationTimestamp);
+                    if (expDiff !== 0) return expDiff;
+                    return a.strike - b.strike;
+                });
+
+                document.getElementById('deribitSearch').style.display = 'block';
+                document.getElementById('deribitTableContainer').style.display = 'block';
+                document.getElementById('instrumentSearch').value = '';
+                renderDeribitTable(deribitInstruments);
+            } catch (error) {
+                errDiv.textContent = 'Failed to load instruments: ' + error.message;
+                errDiv.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Load Instruments';
+            }
+        }
+
+        function filterInstruments() {
+            const query = document.getElementById('instrumentSearch').value.toUpperCase();
+            const filtered = deribitInstruments.filter(i =>
+                i.instrumentName.toUpperCase().includes(query)
+            );
+            renderDeribitTable(filtered);
+        }
+
+        function renderDeribitTable(instruments) {
+            const tbody = document.getElementById('deribitTableBody');
+            const countDiv = document.getElementById('deribitCount');
+
+            countDiv.textContent = `${instruments.length} instruments${instruments.length !== deribitInstruments.length ? ` (filtered from ${deribitInstruments.length})` : ''}`;
+
+            if (instruments.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No instruments found</td></tr>';
+                return;
+            }
+
+            // Show max 100 rows for performance
+            const display = instruments.slice(0, 100);
+
+            tbody.innerHTML = display.map(inst => `
+                <tr>
+                    <td><strong>${inst.instrumentName}</strong></td>
+                    <td>${inst.optionType.toUpperCase()}</td>
+                    <td>${formatNumber(inst.strike)}</td>
+                    <td>${inst.expirationTimestamp.split('T')[0]}</td>
+                    <td>
+                        <select id="tf-${inst.instrumentName}" style="padding: 4px;">
+                            <option value="1h">1h</option>
+                            <option value="1m">1m</option>
+                            <option value="4h">4h</option>
+                            <option value="1d">1d</option>
+                        </select>
+                    </td>
+                    <td>
+                        <button class="btn-primary btn-small" onclick="syncDeribit('${inst.instrumentName}')" id="dbtn-${CSS.escape(inst.instrumentName)}">Sync</button>
+                        <span id="dresult-${CSS.escape(inst.instrumentName)}" class="sync-result"></span>
+                    </td>
+                </tr>
+            `).join('');
+
+            if (instruments.length > 100) {
+                tbody.innerHTML += `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">... and ${instruments.length - 100} more. Use filter to narrow down.</td></tr>`;
+            }
+        }
+
+        async function syncDeribit(instrumentName) {
+            const escapedName = CSS.escape(instrumentName);
+            const btn = document.getElementById(`dbtn-${escapedName}`);
+            const resultSpan = document.getElementById(`dresult-${escapedName}`);
+            const tfSelect = document.getElementById(`tf-${instrumentName}`);
+            const timeframe = tfSelect ? tfSelect.value : '1h';
+
+            btn.disabled = true;
+            btn.textContent = 'Syncing...';
+            resultSpan.innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_BASE}/sync`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        symbol: instrumentName,
+                        timeframe: timeframe,
+                        exchange: 'DERIBIT'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    resultSpan.className = 'sync-result success';
+                    resultSpan.textContent = `+${result.newCandlesAdded} candles`;
+                } else {
+                    resultSpan.className = 'sync-result error';
+                    resultSpan.textContent = result.error || 'Failed';
+                }
+            } catch (error) {
+                resultSpan.className = 'sync-result error';
+                resultSpan.textContent = error.message;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Sync';
+            }
         }
 
         // Load status on page load

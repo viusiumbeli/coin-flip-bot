@@ -28,6 +28,10 @@ data class LiveProperties(
     var bybitApiSecret: String = "",
     var bybitDemo: Boolean = true, // true = demo environment (api-demo.bybit.com), false = mainnet
     var bybitDemoRestUrl: String = "https://api-demo.bybit.com",
+    // Deribit URLs
+    var deribitRestUrl: String = "https://www.deribit.com/api/v2",
+    var deribitWebsocketUrl: String = "wss://www.deribit.com/ws/api/v2",
+    var deribitTestnet: Boolean = false,
     // Real order execution - when true, places actual orders on exchange
     var executeRealOrders: Boolean = false,
     var defaultLeverage: Int = 1,

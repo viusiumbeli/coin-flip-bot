@@ -2,6 +2,8 @@ package com.trading.coinflip.candle
 
 import com.trading.coinflip.common.config.BacktestProperties
 import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.exchange.Exchange
+import com.trading.coinflip.exchange.ExchangeClient
 import com.trading.coinflip.exchange.ExchangeClientFactory
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -29,10 +31,12 @@ class CandleService(
     /**
      * Syncs missing data from the latest candle to now.
      * Downloads and saves page-by-page for crash safety.
+     * @param exchange Optional exchange override; uses default if null.
      */
     suspend fun syncMissingData(
         symbol: String,
         timeframe: Timeframe,
+        exchange: Exchange? = null,
     ): Int {
         val latestCandleTime = candleRepository.findLatestCandle(symbol, timeframe)?.openTime
 
@@ -49,9 +53,10 @@ class CandleService(
             return 0
         }
 
-        val exchange = exchangeClientFactory.getExchange()
-        log.info { "Syncing missing data for $symbol ${timeframe.label} from $startTime via $exchange" }
-        val totalSaved = streamAndSave(symbol, timeframe, startTime)
+        val resolvedExchange = exchange ?: exchangeClientFactory.getExchange()
+        val client = exchangeClientFactory.getRestClient(resolvedExchange)
+        log.info { "Syncing missing data for $symbol ${timeframe.label} from $startTime via $resolvedExchange" }
+        val totalSaved = streamAndSave(client, symbol, timeframe, startTime)
 
         if (totalSaved == 0) {
             log.info { "No new candles for $symbol ${timeframe.label}" }
@@ -113,6 +118,7 @@ class CandleService(
     }
 
     private suspend fun streamAndSave(
+        client: ExchangeClient,
         symbol: String,
         timeframe: Timeframe,
         startDate: Instant,
@@ -120,7 +126,7 @@ class CandleService(
         var totalSaved = 0
         var pageNum = 0
 
-        exchangeClient
+        client
             .streamHistoricalData(symbol, timeframe, startDate)
             .collect { page ->
                 log.info {

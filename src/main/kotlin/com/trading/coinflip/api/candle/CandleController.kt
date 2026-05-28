@@ -2,12 +2,15 @@ package com.trading.coinflip.api.candle
 
 import com.trading.coinflip.candle.CandleService
 import com.trading.coinflip.common.config.BacktestProperties
+import com.trading.coinflip.common.model.Timeframe
+import com.trading.coinflip.exchange.ExchangeClientFactory
 import mu.KotlinLogging
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.time.Duration
 import java.time.Instant
@@ -18,6 +21,7 @@ import java.time.Instant
 class CandleController(
     private val candleService: CandleService,
     private val properties: BacktestProperties,
+    private val exchangeClientFactory: ExchangeClientFactory,
 ) {
     private val log = KotlinLogging.logger {}
 
@@ -31,30 +35,64 @@ class CandleController(
                 .getAllCandleStats()
                 .associateBy { "${it.symbol}:${it.timeframe}" }
 
-        return properties.symbols.flatMap { symbol ->
-            properties.timeframes.map { timeframe ->
-                val stats = statsMap["$symbol:${timeframe.name}"]
-                val latest = stats?.latest
+        val configSymbols = properties.symbols.toSet()
 
-                val hoursOutdated =
-                    if (latest != null) {
-                        val expectedNextCandle = latest.plusSeconds(timeframe.minutes * 60L)
-                        val hoursBehind = Duration.between(expectedNextCandle, now).toHours()
-                        if (hoursBehind > 0) hoursBehind else null
-                    } else {
-                        null
-                    }
+        // Config-based symbols (all timeframes)
+        val configResults =
+            properties.symbols.flatMap { symbol ->
+                properties.timeframes.map { timeframe ->
+                    val stats = statsMap["$symbol:${timeframe.name}"]
+                    val latest = stats?.latest
 
-                CandleStatusResponse(
-                    symbol = symbol,
-                    timeframe = timeframe.label,
-                    candleCount = stats?.candleCount ?: 0L,
-                    earliestCandle = stats?.earliest,
-                    latestCandle = latest,
-                    hoursOutdated = hoursOutdated,
-                )
+                    val hoursOutdated =
+                        if (latest != null) {
+                            val expectedNextCandle = latest.plusSeconds(timeframe.minutes * 60L)
+                            val hoursBehind = Duration.between(expectedNextCandle, now).toHours()
+                            if (hoursBehind > 0) hoursBehind else null
+                        } else {
+                            null
+                        }
+
+                    CandleStatusResponse(
+                        symbol = symbol,
+                        timeframe = timeframe.label,
+                        candleCount = stats?.candleCount ?: 0L,
+                        earliestCandle = stats?.earliest,
+                        latestCandle = latest,
+                        hoursOutdated = hoursOutdated,
+                    )
+                }
             }
-        }
+
+        // DB-only symbols (e.g. Deribit options synced manually)
+        val dbOnlyResults =
+            statsMap.values
+                .filter { it.symbol !in configSymbols }
+                .map { stats ->
+                    val latest = stats.latest
+                    val timeframe =
+                        Timeframe.entries
+                            .find { it.name == stats.timeframe }
+                    val hoursOutdated =
+                        if (latest != null && timeframe != null) {
+                            val expectedNextCandle = latest.plusSeconds(timeframe.minutes * 60L)
+                            val hoursBehind = Duration.between(expectedNextCandle, now).toHours()
+                            if (hoursBehind > 0) hoursBehind else null
+                        } else {
+                            null
+                        }
+
+                    CandleStatusResponse(
+                        symbol = stats.symbol,
+                        timeframe = stats.timeframe,
+                        candleCount = stats.candleCount,
+                        earliestCandle = stats.earliest,
+                        latestCandle = latest,
+                        hoursOutdated = hoursOutdated,
+                    )
+                }
+
+        return configResults + dbOnlyResults
     }
 
     @PostMapping("/sync")
@@ -64,7 +102,7 @@ class CandleController(
         try {
             log.info { "Sync request for ${request.symbol} ${request.timeframe.label}" }
 
-            val newCandlesAdded = candleService.syncMissingData(request.symbol, request.timeframe)
+            val newCandlesAdded = candleService.syncMissingData(request.symbol, request.timeframe, request.exchange)
 
             SyncResponse(
                 symbol = request.symbol,
@@ -117,4 +155,24 @@ class CandleController(
 
         return results
     }
+
+    @GetMapping("/deribit/instruments")
+    suspend fun getDeribitInstruments(
+        @RequestParam currency: String,
+    ): List<DeribitInstrumentResponse> {
+        val service = exchangeClientFactory.getDeribitInstrumentService()
+        return service.getOptionInstruments(currency).map { instrument ->
+            DeribitInstrumentResponse(
+                instrumentName = instrument.instrumentName,
+                baseCurrency = instrument.baseCurrency,
+                strike = instrument.strike,
+                optionType = instrument.optionType,
+                expirationTimestamp = instrument.expirationTimestamp.toString(),
+                isActive = instrument.isActive,
+            )
+        }
+    }
+
+    @GetMapping("/distinct-symbols")
+    suspend fun getDistinctSymbols(): List<String> = candleService.getAllCandleStats().map { it.symbol }.distinct()
 }

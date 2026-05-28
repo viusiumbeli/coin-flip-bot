@@ -241,16 +241,21 @@
         // Load available symbols, timeframes, and config
         async function loadOptions() {
             try {
-                const [symbolsRes, configRes] = await Promise.all([
+                const [symbolsRes, configRes, dbSymbolsRes] = await Promise.all([
                     fetch('/api/backtest/symbols'),
-                    fetch('/api/backtest/config')
+                    fetch('/api/backtest/config'),
+                    fetch('/api/candles/distinct-symbols')
                 ]);
 
                 const symbolsData = await symbolsRes.json();
                 const config = await configRes.json();
+                const dbSymbols = await dbSymbolsRes.json();
+
+                // Merge configured symbols with DB symbols (unique, config first)
+                const allSymbols = [...new Set([...symbolsData.symbols, ...dbSymbols])];
 
                 const symbolSelect = document.getElementById('symbol');
-                symbolSelect.innerHTML = symbolsData.symbols.map(s =>
+                symbolSelect.innerHTML = allSymbols.map(s =>
                     `<option value="${s}">${s}</option>`
                 ).join('');
 
